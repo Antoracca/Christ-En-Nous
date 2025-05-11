@@ -11,7 +11,9 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+     "firebase-auth.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ]
 }
+

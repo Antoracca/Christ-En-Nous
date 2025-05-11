@@ -1,9 +1,16 @@
-import { View, Text } from 'react-native';
+import { useFonts, Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/nunito';
+import AppNavigator from '../navigation/AppNavigator';
+import { Text } from 'react-native';
 
-export default function Home() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>Bienvenue dans Christ en Nous ✝️</Text>
-    </View>
-  );
+export default function App() {
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return <Text>Chargement des polices...</Text>;
+  }
+
+  return <AppNavigator />;
 }
