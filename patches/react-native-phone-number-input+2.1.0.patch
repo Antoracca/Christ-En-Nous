@@ -1,0 +1,33 @@
+diff --git a/node_modules/react-native-phone-number-input/lib/index.js b/node_modules/react-native-phone-number-input/lib/index.js
+index b89c388..b3829e8 100644
+--- a/node_modules/react-native-phone-number-input/lib/index.js
++++ b/node_modules/react-native-phone-number-input/lib/index.js
+@@ -181,20 +181,14 @@ export default class PhoneInput extends PureComponent {
+             onPress={() => this.setState({ modalVisible: true })}
+           >
+             <CountryPicker
+-              onSelect={this.onSelect}
+-              withEmoji
+-              withFilter
+-              withFlag
+-              filterProps={filterProps}
+-              countryCode={countryCode}
+-              withCallingCode
+-              disableNativeModal={disabled}
+-              visible={modalVisible}
+-              theme={withDarkTheme ? DARK_THEME : DEFAULT_THEME}
+-              renderFlagButton={this.renderFlagButton}
+-              onClose={() => this.setState({ modalVisible: false })}
+-              {...countryPickerProps}
+-            />
++  countryCode={countryCode}
++  withFilter
++  withCallingCode
++ withFlag        // Réactive l’image du drapeau
++ withEmoji={false}  // Force l’image PNG/SVG, pas émoji
++ onSelect={onSelect ?? (() => {})}
++/>
++
+             {code && layout === "second" && (
+               <Text
+                 style={[styles.codeText, codeTextStyle ? codeTextStyle : {}]}

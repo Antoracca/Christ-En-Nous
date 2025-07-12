@@ -1,0 +1,58 @@
+{
+  "Groupe de Louange et Cantique": [
+    "Chantre",
+    "Leader de Louange",
+    "Musicien (guitare, piano, etc.)",
+    "Chorale",
+    "Chef de chœur",
+    "Responsable Technique Son"
+  ],
+  "Groupe de la communication": [
+    "Responsable Communication",
+    "Community Manager",
+    "Chargé de la Rédaction",
+    "Photographe/Vidéaste",
+    "Infographiste",
+    "Responsable Média en ligne"
+  ],
+  "Protocolat": [
+    "Responsable du protocole",
+    "Accueil des fidèles",
+    "Placement et Orientation",
+    "Service d’ordre",
+    "Responsable logistique"
+  ],
+  "Pasteur": [
+    "Pasteur principal",
+    "Pasteur assistant",
+    "Pasteur des jeunes",
+    "Pasteur des femmes",
+    "Pasteur des hommes"
+  ],
+  "Évangéliste": [
+    "Responsable évangélisation",
+    "Évangéliste de rue",
+    "Suivi des nouveaux convertis",
+    "Missionnaire local"
+  ],
+  "Prophète": [
+    "Prophète principal",
+    "Prophète assistant",
+    "Intercesseur prophétique"
+  ],
+  "Ministre": [
+    "Ministre de la Parole",
+    "Ministre assistant",
+    "Ministre itinérant"
+  ],
+  "Ministre des jeunes (–20 ans)": [
+    "Responsable Jeunesse",
+    "Encadreur biblique",
+    "Formateur spirituel"
+  ],
+  "Ministre senior (+21 ans)": [
+    "Responsable Adulte",
+    "Coordinateur des ministères",
+    "Formateur avancé"
+  ]
+}

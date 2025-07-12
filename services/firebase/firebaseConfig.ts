@@ -6,11 +6,7 @@ import {
   getReactNativePersistence,
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// 🔥 IMPORT LITE
-import {
-  getFirestore as getFirestoreLite,
-} from 'firebase/firestore/lite';
+import { getFirestore as getFirestoreLite } from 'firebase/firestore/lite';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyCIUcMu5xi_UUVfUn1twv8F6jLqYOeAylE',
@@ -23,10 +19,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Auth RN avec persistance AsyncStorage
+// ✅ Toujours initializeAuth dans React Native
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
 
-// LITE Firestore = pas de WebChannel, pas de warnings, super-rapide
 export const db = getFirestoreLite(app);

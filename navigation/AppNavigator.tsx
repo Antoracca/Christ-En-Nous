@@ -1,11 +1,12 @@
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
-import Login from '../app/auth/login';
-import Register from '../app/auth/register';
-import ForgotPassword from '../app/auth/forgotPassword';
-
-
+// 📌 Composants d'écran
+import Login from '@/screens/auth/login';
+import Register from '@/screens/auth/RegisterScreen';
+import ForgotPassword from '@/screens/auth/forgotPassword';
+import HomeScreen from '@/screens/home/Home';
+// 📌 Types des routes
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -13,10 +14,10 @@ export type RootStackParamList = {
   Home: undefined;
 };
 
+
+
+// 📌 Création du stack avec typage
 const Stack = createNativeStackNavigator<RootStackParamList>();
-
-
-
 
 export default function AppNavigator() {
   return (
@@ -24,13 +25,14 @@ export default function AppNavigator() {
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={{
-          headerShown: false,           // ✅ ceci empêche l'affichage du titre
-          contentStyle: { flex: 1 },   // ✅ ceci évite les marges invisibles haut/bas
+          headerShown: false,
+          contentStyle: { flex: 1 },
         }}
       >
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Register" component={Register} />
         <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+        <Stack.Screen name="Home" component={HomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,0 +1,23 @@
+
+{
+  "CF": {
+    "name": "République Centrafricaine",
+    "cities": ["Bangui", "Berbérati", "Mbaïki", "Bouar", "Bossangoa", "Bambari", "Boda", "Carnot", "Kaga-Bandoro", "Bria"]
+  },
+  "CM": {
+    "name": "Cameroun",
+    "cities": ["Yaoundé", "Douala", "Garoua", "Kumba", "Bamenda", "Maroua", "Bafoussam", "Ebolowa", "Bertoua", "Ngaoundéré"]
+  },
+  "TD": {
+    "name": "Tchad",
+    "cities": ["N'Djamena", "Moundou", "Sarh", "Abéché", "Mongo", "Kélo", "Pala", "Bongor", "Doba", "Lai"]
+  },
+  "MA": {
+    "name": "Maroc",
+    "cities": ["Casablanca", "Rabat", "Fès", "Marrakech", "Tanger", "Agadir", "Meknès", "Oujda", "Kénitra", "Tétouan"]
+  },
+  "FR": {
+    "name": "France",
+    "cities": ["Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Nantes", "Strasbourg", "Montpellier", "Bordeaux", "Lille"]
+  }
+}
