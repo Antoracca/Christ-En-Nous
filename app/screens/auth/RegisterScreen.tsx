@@ -5,10 +5,9 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-
 } from 'react-native';
 import { Button } from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
+import {   Ionicons } from '@expo/vector-icons';
 import { PhoneNumberUtil } from 'google-libphonenumber';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -21,19 +20,14 @@ import StepBaptism from '../../components/register/steps/StepBaptism';
 import StepChurchRole from '../../components/register/steps/StepChurchRole';
 import StepDiscovery from '../../components/register/steps/StepDiscovery';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from 'navigation/AppNavigator'; // ou le bon chemin
+import type { RootStackParamList } from 'navigation/AppNavigator';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { isValidUsernameFormat } from 'utils/isValidUsernameFormat';
-
 import { auth, db } from '../../../services/firebase/firebaseConfig';
-
 import SuccessModal from '../../components/register/SuccessModal';
-import { mapStepBaptismToFirestore } from 'utils/mapStepBaptismToFirestore'; // adapte le chemin si besoin
+import { mapStepBaptismToFirestore } from 'utils/mapStepBaptismToFirestore';
 import LottieView from 'lottie-react-native';
-import { isNameAndSurnameTaken } from 'utils/firestoreValidation';
-
-
-
+import { isNameAndSurnameTaken } from 'utils/isNameAndSurnameTaken'; // ✅ Import corrigé
 import { validateStepNameFields } from 'utils/validateStepNameFields';
 import { validateStepCredentialsFields } from 'utils/validateStepCredentialsFields';
 import rolesData from 'assets/data/churchRoles.json';
@@ -43,10 +37,10 @@ export default function RegisterScreen() {
   const [step, setStep] = useState(0);
   const [forceValidation, setForceValidation] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-const [showSuccessModal, setShowSuccessModal] = useState(false);
-const [loading, setLoading] = useState(false);
-const [showCheck, setShowCheck] = useState(false);
-const [nameDuplicateError, setNameDuplicateError] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showCheck, setShowCheck] = useState(false);
+  const [nameDuplicateError, setNameDuplicateError] = useState(false);
 
   const [form, setForm] = useState({
     nom: '',
@@ -70,182 +64,259 @@ const [nameDuplicateError, setNameDuplicateError] = useState(false);
     recommandePar: '',
     egliseOrigine: '',
   });
-const [usernameAvailable, setUsernameAvailable] = useState<boolean|null>(null);
-const [checkingUsername, setCheckingUsername]   = useState(false);
-const usernameFormatValid = isValidUsernameFormat(form.username);
-const nextDisabled = !usernameFormatValid || checkingUsername || usernameAvailable === false;
-useEffect(() => {
-  const username = form.username.trim().toLowerCase();
 
-  if (!isValidUsernameFormat(username)) {
-    // ❌ Format incorrect → on ne fait rien
-    setUsernameAvailable(null);
-    setCheckingUsername(false);
-    return;
-  }
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean|null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
-  setCheckingUsername(true);
-  const handle = setTimeout(async () => {
-    const taken = await isUsernameTaken(username);
-    setUsernameAvailable(!taken);
-    setCheckingUsername(false);
-  }, 1000);
+  // Fonction pour déterminer si le bouton "Suivant" doit être désactivé
+  const getNextButtonDisabled = () => {
+    if (step === 0) {
+      const hasEmptyFields = !form.nom.trim() || !form.prenom.trim() || !form.username.trim();
+      const usernameInvalid = form.username.length >= 3 && !isValidUsernameFormat(form.username);
+      
+      return hasEmptyFields || 
+             checkingUsername || 
+             usernameAvailable === false || 
+             usernameInvalid ||
+             nameDuplicateError;
+    }
+    return false;
+  };
 
-  return () => clearTimeout(handle);
-}, [form.username]);
+  const nextDisabled = getNextButtonDisabled();
 
+  useEffect(() => {
+    const username = form.username.trim().toLowerCase();
 
+    // Reset states si username vide ou trop court
+    if (!username || username.length < 3) {
+      setUsernameAvailable(null);
+      setCheckingUsername(false);
+      return;
+    }
 
+    // Vérifier le format avant de lancer la requête
+    if (!isValidUsernameFormat(username)) {
+      setUsernameAvailable(null);
+      setCheckingUsername(false);
+      return;
+    }
+
+    // Lancer la vérification avec debounce
+    setCheckingUsername(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const taken = await isUsernameTaken(username);
+        setUsernameAvailable(!taken);
+      } catch (error) {
+        console.error('Erreur vérification username:', error);
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 1500); // 1.5 secondes de délai
+
+    return () => clearTimeout(timeoutId);
+  }, [form.username]);
 
   async function isUsernameTaken(username: string): Promise<boolean> {
-  const q = query(collection(db, 'users'), where('username', '==', username.trim()));
-  const snapshot = await getDocs(q);
-  return !snapshot.empty;
-}
+    try {
+      const q = query(collection(db, 'users'), where('username', '==', username.trim()));
+      const snapshot = await getDocs(q);
+      return !snapshot.empty;
+    } catch (error) {
+      console.error('❌ Erreur Firestore lors de la vérification username:', error);
+      throw error;
+    }
+  }
 
-  const handleChange = (field: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    
+  
+   const handleChange = (field: keyof typeof form, value: string) => {
+  setForm((prev) => ({ ...prev, [field]: value }));
+  // 🔄 Si l’utilisateur modifie nom ou prénom après un doublon,
+ // on efface immédiatement l’erreur pour débloquer le bouton.
+if (nameDuplicateError && (field === 'nom' || field === 'prenom')) {
+   setNameDuplicateError(false);
+ }
+
 };
 
   const handleRegister = async () => {
-  if (!validateCurrentStep()) {
-    setForceValidation(true);
-    return;
-  }
-   setLoading(true); // ⏳ Commence le spinner
-
-
-  try {
-    setForceValidation(false);
-    const baptismData = mapStepBaptismToFirestore({
-      baptise: form.baptise as 'oui' | 'non' | '',
-      immersion: form.immersion as 'oui' | 'non' | '',
-      desire: form.desire as 'oui' | 'non' | '',
-    });
-
-    // Création de l’utilisateur Firebase Auth
-    const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-    const uid = userCred.user.uid;
-
-    // Ajout dans Firestore
-    await setDoc(doc(db, 'users', uid), {
-      ...form,
-      ...baptismData,
-      uid,
-      createdAt: new Date().toISOString(),
-    });
-    setShowCheck(true); // ✅ check animé visible
-     setTimeout(() => {
-      setShowSuccessModal(true);
-      setShowCheck(false);
-    }, 2800); // laisse le temps au check d’être vu avant modal
-
-    // Redirection vers Home
-    setShowSuccessModal(true);
-  } catch (error: any) {
-    console.error('handleRegister error:', error);
-    alert("Une erreur s'est produite lors de l'inscription. Veuillez réessayer.");
-  }
-  finally {
-    setLoading(false); // ✅ Stoppe le spinner
-  }
-};
-
-async function validateCurrentStep(): Promise<boolean> {
-  switch (step) {
-    case 0: {
-      console.log('🔘 validateCurrentStep STEP 0 – début', { nom: form.nom, prenom: form.prenom, username: form.username });
-      const errs = validateStepNameFields({ nom: form.nom, prenom: form.prenom, username: form.username });
-      console.log('🔍 validateStepNameFields errs =', errs);
-      if (Object.keys(errs).length > 0) return false;
-
-      const duplicate = await isNameAndSurnameTaken(form.nom, form.prenom);
-      console.log('🔍 validateCurrentStep isNameAndSurnameTaken → duplicate =', duplicate);
-      setNameDuplicateError(duplicate);
-      console.log('🔘 validateCurrentStep STEP 0 – fin');
-      return !duplicate;
+    if (!validateCurrentStep()) {
+      setForceValidation(true);
+      return;
     }
-    case 1: {
-      const errs = validateStepCredentialsFields({
-        birthdate: form.birthdate,
-        password: form.password,
-        confirmPassword: form.confirmPassword,
+    setLoading(true);
+
+    try {
+      setForceValidation(false);
+      const baptismData = mapStepBaptismToFirestore({
+        baptise: form.baptise as 'oui' | 'non' | '',
+        immersion: form.immersion as 'oui' | 'non' | '',
+        desire: form.desire as 'oui' | 'non' | '',
       });
-      return Object.keys(errs).length === 0;
+
+      // Création de l'utilisateur Firebase Auth
+      const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      const uid = userCred.user.uid;
+
+      // Ajout dans Firestore
+      await setDoc(doc(db, 'users', uid), {
+        ...form,
+        ...baptismData,
+        uid,
+        createdAt: new Date().toISOString(),
+      });
+      
+      setShowCheck(true);
+      setTimeout(() => {
+        setShowSuccessModal(true);
+        setShowCheck(false);
+      }, 2800);
+      // ✅ Supprimé le double appel à setShowSuccessModal
+    } catch (error: any) {
+      console.error('handleRegister error:', error);
+      alert("Une erreur s'est produite lors de l'inscription. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
     }
-    case 2: { 
-      // email + phone
-      const isValidEmail = (e: string) =>
-        /^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(e.trim());
-      if (!form.email.trim() || !isValidEmail(form.email)) return false;
-      try {
-        const parsed = phoneUtil.parse(form.phone);
-        if (!phoneUtil.isValidNumber(parsed)) return false;
-      } catch {
-        return false;
+  };
+
+  async function validateCurrentStep(): Promise<boolean> {
+    switch (step) {
+      case 0: {
+        // Reset l'erreur de doublon avant de vérifier
+        setNameDuplicateError(false);
+        
+        console.log('🔍 Validation étape 0 - Informations personnelles');
+        
+        // 1. Valider le format des champs
+        const errs = validateStepNameFields({ 
+          nom: form.nom, 
+          prenom: form.prenom, 
+          username: form.username 
+        });
+        
+        if (Object.keys(errs).length > 0) {
+          console.log('❌ Erreurs de validation:', errs);
+          return false;
+        }
+
+        // 2. Vérifier que la vérification username n'est pas en cours
+        if (checkingUsername) {
+          console.log('⏳ Vérification username en cours...');
+          return false;
+        }
+
+        // 3. Vérifier que le username est disponible
+        if (usernameAvailable === false) {
+          console.log('❌ Username non disponible');
+          return false;
+        }
+
+        // 4. Vérifier que la vérification a été faite si username >= 3 caractères
+        if (form.username.length >= 3 && usernameAvailable === null) {
+          console.log('⚠️ Vérification username pas encore effectuée');
+          return false;
+        }
+
+        // 5. Vérifier le doublon nom+prénom
+        console.log('🔍 Vérification doublon nom+prénom...');
+        try {
+          const duplicate = await isNameAndSurnameTaken(form.nom, form.prenom);
+          setNameDuplicateError(duplicate);
+          
+          if (duplicate) {
+            console.log('⚠️ Doublon nom+prénom détecté !');
+            return false;
+          }
+          
+          console.log('✅ Validation étape 0 réussie');
+          return true;
+        } catch (error) {
+          console.error('❌ Erreur lors de la vérification:', error);
+          // En cas d'erreur, on laisse passer pour ne pas bloquer
+          return true;
+        }
       }
-      return true;
-    }
-    case 3: {
-      // localisation
-      if (!form.pays) return false;
-      if (!form.ville) return false;
-      if (!form.quartier || form.quartier.trim().length < 2) return false;
-      return true;
-    }
-    case 4: {
-      // baptême
-      const { baptise, desire, immersion } = form;
-      if (!baptise) return false;
-      if (baptise === 'non' && !desire) return false;
-      if (baptise === 'oui') {
-        if (!immersion) return false;
-        if (immersion === 'non' && !desire) return false;
+      case 1: {
+        const errs = validateStepCredentialsFields({
+          birthdate: form.birthdate,
+          password: form.password,
+          confirmPassword: form.confirmPassword,
+        });
+        return Object.keys(errs).length === 0;
       }
-      return true;
+      case 2: { 
+        // email + phone
+        const isValidEmail = (e: string) =>
+          /^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(e.trim());
+        if (!form.email.trim() || !isValidEmail(form.email)) return false;
+        try {
+          const parsed = phoneUtil.parse(form.phone);
+          if (!phoneUtil.isValidNumber(parsed)) return false;
+        } catch {
+          return false;
+        }
+        return true;
+      }
+      case 3: {
+        // localisation
+        if (!form.pays) return false;
+        if (!form.ville) return false;
+        if (!form.quartier || form.quartier.trim().length < 2) return false;
+        return true;
+      }
+      case 4: {
+        // baptême
+        const { baptise, desire, immersion } = form;
+        if (!baptise) return false;
+        if (baptise === 'non' && !desire) return false;
+        if (baptise === 'oui') {
+          if (!immersion) return false;
+          if (immersion === 'non' && !desire) return false;
+        }
+        return true;
+      }
+      case 5: {
+        // rôle d'église
+        const { statut, fonction, sousFonction } = form;
+        if (!statut) return false;
+        if (!fonction) return false;
+        const subs = rolesData[fonction as keyof typeof rolesData] || [];
+        const manualSub = !!fonction && subs.length === 0;
+        if (!manualSub && subs.length > 0 && !sousFonction) return false;
+        if (manualSub && !sousFonction) return false;
+        return true;
+      }
+      case 6: {
+        // découverte
+        const { moyen, recommandePar, egliseOrigine } = form;
+        if (!moyen) return false;
+        if (moyen === 'Autre' && !recommandePar.trim()) return false;
+        if (!egliseOrigine) return false;
+        return true;
+      }
+      default:
+        return true;
     }
-    case 5: {
-      // rôle d'église
-      const { statut, fonction, sousFonction } = form;
-      if (!statut) return false;
-      if (!fonction) return false;
-      const subs = rolesData[fonction as keyof typeof rolesData] || [];
-      const manualSub = !!fonction && subs.length === 0;
-      if (!manualSub && subs.length > 0 && !sousFonction) return false;
-      if (manualSub && !sousFonction) return false;
-      return true;
-    }
-    case 6: {
-      // découverte
-      const { moyen, recommandePar, egliseOrigine } = form;
-      if (!moyen) return false;
-      if (moyen === 'Autre' && !recommandePar.trim()) return false;
-      if (!egliseOrigine) return false;
-      return true;
-    }
-    default:
-      return true;
   }
-}
 
   const renderStep = () => {
     switch (step) {
       case 0:
-  return (
-   <StepName
-  nom={form.nom}
-  prenom={form.prenom}
-  username={form.username}
-  onChange={handleChange}
-  forceValidation={forceValidation}
-  nameDuplicateError={nameDuplicateError}
-  usernameAvailable={usernameAvailable}
-  checkingUsername={checkingUsername}
-/>
-
-
-  );
+        return (
+          <StepName
+            nom={form.nom}
+            prenom={form.prenom}
+            username={form.username}
+            onChange={handleChange}
+            forceValidation={forceValidation}
+            nameDuplicateError={nameDuplicateError}
+            usernameAvailable={usernameAvailable}
+            checkingUsername={checkingUsername}
+          />
+        );
 
       case 1:
         return (
@@ -254,7 +325,7 @@ async function validateCurrentStep(): Promise<boolean> {
             password={form.password}
             confirmPassword={form.confirmPassword}
             onChange={handleChange}
-             forceValidation={forceValidation}
+            forceValidation={forceValidation}
           />
         );
       case 2:
@@ -281,7 +352,7 @@ async function validateCurrentStep(): Promise<boolean> {
               } as const;
               handleChange(map[field], value);
             }}
-             forceValidation={forceValidation}
+            forceValidation={forceValidation}
           />
         );
       case 4:
@@ -301,7 +372,7 @@ async function validateCurrentStep(): Promise<boolean> {
             fonction={form.fonction}
             sousFonction={form.sousFonction}
             onChange={handleChange}
-             forceValidation={forceValidation}
+            forceValidation={forceValidation}
           />
         );
       case 6:
@@ -311,35 +382,35 @@ async function validateCurrentStep(): Promise<boolean> {
             recommandePar={form.recommandePar}
             egliseOrigine={form.egliseOrigine}
             onChange={handleChange}
-             forceValidation={forceValidation}
+            forceValidation={forceValidation}
           />
         );
     }
   };
 
   const renderNavigation = () => {
-   
     if (step === 0) {
       return (
         <View style={styles.singleButtonContainer}>
           <Button
             mode="contained"
             onPress={async () => {
-  console.log('🔘 Bouton Suivant pressé !');
-  console.log('✅ validateCurrentStep appelée pour l’étape', step);
-  const valid = await validateCurrentStep();
-  console.log('🔀 validateCurrentStep → valid =', valid);
-  if (valid) {
-    setForceValidation(false);
-    setStep(step + 1);
-    console.log(`➡️ Passage à l’étape ${step + 1}`);
-  } else {
-    setForceValidation(true);
-  }
-}}
-disabled={nextDisabled}
-  style={[styles.fullWidthButton, nextDisabled && styles.buttonDisabled]}
- icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
+              console.log('🔘 Bouton Suivant pressé !');
+              console.log('✅ validateCurrentStep appelée pour l\'étape', step);
+              const valid = await validateCurrentStep();
+              console.log('🔀 validateCurrentStep → valid =', valid);
+              if (valid) {
+                setForceValidation(false);
+                setStep(step + 1);
+                console.log(`➡️ Passage à l'étape ${step + 1}`);
+              } else {
+                setForceValidation(true);
+              }
+            }}
+            disabled={nextDisabled}
+            style={[styles.wideButton, nextDisabled && styles.buttonDisabled]}
+            contentStyle={styles.buttonContent}
+            icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
           >
             Suivant
           </Button>
@@ -347,81 +418,74 @@ disabled={nextDisabled}
       );
     }
 
-if (step >= 1 && step < 6) {
-  return (
-    <View style={styles.navigationButtons}>
-      <Button
-        mode="outlined"
-        onPress={() => {
-          setForceValidation(false);
-          setStep(step - 1);
-        }}
-        style={styles.wideButton}
-        contentStyle={styles.buttonContent}
-        icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
-      >
-        Précédent
-      </Button>
-      <Button
-        mode="contained"
-        onPress={async () => {
-  const valid = await validateCurrentStep();
-  if (valid) {
-    setForceValidation(false);
-    setStep(step + 1);
-  } else {
-    setForceValidation(true);
-  }
-}}
-
-        style={styles.wideButton}
-        contentStyle={styles.buttonContent}
-        icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
-      >
-        Suivant
-      </Button>
-    </View>
-  );
-}
-
+    if (step >= 1 && step < 6) {
+      return (
+        <View style={styles.navigationButtons}>
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setForceValidation(false);
+              setStep(step - 1);
+            }}
+            style={styles.wideButton}
+            contentStyle={styles.buttonContent}
+            icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
+          >
+            Précédent
+          </Button>
+          <Button
+            mode="contained"
+            onPress={async () => {
+              const valid = await validateCurrentStep();
+              if (valid) {
+                setForceValidation(false);
+                setStep(step + 1);
+              } else {
+                setForceValidation(true);
+              }
+            }}
+            style={styles.wideButton}
+            contentStyle={styles.buttonContent}
+            icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
+          >
+            Suivant
+          </Button>
+        </View>
+      );
+    }
 
     if (step === 6) {
-  return (
-    <View style={styles.navigationButtons}>
-      <Button
-        mode="outlined"
-        onPress={() => {
-          
-          setForceValidation(false);
-          setStep(step - 1);
-        }}
-        style={styles.wideButton}
-        contentStyle={styles.buttonContent}
-        icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
-      >
-        Précédent
-      </Button>
-      <Button
-  mode="contained"
-  onPress={handleRegister}
-  loading={loading}
-  disabled={loading}
-  style={styles.wideButton}
-  contentStyle={styles.buttonContent}
-  icon={() => <Ionicons name="checkmark" size={20} color="white" />}
->
-  {loading ? 'Inscription en cours...' : 'S’inscrire'}
-</Button>
-
-    </View>
-  );
-}
-
+      return (
+        <View style={styles.navigationButtons}>
+          <Button
+            mode="outlined"
+            onPress={() => {
+              setForceValidation(false);
+              setStep(step - 1);
+            }}
+            style={styles.wideButton}
+            contentStyle={styles.buttonContent}
+            icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
+          >
+            Précédent
+          </Button>
+          <Button
+            mode="contained"
+            onPress={handleRegister}
+            loading={loading}
+            disabled={loading}
+            style={styles.wideButton}
+            contentStyle={styles.buttonContent}
+            icon={() => <Ionicons name="checkmark" size={20} color="white" />}
+          >
+            {loading ? 'Inscription en cours...' : "S'inscrire"}
+          </Button>
+        </View>
+      );
+    }
 
     return null;
   };
-
-
 
   return (
     <KeyboardAvoidingView
@@ -438,20 +502,18 @@ if (step >= 1 && step < 6) {
         <View style={styles.formContainer}>{renderStep()}</View>
         {renderNavigation()}
         {showCheck && (
-  <View style={styles.lottieContainer}>
-    <LottieView
-      source={require('assets/animations/check-success.json')}
-      autoPlay
-      loop={false}
-      style={{ width: 120, height: 120 }}
-    />
-  </View>
-)}
+          <View style={styles.lottieContainer}>
+            <LottieView
+              source={require('assets/animations/check-success.json')}
+              autoPlay
+              loop={false}
+              style={{ width: 120, height: 120 }}
+            />
+          </View>
+        )}
         {showSuccessModal && (
-  <SuccessModal onContinue={() => navigation.replace('Home')} visible={true} />
-)}
-
-
+          <SuccessModal onContinue={() => navigation.replace('Home')} visible={true} />
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -469,41 +531,45 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   wideButton: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
+  width: '100%',
+  marginHorizontal: 15,
+ borderRadius: 30,          // coins ronds
+  // bleu brand (ou laisse vide pour le thème)
+},
+
   buttonContent: {
-    paddingVertical: 12,
+    paddingVertical: 12,  // ↑  hauteur (12 → 18)
+  minHeight: 56,
   },
   singleButtonContainer: {
     marginTop: 30,
     marginBottom: 40,
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
     alignItems: 'center',
   },
   fullWidthButton: {
     width: '100%',
+    borderRadius: 30,       // coins plus ronds
+backgroundColor: '#2563EB', // bleu brand
+//  elevation: 3,
   },
-   buttonDisabled: {
-    backgroundColor: '#cccccc',  // gris clair
+  buttonDisabled: {
+    backgroundColor: '#cccccc',
   },
-  
   fullWidthButtonContent: {
     paddingVertical: 14,
   },
   lottieContainer: {
-  position: 'absolute',
-  top: '45%',
-  left: 0,
-  right: 0,
-  alignItems: 'center',
-  zIndex: 999,
-},
-
+    position: 'absolute',
+    top: '45%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 999,
+  },
   finishedText: {
     fontSize: 18,
     textAlign: 'center',
     marginTop: 40,
   },
 });
-

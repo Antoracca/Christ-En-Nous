@@ -39,7 +39,8 @@ export default function StepLocation({
   // 🌍 Détection automatique du pays via device
   useEffect(() => {
     if (!country && !isCountrySetManually) {
-      const region = (Localization.region as CountryCode) || 'CF';
+      const [{ regionCode }] = Localization.getLocales();
+      const region = (regionCode as CountryCode) || 'CF';
       const valid = region in countryNames ? region : 'CF';
       setCode(valid); // essentiel pour charger les villes
       onChange('country', countryNames[valid]);
