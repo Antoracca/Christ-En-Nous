@@ -159,14 +159,40 @@ if (nameDuplicateError && (field === 'nom' || field === 'prenom')) {
       // Création de l'utilisateur Firebase Auth
       const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
       const uid = userCred.user.uid;
+      const cleanForm = {
+  nom: form.nom.trim(),
+  prenom: form.prenom.trim(),
+  username: form.username.trim().toLowerCase(),
+  birthdate: formatDateToISO(form.birthdate), // à créer ci-dessous
+  email: form.email.trim(),
+  phone: form.phone.trim(),
+  pays: form.pays.trim(),
+  ville: form.ville.trim(),
+  quartier: form.quartier.trim(),
+  baptise: form.baptise,
+  desire: form.desire,
+  immersion: form.immersion,
+  statut: form.statut,
+  fonction: form.fonction,
+  sousFonction: form.sousFonction,
+  moyen: form.moyen,
+  recommandePar: form.recommandePar,
+  egliseOrigine: form.egliseOrigine,
+};
+
 
       // Ajout dans Firestore
       await setDoc(doc(db, 'users', uid), {
-        ...form,
-        ...baptismData,
-        uid,
-        createdAt: new Date().toISOString(),
-      });
+  ...cleanForm,
+  ...baptismData,
+  uid,
+  createdAt: new Date().toISOString(),
+});
+function formatDateToISO(dateStr: string): string {
+  const [day, month, year] = dateStr.split('/');
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`; // ex: 06/09/2004 → 2004-09-06
+}
+
       
       setShowCheck(true);
       setTimeout(() => {
@@ -520,37 +546,43 @@ if (nameDuplicateError && (field === 'nom' || field === 'prenom')) {
 }
 
 const styles = StyleSheet.create({
+ /* ---------- généraux ---------- */
   container: { flex: 1 },
   scrollView: { flexGrow: 1 },
   formContainer: { padding: 20, marginTop: 20 },
+
+
+ /* ---------- navigation ---------- */
   navigationButtons: {
-    marginTop: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    marginTop: 30,
     marginBottom: 40,
   },
+  
   wideButton: {
-  width: '100%',
-  marginHorizontal: 15,
- borderRadius: 30,          // coins ronds
-  // bleu brand (ou laisse vide pour le thème)
+ flex: 1,
+    marginHorizontal: 5,   // petit espace entre les deux
+    borderRadius: 25,        // coins ronds
 },
 
   buttonContent: {
-    paddingVertical: 12,  // ↑  hauteur (12 → 18)
-  minHeight: 56,
+    paddingVertical: 10,  // ↑  hauteur (12 → 18)
+  minHeight: 65,
   },
   singleButtonContainer: {
-    marginTop: 30,
-    marginBottom: 40,
-    paddingHorizontal: 28,
-    alignItems: 'center',
+    width: '100%',
+    borderRadius: 30,       // coins plus ronds
+    marginTop: 1,
+    marginBottom: 35,
+    
+    paddingHorizontal: 5,
+  
   },
   fullWidthButton: {
     width: '100%',
     borderRadius: 30,       // coins plus ronds
-backgroundColor: '#2563EB', // bleu brand
 //  elevation: 3,
   },
   buttonDisabled: {
