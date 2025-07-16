@@ -1,16 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import EmailInputBlock from './EmailInputBlock';
 import PhoneInputBlock from './PhoneInputBlock';
 import { PhoneNumberUtil } from 'google-libphonenumber';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+const phoneUtil = PhoneNumberUtil.getInstance();
 
 interface StepContactProps {
   email: string;
   phone: string;
-  country: string; // code pays ISO ex: 'FR', 'CM', 'CF'
+  country: string;
   disabled?: boolean;
   forceValidation: boolean;
   onChange: (field: 'email' | 'phone', value: string) => void;
+  emailDuplicateError?: boolean;
+  phoneDuplicateError?: boolean;
+  emailAvailable?: boolean | null;
+  phoneAvailable?: boolean | null;
+  checkingEmail?: boolean;
+  checkingPhone?: boolean;
 }
 
 export default function StepContact({
@@ -20,14 +29,45 @@ export default function StepContact({
   disabled = false,
   forceValidation,
   onChange,
+  emailDuplicateError = false,
+  phoneDuplicateError = false,
+  emailAvailable = null,
+  phoneAvailable = null,
+  checkingEmail = false,
+  checkingPhone = false,
 }: StepContactProps) {
   const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
   const isValidEmail = (e: string) =>
     /^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(e.trim());
+  
+  const [emailFadeAnim] = useState(new Animated.Value(0));
+  const [phoneFadeAnim] = useState(new Animated.Value(0));
 
-  // Validation déclenchée automatiquement si forceValidation = true
   useEffect(() => {
-    const phoneUtil = PhoneNumberUtil.getInstance();
+    if (emailDuplicateError) {
+      Animated.timing(emailFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      emailFadeAnim.setValue(0);
+    }
+  }, [emailDuplicateError, emailFadeAnim]);
+
+  useEffect(() => {
+    if (phoneDuplicateError) {
+      Animated.timing(phoneFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      phoneFadeAnim.setValue(0);
+    }
+  }, [phoneDuplicateError, phoneFadeAnim]);
+
+  useEffect(() => {
     if (forceValidation) {
       const newErrors: typeof errors = {};
 
@@ -48,39 +88,62 @@ export default function StepContact({
     }
   }, [forceValidation, email, phone, country]);
 
-  const handleEmailChange = (value: string) => {
-    onChange('email', value);
-    if (errors.email) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-    }
-  };
-
-  const handlePhoneChange = (value: string) => {
-    onChange('phone', value);
-    if (errors.phone) {
-      setErrors((prev) => ({ ...prev, phone: undefined }));
-    }
-  };
-
   return (
     <View style={styles.container}>
       <Text style={styles.stepTitle}>Étape 3 : Contact</Text>
       <Text style={styles.stepDescription}>
-        Merci d’indiquer une adresse e-mail valide et un numéro joignable.
+        Merci d&apos;indiquer une adresse e-mail valide et un numéro joignable.
       </Text>
+
+      {emailDuplicateError && (
+        <Animated.View 
+          style={[styles.globalErrorContainer, { opacity: emailFadeAnim }]}
+        >
+          <MaterialCommunityIcons 
+            name="email-alert" 
+            size={20} 
+            color="#DC2626" 
+            style={styles.errorIcon}
+          />
+          <Text style={styles.globalErrorText}>
+            Cette adresse e-mail est déjà utilisée par un autre membre. 
+            Vérifiez votre saisie ou contactez l&apos;administrateur.
+          </Text>
+        </Animated.View>
+      )}
+
+      {phoneDuplicateError && (
+        <Animated.View 
+          style={[styles.globalErrorContainer, { opacity: phoneFadeAnim }]}
+        >
+          <MaterialCommunityIcons 
+            name="phone-alert" 
+            size={20} 
+            color="#DC2626" 
+            style={styles.errorIcon}
+          />
+          <Text style={styles.globalErrorText}>
+            Ce numéro de téléphone est déjà enregistré. 
+            Vérifiez votre numéro ou utilisez un autre numéro.
+          </Text>
+        </Animated.View>
+      )}
 
       <EmailInputBlock
         email={email}
         error={errors.email}
-        onChange={handleEmailChange}
+        onChange={(value) => onChange('email', value)}
+        checking={checkingEmail}
+        available={emailAvailable}
       />
 
       <PhoneInputBlock
         phone={phone}
         error={errors.phone}
         disabled={disabled}
-        onChange={handlePhoneChange}
-        country={country}
+        onChange={(value) => onChange('phone', value)}
+        checking={checkingPhone}
+        available={phoneAvailable}
       />
     </View>
   );
@@ -106,8 +169,28 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     marginBottom: 20,
     lineHeight: 22,
-  
     padding: 10,
     borderRadius: 8,
+  },
+  globalErrorContainer: {
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  globalErrorText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    flex: 1,
+  },
+  errorIcon: {
+    marginRight: 10,
+    marginTop: 2,
   },
 });

@@ -7,6 +7,7 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  TextInput as RNTextInput,
 } from 'react-native';
 import { HelperText, List } from 'react-native-paper';
 import LeftInputIcon from '../../LeftInputIcon';
@@ -39,15 +40,21 @@ export default function CitySelectorAndroid({
     setShowModal(false);
   };
 
+  // Mode manuel : saisie libre
   if (manualMode) {
     return (
       <>
         <Text style={styles.label}>Ville</Text>
         <View style={styles.container}>
           <LeftInputIcon icon="city" size={30} />
-          <TouchableOpacity style={styles.touchable} activeOpacity={1}>
-            <Text style={styles.text}>{selectedCity}</Text>
-          </TouchableOpacity>
+          <RNTextInput
+            style={[styles.text, styles.input]}
+            placeholder="Entrez votre ville"
+            placeholderTextColor="#999"
+            value={selectedCity}
+            onChangeText={onChange}
+            editable={!disabled}
+          />
         </View>
         <HelperText type="error" visible={!!error} style={styles.errorText}>
           {error}
@@ -56,6 +63,7 @@ export default function CitySelectorAndroid({
     );
   }
 
+  // Mode normal : sélection dans la liste
   return (
     <>
       <Text style={styles.label}>Ville</Text>
@@ -149,6 +157,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginLeft: 12,
+  },
+  input: {
+    flex: 1,
+    marginLeft: 8,
+    paddingVertical: 0,
+    color: '#000',
   },
   errorText: {
     color: '#DC2626',

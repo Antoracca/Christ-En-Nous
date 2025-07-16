@@ -156,7 +156,10 @@ export default function StepDiscoveryAndroid({
           {selectedChurch ? (
             <View style={styles.selectorContent}>
               <Image source={selectedChurch.icon} style={styles.selectorIcon} />
-              <Text style={styles.selectorText}>{selectedChurch.name}</Text>
+             <Text
+        style={[styles.selectorText, { flexShrink: 1, flexWrap: 'wrap' }]}
+        numberOfLines={2}
+      >{selectedChurch.name}</Text>
             </View>
           ) : (
             <Text style={styles.selectorText}>Sélectionnez votre église</Text>

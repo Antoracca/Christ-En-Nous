@@ -40,19 +40,75 @@
     "Prophète assistant",
     "Intercesseur prophétique"
   ],
+  "Menée d'Intercession": [
+    "Responsable de l'intercession",
+    "Intercesseur de groupe",
+    "Prière de guérison"
+  ],
+  "Enseignant": [
+    "Responsable de l'enseignement",
+    "Formateur biblique",
+    "Coordinateur des études bibliques"
+  ],
+  "Responsable des enfants (–12 ans)": [
+    "Responsable Enfants",
+    "Animateur biblique",
+    "Coordinateur des activités pour enfants"
+  ],
+  "Responsable des jeunes (13–20 ans)": [
+    "Responsable Jeunes",
+    "Animateur de groupe de jeunes",
+    "Coordinateur des activités pour jeunes"
+  ],
+  "Responsable des femmes": [
+    "Responsable Femmes",
+    "Animatrice de groupe de femmes",
+    "Coordinateur des activités pour femmes"
+  ],
+  
+  "Responsable des couples": [
+    "Responsable Couples",
+    "Animateur de groupe de couples",
+    "Coordinateur des activités pour couples"
+  ],
+  "Responsable des jeunes adultes (18–30 ans)": [
+    "Responsable Jeunes Adultes",
+    "Animateur de groupe de jeunes adultes",
+    "Coordinateur des activités pour jeunes adultes"
+  ],
+  "Responsable des ministères": [
+    "Responsable Ministères",
+    "Coordinateur des ministères",
+    "Formateur de leaders"
+  ],
+  "Responsable des missions": [
+    "Responsable Missions",
+    "Coordinateur des projets missionnaires",
+    "Formateur missionnaire"
+  ],
+  "Responsable des finances": [
+    "Trésorier",
+    "Comptable de l'église",
+    "Responsable des dons et offrandes"
+  ],
+  "Responsable des ressources humaines": [
+    "Responsable RH",
+    "Gestionnaire de personnel",
+    "Coordinateur des bénévoles"
+  ],
+  "Responsable de la sécurité": [
+    "Responsable Sécurité",
+    "Agent de sécurité",
+    "Coordinateur des mesures de sécurité"
+  ],
+  "Membre de l'église": [
+    "Membre actif(ve)",
+    "Visiteur(se) régulier(ère)"
+  ],
+
   "Ministre": [
     "Ministre de la Parole",
     "Ministre assistant",
     "Ministre itinérant"
-  ],
-  "Ministre des jeunes (–20 ans)": [
-    "Responsable Jeunesse",
-    "Encadreur biblique",
-    "Formateur spirituel"
-  ],
-  "Ministre senior (+21 ans)": [
-    "Responsable Adulte",
-    "Coordinateur des ministères",
-    "Formateur avancé"
   ]
 }

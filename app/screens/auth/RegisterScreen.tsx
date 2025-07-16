@@ -41,6 +41,13 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showCheck, setShowCheck] = useState(false);
   const [nameDuplicateError, setNameDuplicateError] = useState(false);
+  // 🎯 États pour la validation email et téléphone (à ajouter après vos useState existants)
+const [emailAvailable, setEmailAvailable] = useState<boolean|null>(null);
+const [phoneAvailable, setPhoneAvailable] = useState<boolean|null>(null);
+const [checkingEmail, setCheckingEmail] = useState(false);
+const [checkingPhone, setCheckingPhone] = useState(false);
+const [emailDuplicateError, setEmailDuplicateError] = useState(false);
+const [phoneDuplicateError, setPhoneDuplicateError] = useState(false);
 
   const [form, setForm] = useState({
     nom: '',
@@ -70,18 +77,54 @@ export default function RegisterScreen() {
 
   // Fonction pour déterminer si le bouton "Suivant" doit être désactivé
   const getNextButtonDisabled = () => {
-    if (step === 0) {
-      const hasEmptyFields = !form.nom.trim() || !form.prenom.trim() || !form.username.trim();
-      const usernameInvalid = form.username.length >= 3 && !isValidUsernameFormat(form.username);
-      
-      return hasEmptyFields || 
-             checkingUsername || 
-             usernameAvailable === false || 
-             usernameInvalid ||
-             nameDuplicateError;
+  if (step === 0) {
+    const hasEmptyFields = !form.nom.trim() || !form.prenom.trim() || !form.username.trim();
+    const usernameInvalid = form.username.length >= 3 && !isValidUsernameFormat(form.username);
+    
+    return hasEmptyFields || 
+           checkingUsername || 
+           usernameAvailable === false || 
+           usernameInvalid ||
+           nameDuplicateError;
+  }
+  
+  if (step === 2) {
+    const hasEmptyFields = !form.email.trim() || !form.phone.trim();
+    
+    // 🎯 Validation format email
+    const emailInvalid = form.email.length > 0 && !/^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(form.email.trim());
+    
+    // 🎯 Validation format téléphone
+    let phoneInvalid = false;
+    if (form.phone.trim()) {
+      try {
+        const parsed = phoneUtil.parse(form.phone);
+        phoneInvalid = !phoneUtil.isValidNumber(parsed);
+      } catch {
+        phoneInvalid = true;
+      }
     }
-    return false;
-  };
+    
+    // 🎯 LOGIQUE CLÉE : Le bouton est désactivé si :
+    const shouldDisable = 
+      hasEmptyFields ||                    // Champs vides
+      emailInvalid ||                      // Format email invalide
+      phoneInvalid ||                      // Format téléphone invalide
+      checkingEmail ||                     // 🔥 Vérification email en cours
+      checkingPhone ||                     // 🔥 Vérification téléphone en cours
+      emailDuplicateError ||              // Email déjà utilisé
+      phoneDuplicateError ||              // Téléphone déjà utilisé
+      (form.email.length >= 5 && emailAvailable === null) ||    // Email pas encore vérifié
+      (form.phone.length >= 8 && phoneAvailable === null) ||    // Téléphone pas encore vérifié
+      emailAvailable === false ||         // Email indisponible
+      phoneAvailable === false;           // Téléphone indisponible
+    
+  
+  return shouldDisable;
+};
+
+  return false;
+};
 
   const nextDisabled = getNextButtonDisabled();
 
@@ -119,6 +162,89 @@ export default function RegisterScreen() {
     return () => clearTimeout(timeoutId);
   }, [form.username]);
 
+  // 🎯 Vérification email en temps réel
+// 🎯 UseEffect pour la vérification email
+useEffect(() => {
+  const email = form.email.trim().toLowerCase();
+  
+  // Reset si email vide ou format invalide
+  if (!email || !/^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    setEmailAvailable(null);
+    setCheckingEmail(false);
+    setEmailDuplicateError(false);
+    return;
+  }
+
+  // 🎯 Commencer la vérification immédiatement
+  setCheckingEmail(true);
+  setEmailDuplicateError(false);  // Reset l'erreur avant la vérification
+  
+  const timeoutId = setTimeout(async () => {
+    try {
+      const taken = await isEmailTaken(email);
+      setEmailAvailable(!taken);
+      setEmailDuplicateError(taken);
+    } catch (error) {
+      console.error('Erreur vérification email:', error);
+      setEmailAvailable(null);
+      setEmailDuplicateError(false);
+    } finally {
+      setCheckingEmail(false);  // 🔥 CRUCIAL : Toujours arrêter le checking
+    }
+  }, 800); // Réduire à 800ms pour plus de réactivité
+
+  return () => clearTimeout(timeoutId);
+}, [form.email]);
+
+// 🎯 UseEffect pour la vérification téléphone
+useEffect(() => {
+  const phone = form.phone.trim();
+  
+  // Reset si téléphone vide ou trop court
+  if (!phone || phone.length < 8) {
+    setPhoneAvailable(null);
+    setCheckingPhone(false);
+    setPhoneDuplicateError(false);
+    return;
+  }
+
+  // Vérifier le format avec google-libphonenumber
+  try {
+    const parsed = phoneUtil.parse(phone);
+    if (!phoneUtil.isValidNumber(parsed)) {
+      setPhoneAvailable(null);
+      setCheckingPhone(false);
+      setPhoneDuplicateError(false);
+      return;
+    }
+  } catch {
+    setPhoneAvailable(null);
+    setCheckingPhone(false);
+    setPhoneDuplicateError(false);
+    return;
+  }
+
+  // 🎯 Commencer la vérification immédiatement
+  setCheckingPhone(true);
+  setPhoneDuplicateError(false);  // Reset l'erreur avant la vérification
+  
+  const timeoutId = setTimeout(async () => {
+    try {
+      const taken = await isPhoneTaken(phone);
+      setPhoneAvailable(!taken);
+      setPhoneDuplicateError(taken);
+    } catch (error) {
+      console.error('Erreur vérification téléphone:', error);
+      setPhoneAvailable(null);
+      setPhoneDuplicateError(false);
+    } finally {
+      setCheckingPhone(false);  // 🔥 CRUCIAL : Toujours arrêter le checking
+    }
+  }, 800);
+
+  return () => clearTimeout(timeoutId);
+}, [form.phone, phoneUtil]);
+
   async function isUsernameTaken(username: string): Promise<boolean> {
     try {
       const q = query(collection(db, 'users'), where('username', '==', username.trim()));
@@ -129,18 +255,53 @@ export default function RegisterScreen() {
       throw error;
     }
   }
+  
 
   
-   const handleChange = (field: keyof typeof form, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string) => {
   setForm((prev) => ({ ...prev, [field]: value }));
-  // 🔄 Si l’utilisateur modifie nom ou prénom après un doublon,
- // on efface immédiatement l’erreur pour débloquer le bouton.
-if (nameDuplicateError && (field === 'nom' || field === 'prenom')) {
-   setNameDuplicateError(false);
- }
-
+  
+  // 🔄 Reset des erreurs selon le champ modifié
+  if (nameDuplicateError && (field === 'nom' || field === 'prenom')) {
+    setNameDuplicateError(false);
+  }
+  if (field === 'email') {
+    setEmailDuplicateError(false);
+  }
+  if (emailDuplicateError && field === 'email') {
+    setEmailDuplicateError(false);
+  }
+  if (field === 'phone') {
+    setPhoneDuplicateError(false);
+  }
+  if (phoneDuplicateError && field === 'phone') {
+    setPhoneDuplicateError(false);
+  }
 };
 
+// 🔍 Vérification si email existe déjà
+async function isEmailTaken(email: string): Promise<boolean> {
+  try {
+    const q = query(collection(db, 'users'), where('email', '==', email.trim().toLowerCase()));
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('❌ Erreur Firestore lors de la vérification email:', error);
+    throw error;
+  }
+}
+
+// 🔍 Vérification si téléphone existe déjà
+async function isPhoneTaken(phone: string): Promise<boolean> {
+  try {
+    const q = query(collection(db, 'users'), where('phone', '==', phone.trim()));
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('❌ Erreur Firestore lors de la vérification téléphone:', error);
+    throw error;
+  }
+}
   const handleRegister = async () => {
     if (!validateCurrentStep()) {
       setForceValidation(true);
@@ -274,18 +435,51 @@ function formatDateToISO(dateStr: string): string {
         return Object.keys(errs).length === 0;
       }
       case 2: { 
-        // email + phone
-        const isValidEmail = (e: string) =>
-          /^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(e.trim());
-        if (!form.email.trim() || !isValidEmail(form.email)) return false;
-        try {
-          const parsed = phoneUtil.parse(form.phone);
-          if (!phoneUtil.isValidNumber(parsed)) return false;
-        } catch {
+        console.log('🔍 Validation étape 2 - Contact');
+      
+      // Reset des erreurs de doublon
+      setEmailDuplicateError(false);
+      setPhoneDuplicateError(false);
+       // 1. Validation du format email
+      const isValidEmail = (e: string) => /^[\w.-]+@[\w-]+\.[a-zA-Z]{2,}$/.test(e.trim());
+      if (!form.email.trim() || !isValidEmail(form.email)) {
+        console.log('❌ Email invalide');
+        return false;
+      }
+      
+      // 2. Validation du format téléphone
+      try {
+        const parsed = phoneUtil.parse(form.phone);
+        if (!phoneUtil.isValidNumber(parsed)) {
+          console.log('❌ Téléphone invalide');
           return false;
         }
-        return true;
+      } catch {
+        console.log('❌ Téléphone format incorrect');
+        return false;
       }
+      
+      // 3. Vérifier que les vérifications ne sont pas en cours
+      if (checkingEmail || checkingPhone) {
+        console.log('⏳ Vérifications en cours...');
+        return false;
+      }
+      
+      // 4. Vérifier la disponibilité
+      if (emailAvailable === false || phoneAvailable === false) {
+        console.log('❌ Email ou téléphone déjà utilisé');
+        return false;
+      }
+      
+      // 5. Vérifier que les vérifications ont été faites
+      if (emailAvailable === null || phoneAvailable === null) {
+        console.log('⚠️ Vérifications pas encore effectuées');
+        return false;
+      }
+      
+      console.log('✅ Validation étape 2 réussie');
+      return true;
+    }
       case 3: {
         // localisation
         if (!form.pays) return false;
@@ -355,15 +549,22 @@ function formatDateToISO(dateStr: string): string {
           />
         );
       case 2:
-        return (
-          <StepContact
-            email={form.email}
-            phone={form.phone}
-            country={form.pays}
-            onChange={handleChange}
-            forceValidation={forceValidation}
-          />
-        );
+  return (
+    <StepContact
+      email={form.email}
+      phone={form.phone}
+      country={form.pays}
+      onChange={handleChange}
+      forceValidation={forceValidation}
+      // 🎯 Nouvelles props pour la validation
+      emailDuplicateError={emailDuplicateError}
+      phoneDuplicateError={phoneDuplicateError}
+      emailAvailable={emailAvailable}
+      phoneAvailable={phoneAvailable}
+      checkingEmail={checkingEmail}
+      checkingPhone={checkingPhone}
+    />
+  );
       case 3:
         return (
           <StepLocation
@@ -445,40 +646,47 @@ function formatDateToISO(dateStr: string): string {
     }
 
     if (step >= 1 && step < 6) {
-      return (
-        <View style={styles.navigationButtons}>
-          <Button
-            mode="outlined"
-            onPress={() => {
-              setForceValidation(false);
-              setStep(step - 1);
-            }}
-            style={styles.wideButton}
-            contentStyle={styles.buttonContent}
-            icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
-          >
-            Précédent
-          </Button>
-          <Button
-            mode="contained"
-            onPress={async () => {
-              const valid = await validateCurrentStep();
-              if (valid) {
-                setForceValidation(false);
-                setStep(step + 1);
-              } else {
-                setForceValidation(true);
-              }
-            }}
-            style={styles.wideButton}
-            contentStyle={styles.buttonContent}
-            icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
-          >
-            Suivant
-          </Button>
-        </View>
-      );
-    }
+  return (
+    <View style={styles.navigationButtons}>
+      <Button
+        mode="outlined"
+        onPress={() => {
+          setForceValidation(false);
+          setStep(step - 1);
+        }}
+        style={styles.wideButton}
+        contentStyle={styles.buttonContent}
+        icon={() => <Ionicons name="arrow-back" size={20} color="#000" />}
+      >
+        Précédent
+      </Button>
+      <Button
+        mode="contained"
+        onPress={async () => {
+          // 🔥 Empêcher l'action si bouton désactivé
+          if (nextDisabled) return;
+          
+          const valid = await validateCurrentStep();
+          if (valid) {
+            setForceValidation(false);
+            setStep(step + 1);
+          } else {
+            setForceValidation(true);
+          }
+        }}
+        disabled={nextDisabled}  // 🎯 AJOUTER la prop disabled
+        style={[
+          styles.wideButton, 
+          nextDisabled && styles.buttonDisabled  // 🎯 AJOUTER le style conditionnel
+        ]}
+        contentStyle={styles.buttonContent}
+        icon={() => <Ionicons name="arrow-forward" size={20} color="white" />}
+      >
+        Suivant
+      </Button>
+    </View>
+  );
+}
 
     if (step === 6) {
       return (
@@ -583,10 +791,17 @@ const styles = StyleSheet.create({
   fullWidthButton: {
     width: '100%',
     borderRadius: 30,       // coins plus ronds
+
 //  elevation: 3,
   },
   buttonDisabled: {
-    backgroundColor: '#cccccc',
+    backgroundColor: '#cccccc',  // Gris clair
+    opacity: 0.6,               // 🎯 AJOUTER pour plus d'effet visuel
+  },
+  
+  // 🎯 OPTIONNEL : Style spécifique pour le contenu du bouton disabled
+  buttonDisabledContent: {
+    opacity: 0.7,
   },
   fullWidthButtonContent: {
     paddingVertical: 14,

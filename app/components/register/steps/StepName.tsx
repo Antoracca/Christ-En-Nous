@@ -47,7 +47,7 @@ export default function StepName({
     if (nameDuplicateError) {
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 100,
         useNativeDriver: true,
       }).start();
     } else {

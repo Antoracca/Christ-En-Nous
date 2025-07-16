@@ -47,7 +47,7 @@ export default function CountrySelector({
 
   useEffect(() => {
     if (!country) {
-      const region = (Localization.region as CountryCode) || 'CF';
+      const region = (Localization.getLocales()[0].regionCode as CountryCode) || 'CF';
       const valid = region in countryNames ? region : 'CF';
       setCode(valid);
       setName(countryNames[valid]);

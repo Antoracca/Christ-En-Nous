@@ -1,14 +1,34 @@
-// PhoneInputBlock.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+// components/register/steps/PhoneInputBlock.tsx — v2.2 (fix Typescript)
+//  ✓  utilise AsYouTypeFormatter (classe) au lieu de getAsYouTypeFormatter()
+//  ✓  restaure le state withCountryModal
+//  ✓  tous les imports explicitement typés
+
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { TextInput, HelperText } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CountryPicker, {
   CountryCode,
   Country,
   DEFAULT_THEME,
   getCallingCode,
 } from 'react-native-country-picker-modal';
-import { PhoneNumberUtil } from 'google-libphonenumber';
+import {
+  PhoneNumberUtil,
+  PhoneNumberType,
+  AsYouTypeFormatter,
+} from 'google-libphonenumber';
 
 const phoneUtil = PhoneNumberUtil.getInstance();
 
@@ -16,51 +36,85 @@ interface PhoneInputBlockProps {
   phone: string;
   error?: string;
   disabled?: boolean;
-  country: string;
+  initialCountry?: CountryCode; // "FR", "CF", etc.
   onChange: (value: string) => void;
+  checking?: boolean;
+  available?: boolean | null;
 }
 
-
-export default function PhoneInputBlock({ phone, error, disabled = false, onChange }: PhoneInputBlockProps) {
-  const [countryCode, setCountryCode] = useState<CountryCode>('CF');
+export default function PhoneInputBlock({
+  phone,
+  error,
+  disabled = false,
+  onChange,
+  checking = false,
+  available = null,
+  initialCountry = 'CF',
+}: PhoneInputBlockProps) {
+  /* ----- état principal ----- */
+  const [countryCode, setCountryCode] = useState<CountryCode>(initialCountry);
+  const [callingCode, setCallingCode] = useState<string>('');
+  const [number, setNumber] = useState<string>(''); // national digits only
+  const [formatted, setFormatted] = useState<string>(''); // rendu utilisateur
+  const [example, setExample] = useState<string>('');
   const [withCountryModal, setWithCountryModal] = useState(false);
-  const [callingCode, setCallingCode] = useState<string>('236');
-  const [number, setNumber] = useState<string>('');
 
-  useEffect(() => {
-    if (phone.startsWith('+')) {
+  /* ----- formatter as‑you‑type (ref) ----- */
+  const formatterRef = useRef<AsYouTypeFormatter>(
+    new AsYouTypeFormatter(initialCountry)
+  );
+
+  /* ----- chargement indicatif + placeholder au changement de pays ----- */
+  const applyCountry = useCallback(
+    (cc: CountryCode) => {
+      setCountryCode(cc);
+      formatterRef.current = new AsYouTypeFormatter(cc);
+      getCallingCode(cc)
+        .then(setCallingCode)
+        .catch(() => setCallingCode(''));
+      // placeholder d'exemple
       try {
-        const parsed = phoneUtil.parse(phone);
-        const region = phoneUtil.getRegionCodeForNumber(parsed) as CountryCode;
-        const code = parsed.getCountryCode()?.toString() ?? '';
-        const nat = parsed.getNationalNumber()?.toString() ?? '';
-        setCountryCode(region);
-        setCallingCode(code);
-        setNumber(nat);
-        return;
-      } catch {}
-    }
-    getCallingCode('CF')
-      .then(code => setCallingCode(code))
-      .catch(() => setCallingCode('236'));
-  }, [phone]);
+        const ex = phoneUtil
+          .getExampleNumberForType(cc, PhoneNumberType.MOBILE)
+          ?.getNationalNumber()
+          ?.toString();
+        ex && setExample(ex);
+      } catch {
+        setExample('');
+      }
+    },
+    []
+  );
 
-  const onSelect = (country: Country) => {
+  /* ----- init (componentDidMount) ----- */
+  useEffect(() => {
+    applyCountry(initialCountry);
+  }, [applyCountry, initialCountry]);
+
+  /* ----- sélection de pays depuis le picker ----- */
+  const onSelect = (c: Country) => {
     if (disabled) return;
-    const selected = country.callingCode[0];
-    setCountryCode(country.cca2 as CountryCode);
-    setCallingCode(selected);
+    applyCountry(c.cca2 as CountryCode);
     setNumber('');
-    onChange(`+${selected}`);
+    setFormatted('');
+    onChange(`+${c.callingCode[0]}`);
   };
 
-  const onChangeNumber = (text: string) => {
+  /* ----- saisie du numéro national ----- */
+  const onChangeNumber = (txt: string) => {
     if (disabled) return;
-    const cleaned = text.replace(/[^0-9]/g, '');
-    setNumber(cleaned);
-    onChange(`+${callingCode}${cleaned}`);
+    const digits = txt.replace(/\D/g, '');
+    formatterRef.current.clear();
+    let pretty = '';
+    digits.split('').forEach((d) => {
+      pretty = formatterRef.current.inputDigit(d);
+    });
+    setNumber(digits);
+    setFormatted(pretty);
+    onChange(`+${callingCode}${digits}`);
   };
 
+  /* ----- validation ----- */
   const isValidNumber = (): boolean => {
     try {
       const parsed = phoneUtil.parse(`+${callingCode}${number}`);
@@ -70,12 +124,68 @@ export default function PhoneInputBlock({ phone, error, disabled = false, onChan
     }
   };
 
+  /* ----- helpers UI ----- */
+  const getPhoneStatusIcon = () => {
+    if (checking) {
+      return (
+        <View style={styles.statusIconContainer}>
+          <ActivityIndicator size="small" color="#3B82F6" />
+        </View>
+      );
+    }
+    if (number.length >= 6 && isValidNumber() && available === true) {
+      return (
+        <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
+      );
+    }
+    return null;
+  };
+
+  const getPhoneHelperText = () => {
+    if (checking) {
+      return (
+        <HelperText type="info" visible style={styles.infoText}>
+          Vérification de la disponibilité...
+        </HelperText>
+      );
+    }
+    if (!checking && available === false && isValidNumber()) {
+      return (
+        <HelperText type="error" visible style={styles.errorText}>
+          <MaterialCommunityIcons name="close" size={14} /> Ce numéro est déjà
+          enregistré
+        </HelperText>
+      );
+    }
+    if (number.length > 0 && !isValidNumber()) {
+      return (
+        <HelperText type="error" visible style={styles.errorText}>
+          Numéro de téléphone invalide pour ce pays
+        </HelperText>
+      );
+    }
+    if (error) {
+      return (
+        <HelperText type="error" visible style={styles.errorText}>
+          {error}
+        </HelperText>
+      );
+    }
+    return null;
+  };
+
+  /* ----- rendu ----- */
   return (
-    
     <View style={styles.container}>
-       <Text style={styles.label}>Téléphone</Text>
-      <View style={styles.phoneRow}>
-        
+      <Text style={styles.label}>Téléphone</Text>
+
+      <View
+        style={[
+          styles.phoneRow,
+          isValidNumber() && available === true && styles.phoneRowSuccess,
+        ]}
+      >
+        {/* 🇨🇫  Sélecteur de pays */}
         <TouchableOpacity
           style={styles.flagBox}
           onPress={() => !disabled && setWithCountryModal(true)}
@@ -93,9 +203,10 @@ export default function PhoneInputBlock({ phone, error, disabled = false, onChan
           <Text style={styles.callingCode}>+{callingCode}</Text>
         </TouchableOpacity>
 
+        {/* Champ numéro */}
         <TextInput
-          placeholder="Ex: 72421246"
-          value={number}
+          placeholder={example ? `Ex: ${example}` : 'Numéro'}
+          value={formatted}
           onChangeText={onChangeNumber}
           keyboardType="phone-pad"
           mode="flat"
@@ -103,38 +214,43 @@ export default function PhoneInputBlock({ phone, error, disabled = false, onChan
           style={styles.numberBox}
           textColor="#000"
           disabled={disabled}
+          right={
+            getPhoneStatusIcon() ? (
+              <TextInput.Icon icon={() => getPhoneStatusIcon()} />
+            ) : undefined
+          }
         />
       </View>
 
-      {/* Erreur si invalide */}
-      <HelperText
-        type="error"
-        visible={!!error || (number.length > 0 && !isValidNumber())}
-        style={styles.errorText}
-      >
-        {error ?? 'Numéro de téléphone non valide au format national'}
-      </HelperText>
+      <View style={styles.phoneErrorBox}>{getPhoneHelperText()}</View>
 
-      {/* Instruction supplémentaire */}
+      {/* Information */}
       <View style={styles.instructionContainer}>
+        <MaterialCommunityIcons
+          name="information"
+          size={16}
+          color="#3B82F6"
+          style={styles.infoIcon}
+        />
         <Text style={styles.instructionText}>
-Votre numéro permet d’assurer la sécurité de votre compte, de recevoir des informations, annonces essentielles et d’accéder aux groupes WhatsApp de la communauté.{' '}
+          Votre numéro permet d&apos;assurer la sécurité de votre compte, de recevoir
+          des informations importantes et d&apos;accéder aux groupes WhatsApp de la
+          communauté.
         </Text>
       </View>
     </View>
   );
 }
 
+/* ----- styles ----- */
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 24,
-  },
+  container: { marginBottom: 24 },
   label: {
     fontSize: 15,
-    marginTop: 55,
+    marginTop: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 25,
+    marginBottom: 8,
   },
   phoneRow: {
     flexDirection: 'row',
@@ -143,8 +259,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginBottom: 5,
-    marginTop: -21,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  phoneRowSuccess: {
+    borderColor: '#10B981',
+    borderWidth: 2,
+    backgroundColor: '#F6FFFA',
   },
   flagBox: {
     flexDirection: 'row',
@@ -160,33 +282,29 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     marginLeft: 4,
   },
-  numberBox: {
-    flex: 1,
-    fontSize: 18,
-    height: 40,
-    paddingHorizontal: 8,
-    backgroundColor: 'transparent',
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 13,
-    marginLeft : -8,
-    marginBottom: 12,
-  },
+  numberBox: { flex: 1, fontSize: 18, height: 40, backgroundColor: 'transparent' },
+  statusIconContainer: { justifyContent: 'center', paddingRight: 8 },
+  phoneErrorBox: { marginTop: 2, marginLeft: 8 },
+  errorText: { color: '#DC2626', fontSize: 13, marginLeft: -8, marginBottom: 8 },
+  infoText: { color: '#3B82F6', fontSize: 12, marginLeft: -8, marginBottom: 8 },
   instructionContainer: {
-    backgroundColor: '#FFF9E6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 19,
+    backgroundColor: '#F0F9FF',
     borderLeftWidth: 5,
-    borderLeftColor: '#FACC15',
-    marginBottom: 1,
-    paddingVertical: 1,
-    paddingHorizontal: 3,
-    borderRadius: 6,
-    
+    borderLeftColor: '#3B82F6',
+    borderRadius: 8,
   },
   instructionText: {
     fontSize: 13,
     color: '#6B7280',
-    lineHeight: 18,
-
+    lineHeight: 20,
+    flex: 1,
+    marginLeft: -5,
   },
+  infoIcon: { marginRight: 20, marginTop: -65 },
 });

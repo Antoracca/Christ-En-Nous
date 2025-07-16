@@ -1,4 +1,4 @@
-// StepCredentials.tsx — harmonisé avec StepContact
+// StepCredentials.tsx — Version optimisée sans redondances
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,7 +13,6 @@ import { TextInput, HelperText } from 'react-native-paper';
 import DatePickerModal from '../../forms/DatePickerModal';
 import PasswordStrengthIndicator from '../../forms/PasswordStrengthIndicator';
 import {
-  validateStepCredentialsFields,
   type CredentialsErrors,
 } from 'utils/validateStepCredentialsFields';
 import FieldIcon from '../../forms/FieldIcon';
@@ -27,7 +26,6 @@ interface StepCredentialsProps {
     value: string
   ) => void;
   forceValidation: boolean;
-
 }
 
 export default function StepCredentials({
@@ -36,13 +34,21 @@ export default function StepCredentials({
   confirmPassword,
   onChange,
   forceValidation,
-
 }: StepCredentialsProps) {
   const [errors, setErrors] = useState<CredentialsErrors>({});
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState(new Date());
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  // 🎯 États pour gérer l'affichage intelligent des indicateurs
+  const [showPasswordDetails, setShowPasswordDetails] = useState(false);
+  const [hasStartedTypingPassword, setHasStartedTypingPassword] = useState(false);
+  const [hasStartedTypingConfirm, setHasStartedTypingConfirm] = useState(false);
+
+  // 🧠 Logique intelligente pour l'affichage des détails
+  const shouldShowPasswordDetails = hasStartedTypingPassword || showPasswordDetails;
+  const shouldShowConfirmationFeedback = hasStartedTypingConfirm && confirmPassword.length > 0;
 
   useEffect(() => {
     if (!birthdate) return;
@@ -50,15 +56,20 @@ export default function StepCredentials({
     const parsed = new Date(+y, +m - 1, +d);
     if (!isNaN(parsed.getTime())) setTempDate(parsed);
   }, [birthdate]);
-  useEffect(() => {
-  if (forceValidation) {
-    const allErrors = validateStepCredentialsFields(
-      { birthdate, password, confirmPassword }
-    );
-    setErrors(allErrors);
-  }
-}, [forceValidation, birthdate, password, confirmPassword]);
 
+  // 🎯 Validation simplifiée - on laisse le composant PasswordStrengthIndicator gérer la validation des mots de passe
+  useEffect(() => {
+    if (forceValidation) {
+      const newErrors: CredentialsErrors = {};
+      
+      // Validation de la date uniquement
+      if (!birthdate.trim()) {
+        newErrors.birthdate = 'La date de naissance est requise.';
+      }
+
+      setErrors(newErrors);
+    }
+  }, [forceValidation, birthdate]);
 
   const format = (d: Date) =>
     `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -73,15 +84,10 @@ export default function StepCredentials({
     onChange('birthdate', newDate);
     setShowPicker(false);
 
-    const error = validateStepCredentialsFields(
-      {
-        birthdate: newDate,
-        password,
-        confirmPassword,
-      },
-      'birthdate'
-    );
-    setErrors((prev) => ({ ...prev, birthdate: error.birthdate }));
+    // Validation immédiate de la date
+    if (newDate.trim()) {
+      setErrors((prev) => ({ ...prev, birthdate: undefined }));
+    }
   };
 
   const handleFieldChange = (
@@ -90,40 +96,50 @@ export default function StepCredentials({
   ) => {
     onChange(field, value);
 
-    const updatedValues = {
-      birthdate,
-      password,
-      confirmPassword,
-      [field]: value,
-    };
-
-    const validationErrors = validateStepCredentialsFields(
-      updatedValues,
-      field
-    );
-
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-
-      if (!validationErrors[field]) {
-        delete newErrors[field];
-      } else {
-        newErrors[field] = validationErrors[field];
+    // 🎯 Gestion intelligente des états d'affichage
+    if (field === 'password') {
+      if (value.length > 0 && !hasStartedTypingPassword) {
+        setHasStartedTypingPassword(true);
       }
+      if (value.length === 0) {
+        setHasStartedTypingPassword(false);
+        setShowPasswordDetails(false);
+      }
+    }
 
-      return newErrors;
-    });
+    if (field === 'confirmPassword') {
+      if (value.length > 0 && !hasStartedTypingConfirm) {
+        setHasStartedTypingConfirm(true);
+      }
+      if (value.length === 0) {
+        setHasStartedTypingConfirm(false);
+      }
+    }
   };
 
-  
+  // 🎨 Fonctions utilitaires pour la validation
+  const isPasswordStrong = () => {
+    const hasLength = password.length >= 6;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    return hasLength && hasUppercase && hasLowercase && hasDigit && hasSpecial;
+  };
+
+  const doPasswordsMatch = () => {
+    return confirmPassword.length > 0 && password === confirmPassword && isPasswordStrong();
+  };
 
   return (
     <View style={styles.card}>
-      <Text style={styles.stepTitle}>Étape 2 : Date de naissance et mot de passe</Text>
+      <Text style={styles.stepTitle}>Étape 2 : Informations de sécurité</Text>
       <Text style={styles.stepDescription}>
-        Choisis ta date de naissance, puis définis un mot de passe sécurisé.
+        Renseignez votre date de naissance et créez un mot de passe sécurisé.
       </Text>
 
+      {/* 📅 Section Date de naissance */}
       <View style={styles.fieldContainer}>
         <TouchableOpacity onPress={openPicker} activeOpacity={0.8}>
           <View pointerEvents="none">
@@ -134,6 +150,7 @@ export default function StepCredentials({
               editable={false}
               style={styles.input}
               left={<TextInput.Icon icon={() => <FieldIcon name="calendar" />} />}
+              placeholder="JJ/MM/AAAA"
             />
           </View>
         </TouchableOpacity>
@@ -165,17 +182,26 @@ export default function StepCredentials({
         />
       )}
 
+      {/* 🔒 Section Mot de passe */}
       <View style={styles.fieldContainer}>
+        <View style={styles.passwordHeader}>
+          <Text style={styles.fieldLabel}>Créez votre mot de passe</Text>
+         
+        </View>
+
         <TextInput
-        key={showPassword ? 'visible' : 'hidden'}
+          key={showPassword ? 'visible' : 'hidden'}
           mode="outlined"
-          label="Mot de passe"
           secureTextEntry={!showPassword}
           value={password}
           onChangeText={(t) => handleFieldChange('password', t)}
           onLayout={() => {}}
           autoComplete="password"
-          style={styles.input}
+          style={[
+            styles.input,
+            // 🎨 Bordure discrète quand le mot de passe est valide
+            isPasswordStrong() && styles.inputValid
+          ]}
           left={<TextInput.Icon icon={() => <FieldIcon name="lock" />} />}
           right={
             <TextInput.Icon
@@ -183,24 +209,34 @@ export default function StepCredentials({
               onPress={() => setShowPassword((v) => !v)}
             />
           }
+          placeholder="Votre mot de passe sécurisé"
         />
-        <PasswordStrengthIndicator password={password} />
-        <HelperText type="error" visible={!!errors.password} style={styles.errorText}>
-          {errors.password}
-        </HelperText>
+
+        {/* 🎯 Indicateur de force unifié */}
+        <PasswordStrengthIndicator 
+          password={password} 
+          showDetails={shouldShowPasswordDetails}
+          mode="creation"
+        />
       </View>
 
+      {/* 🔓 Section Confirmation */}
       <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Confirmez votre mot de passe</Text>
+        
         <TextInput
           key={showConfirm ? 'visible' : 'hidden'}
           mode="outlined"
-          label="Confirmer le mot de passe"
           secureTextEntry={!showConfirm}
           value={confirmPassword}
-           onLayout={() => {}}
+          onLayout={() => {}}
           autoComplete="password"
           onChangeText={(t) => handleFieldChange('confirmPassword', t)}
-          style={styles.input}
+          style={[
+            styles.input,
+            // 🎨 Bordure discrète quand la confirmation est correcte
+            doPasswordsMatch() && styles.inputValid
+          ]}
           left={<TextInput.Icon icon={() => <FieldIcon name="key" />} />}
           right={
             <TextInput.Icon
@@ -208,13 +244,26 @@ export default function StepCredentials({
               onPress={() => setShowConfirm((v) => !v)}
             />
           }
+          placeholder="Répétez le mot de passe"
         />
-        <HelperText type="error" visible={!!errors.confirmPassword} style={styles.errorText}>
-          {errors.confirmPassword}
-        </HelperText>
+
+        {/* 🎯 Feedback de confirmation intelligent */}
+        {shouldShowConfirmationFeedback && (
+          <PasswordStrengthIndicator 
+            password={password}
+            confirmPassword={confirmPassword} 
+            showDetails={true}
+            mode="confirmation"
+          />
+        )}
       </View>
 
-     
+      {/* 📝 Note d'aide générale */}
+      <View style={styles.helpContainer}>
+        <Text style={styles.helpText}>
+          💡 Ces informations sécurisent votre compte et permettent de vous connecter .
+        </Text>
+      </View>
     </View>
   );
 }
@@ -232,33 +281,86 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   stepDescription: {
     fontSize: 16,
     color: '#4B5563',
-    marginTop: 1,
     marginBottom: 24,
-    lineHeight: 24,
-   
-    
+    lineHeight: 22,
   },
   fieldContainer: {
-    marginBottom: 19,
+    marginBottom: 20,
   },
+  
+  // 🎯 En-têtes de champs optimisés
+  passwordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  fieldLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  toggleButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  toggleButtonText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  
+  // 🎨 Styles de champs optimisés
   input: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 2,
+    borderRadius: 12,
     height: 55,
-    paddingHorizontal: 20,
     fontSize: 16,
   },
+  inputValid: {
+    borderColor: '#10B981',
+    borderRadius: 12,
+    borderWidth: 3,
+    backgroundColor: '#F6FFFA',
+  },
+  
+  // 📝 Aide et messages
+  helpContainer: {
+    backgroundColor: '#F0F9FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    
+  },
+  helpText: {
+    fontSize: 12,
+    color: '#1E40AF',
+    lineHeight: 16,
+    fontStyle: 'italic',
+    marginRight: 10,
+    marginTop: 2,
+    textAlign: 'justify',
+    maxWidth: '90%',
+    // Pour éviter les débordements sur les petits écrans
+    flexWrap: 'wrap',
+    maxHeight: 60, // Limite la hauteur pour éviter les débordements
+
+  },
+  
   errorText: {
     marginLeft: -5,
     color: '#DC2626',
     fontSize: 13,
-    marginTop: -2,
-    marginBottom: 8,
+    marginTop: 4,
   },
-  
 });

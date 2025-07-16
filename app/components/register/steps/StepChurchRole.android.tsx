@@ -1,5 +1,3 @@
-// src/components/register/steps/StepChurchRoleAndroid.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,6 +12,7 @@ import { Button, HelperText } from 'react-native-paper';
 import rolesData from '@assets/data/churchRoles.json';
 
 interface StepChurchRoleProps {
+  /** Deux valeurs internes seulement */
   statut: 'nouveau' | 'ancien' | '';
   fonction: string;
   sousFonction: string;
@@ -29,23 +28,26 @@ export default function StepChurchRoleAndroid({
   onChange,
   forceValidation,
 }: StepChurchRoleProps) {
+  /** Ancien / Ancienne → besoin de fonction et sous‑fonction */
+  const isSenior = statut === 'ancien';
+
   const [errors, setErrors] = useState<{
     statut?: string;
     fonction?: string;
     sousFonction?: string;
   }>({});
 
-  // Modals
+  /* ---------------------- Modals ---------------------- */
   const [showFunctionModal, setShowFunctionModal] = useState(false);
   const [showSubFunctionModal, setShowSubFunctionModal] = useState(false);
 
-  // Sélections temporaires dans les modals
+  /* Sélections temporaires dans les modals */
   const [tempFunction, setTempFunction] = useState(fonction);
   const sousFonctions = rolesData[fonction as keyof typeof rolesData] || [];
-  const manualSub = !!fonction && sousFonctions.length === 0;
+  const manualSub = isSenior && fonction !== '' && sousFonctions.length === 0;
   const [tempSubFunction, setTempSubFunction] = useState(sousFonction);
 
-  // Réinitialiser les valeurs temporaires si les props changent
+  /* Réinitialiser les valeurs temporaires si les props changent */
   useEffect(() => {
     setTempFunction(fonction);
   }, [fonction]);
@@ -53,59 +55,63 @@ export default function StepChurchRoleAndroid({
   useEffect(() => {
     setTempSubFunction(sousFonction);
   }, [sousFonction]);
+
+  /* --------------------- Validation -------------------- */
   useEffect(() => {
-  if (forceValidation) {
-    const newErrors: typeof errors = {};
+    if (forceValidation) {
+      const newErrors: typeof errors = {};
 
-    if (!statut) {
-      newErrors.statut = 'Veuillez sélectionner votre statut';
+      if (!statut) newErrors.statut = 'Veuillez sélectionner votre statut';
+
+      if (isSenior) {
+        if (!fonction) newErrors.fonction = 'Veuillez choisir une fonction principale';
+
+        const list = rolesData[fonction as keyof typeof rolesData] || [];
+        const isManual = fonction !== '' && list.length === 0;
+
+        if (!isManual && !sousFonction) newErrors.sousFonction = 'Veuillez sélectionner un rôle spécifique';
+      }
+
+      setErrors(newErrors);
     }
+  }, [forceValidation, statut, fonction, sousFonction, isSenior]);
 
-    if (!fonction) {
-      newErrors.fonction = 'Veuillez choisir une fonction principale';
-    }
-
-    const sousFonctionsList = rolesData[fonction as keyof typeof rolesData] || [];
-    const isManual = fonction !== '' && sousFonctionsList.length === 0;
-
-    if (!isManual && !sousFonction) {
-      newErrors.sousFonction = 'Veuillez sélectionner un rôle spécifique';
-    }
-
-    setErrors(newErrors);
-  }
-}, [forceValidation, statut, fonction, sousFonction]);
-
-
-
-
+  /* ==================================================== */
   return (
     <View style={styles.card}>
-      <Text style={styles.stepTitle}>Étape 6 : Rôle dans l’Église</Text>
+      <Text style={styles.stepTitle}>Étape 6 : Rôle dans l’Église</Text>
       <Text style={styles.stepDescription}>
         Précisez votre statut, votre fonction principale et votre rôle éventuel.
       </Text>
 
-      {/* Statut */}
+      {/* ---------- Statut ---------- */}
       <Text style={styles.label}>Statut dans l&apos;église</Text>
       <View style={styles.instructionBox}>
-        <Text style={styles.instructionText}>
-          Souhaitez-vous rejoindre en tant que nouveau membre ou ancien ?
-        </Text>
+        <Text style={styles.instructionText}>Rejoignez‑vous en tant que nouveau membre ou ancien ?</Text>
       </View>
       <View style={styles.optionsContainer}>
-        {(['nouveau', 'ancien'] as const).map((opt) => (
+        {[
+          { label: 'Nouveau / Nouvelle', value: 'nouveau' },
+          { label: 'Ancien / Ancienne', value: 'ancien' },
+        ].map(({ label, value }) => (
           <TouchableOpacity
-            key={opt}
-            style={[styles.option, statut === opt && styles.selected]}
+            key={value}
+            style={[styles.option, statut === value && styles.selected]}
             onPress={() => {
-              onChange('statut', opt);
+              onChange('statut', value);
+
+              /* Si Nouveau → on vide fonction & sousFonction et on ferme les modals */
+              if (value === 'nouveau') {
+                onChange('fonction', '');
+                onChange('sousFonction', '');
+                setShowFunctionModal(false);
+                setShowSubFunctionModal(false);
+              }
+
               setErrors((e) => ({ ...e, statut: undefined }));
             }}
           >
-            <Text style={styles.optionText}>
-              {opt === 'nouveau' ? 'Nouveau' : 'Ancien'}
-            </Text>
+            <Text style={styles.optionText}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -115,52 +121,48 @@ export default function StepChurchRoleAndroid({
         </HelperText>
       )}
 
-      {/* Fonction */}
-      <Text style={styles.label}>Fonction principale</Text>
-      <View style={styles.instructionBox}>
-        <Text style={styles.instructionText}>
-          Choisissez votre fonction principale au sein de l’église.
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.selector}
-        onPress={() => setShowFunctionModal(true)}
-      >
-        <Text style={styles.selectorText}>
-          {fonction || 'Choisissez une fonction'}
-        </Text>
-      </TouchableOpacity>
-      {errors.fonction && (
-        <HelperText type="error" style={styles.errorText}>
-          {errors.fonction}
-        </HelperText>
+      {/* ---------- Fonction & Sous‑fonction (Ancien uniquement) ---------- */}
+      {isSenior && (
+        <>
+          {/* Fonction */}
+          <Text style={styles.label}>Fonction principale</Text>
+          <View style={styles.instructionBox}>
+            <Text style={styles.instructionText}>
+              Choisissez votre fonction principale au sein de l’église.
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.selector} onPress={() => setShowFunctionModal(true)}>
+            <Text style={styles.selectorText}>{fonction || 'Choisissez une fonction'}</Text>
+          </TouchableOpacity>
+          {errors.fonction && (
+            <HelperText type="error" style={styles.errorText}>
+              {errors.fonction}
+            </HelperText>
+          )}
+
+          {/* Sous‑fonction */}
+          {fonction !== '' && sousFonctions.length > 0 && (
+            <>
+              <Text style={styles.label}>Rôle spécifique</Text>
+              <View style={styles.instructionBox}>
+                <Text style={styles.instructionText}>
+                  Précisez votre mission ou responsabilité précise.
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.selector} onPress={() => setShowSubFunctionModal(true)}>
+                <Text style={styles.selectorText}>{sousFonction || 'Choisissez un rôle'}</Text>
+              </TouchableOpacity>
+              {errors.sousFonction && (
+                <HelperText type="error" style={styles.errorText}>
+                  {errors.sousFonction}
+                </HelperText>
+              )}
+            </>
+          )}
+        </>
       )}
 
-{fonction !== '' && sousFonctions.length > 0 && (
-  <>
-    <Text style={styles.label}>Rôle spécifique</Text>
-    <View style={styles.instructionBox}>
-      <Text style={styles.instructionText}>
-        Précisez votre mission ou responsabilité précise.
-      </Text>
-    </View>
-    <TouchableOpacity
-      style={styles.selector}
-      onPress={() => setShowSubFunctionModal(true)}
-    >
-      <Text style={styles.selectorText}>
-        {sousFonction || 'Choisissez un rôle'}
-      </Text>
-    </TouchableOpacity>
-    {errors.sousFonction && (
-      <HelperText type="error" style={styles.errorText}>
-        {errors.sousFonction}
-      </HelperText>
-    )}
-  </>
-)}
-
-      {/* Modal Fonction */}
+      {/* ---------- Modal Fonction ---------- */}
       <Modal transparent visible={showFunctionModal} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -185,10 +187,7 @@ export default function StepChurchRoleAndroid({
               keyExtractor={(i) => i}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[
-                    styles.modalItem,
-                    tempFunction === item && styles.selected,
-                  ]}
+                  style={[styles.modalItem, tempFunction === item && styles.selected]}
                   onPress={() => setTempFunction(item)}
                 >
                   <Text style={styles.modalText}>{item}</Text>
@@ -199,8 +198,8 @@ export default function StepChurchRoleAndroid({
         </View>
       </Modal>
 
-      {/* Modal Sous-fonction */}
-      {!manualSub && (
+      {/* ---------- Modal Sous‑fonction ---------- */}
+      {isSenior && !manualSub && (
         <Modal transparent visible={showSubFunctionModal} animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
@@ -224,10 +223,7 @@ export default function StepChurchRoleAndroid({
                 keyExtractor={(i) => i}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={[
-                      styles.modalItem,
-                      tempSubFunction === item && styles.selected,
-                    ]}
+                    style={[styles.modalItem, tempSubFunction === item && styles.selected]}
                     onPress={() => setTempSubFunction(item)}
                   >
                     <Text style={styles.modalText}>{item}</Text>
@@ -242,8 +238,14 @@ export default function StepChurchRoleAndroid({
   );
 }
 
+/* ============================= Styles ============================== */
 const styles = StyleSheet.create({
-  errorText: { color: '#DC2626', fontSize: 13, marginTop: -12 , marginLeft: -5   },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 13,
+    marginTop: -12,
+    marginLeft: -5,
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 32,
@@ -255,15 +257,42 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  stepTitle: { fontSize: 26, fontWeight: '800', color: '#1F2937', marginBottom: 8 },
+  stepTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
   stepDescription: {
     fontSize: 16,
     color: '#4B5563',
     marginBottom: 16,
     lineHeight: 24,
   },
-  label: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginBottom: 8 },
-  optionsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  instructionBox: {
+    backgroundColor: '#FFF9E6',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFD700',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    borderRadius: 4,
+  },
+  instructionText: {
+    fontSize: 13,
+    color: '#1F2937',
+  },
+  optionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   option: {
     flex: 1,
     height: 56,
@@ -275,8 +304,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 4,
   },
-  selected: { backgroundColor: '#FFEB3B', borderColor: '#FDD835' },
-  optionText: { fontSize: 16, fontWeight: '500', color: '#333' },
+  selected: {
+    backgroundColor: '#FFEB3B',
+    borderColor: '#FDD835',
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+    textAlign: 'center',
+  },
   selector: {
     backgroundColor: '#EEF1F5',
     borderRadius: 8,
@@ -286,9 +323,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  selectorText: { fontSize: 16, color: '#1F2937' },
-  inputManual: { marginBottom: 16, backgroundColor: '#F9FAFB', borderRadius: 8 },
-  footer: { alignItems: 'flex-end', marginTop: 12 },
+  selectorText: {
+    fontSize: 16,
+    color: '#1F2937',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -312,18 +350,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
   },
-  modalText: { fontSize: 16, color: '#333' },
-  instructionBox: {
-    backgroundColor: '#FFF9E6',
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFD700',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    borderRadius: 4,
-  },
-  instructionText: {
-    fontSize: 13,
-    color: '#1F2937',
+  modalText: {
+    fontSize: 16,
+    color: '#333',
   },
 });

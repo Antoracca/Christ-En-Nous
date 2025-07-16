@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { TextInput, HelperText } from 'react-native-paper';
+import { View, Text, StyleSheet, TextInput as RNTextInput } from 'react-native';
+import { HelperText } from 'react-native-paper';
 import LeftInputIcon from '../../LeftInputIcon';
 
 interface QuarterInputProps {
   value: string;
   error?: string;
   disabled?: boolean;
-  onChange: (val: string) => void;
+  onChange: (value: string) => void;
+  onFocus?: () => void;
 }
 
 export default function QuarterInput({
@@ -15,22 +16,26 @@ export default function QuarterInput({
   error,
   disabled = false,
   onChange,
+  onFocus,
 }: QuarterInputProps) {
   return (
     <>
-      <Text style={styles.label}>Adresse</Text>
-      <View style={styles.field}>
-        <LeftInputIcon icon="home" size={34} />
-        <TextInput
-          placeholder="Entrez votre quartier ou adresse complète"
+      <Text style={styles.label}>Quartier / Adresse</Text>
+      <View style={styles.container}>
+        <LeftInputIcon icon="home" size={30} />
+        <RNTextInput
+          style={styles.input}
+          placeholder="Ex: Quartier Latin, Rue de la Paix"
+          placeholderTextColor="#999"
           value={value}
           onChangeText={onChange}
-          disabled={disabled}
-          error={!!error}
-          mode="flat"
-          style={styles.input}
-          underlineColor="transparent"
-          placeholderTextColor="#999"
+          editable={!disabled}
+          onFocus={onFocus}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="center"
+          returnKeyType="done"
+          blurOnSubmit={true}
         />
       </View>
       <HelperText type="error" visible={!!error} style={styles.errorText}>
@@ -45,9 +50,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  field: {
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F3F3',
@@ -56,24 +61,21 @@ const styles = StyleSheet.create({
     borderColor: '#DDD',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 4,
+    marginBottom: 6,
+    minHeight: 60,
   },
   input: {
     flex: 1,
+    marginLeft: 12,
     fontSize: 16,
-    color: '#333',
-    backgroundColor: 'transparent',
-    marginLeft: 8, // ⬅️ petit espace entre icône et champ
-    paddingVertical: 0,
-    textAlign: 'left', // 👈 facultatif car c'est la valeur par défaut
+    color: '#000',
+    minHeight: 40,
   },
   errorText: {
-    
     color: '#DC2626',
     fontSize: 13,
-    marginTop: -2,
-    marginBottom: -1,
-    marginLeft: -10, // Pour aligner avec le champ
-    marginRight: 1, // Pour aligner avec le champ
+    marginLeft: -8,
+    marginTop: -5,
+    marginBottom: 8,
   },
 });

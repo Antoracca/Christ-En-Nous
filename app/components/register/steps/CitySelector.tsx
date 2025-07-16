@@ -7,11 +7,9 @@ interface CitySelectorProps {
   options: string[];
   error?: string;
   disabled?: boolean;
-  manualMode?: boolean;       // ← Nouvelle prop
+  manualMode?: boolean;
   onChange: (city: string) => void;
 }
-
-// …
 
 const CitySelector = Platform.OS === 'ios'
   ? (props: CitySelectorProps) => <CitySelectorIOS {...props} />
