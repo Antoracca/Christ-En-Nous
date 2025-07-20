@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérification Email - Christ en Nous</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #002366, #0052cc);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      color: #333;
+    }
+    .container {
+      background: white; border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 500px; width: 90%; padding: 50px 40px; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .icon { font-size: 80px; margin-bottom: 20px; }
+    .success { color: #4CAF50; }
+    .error { color: #f44336; }
+    .loading { color: #FFD700; }
+    h1 { color: #002366; margin-bottom: 20px; font-size: 28px; }
+    p { color: #666; line-height: 1.6; margin-bottom: 30px; font-size: 16px; }
+    .button {
+      display: inline-block; padding: 15px 40px;
+      background: linear-gradient(135deg, #FFD700, #FFC500);
+      color: #002366; text-decoration: none;
+      border-radius: 30px; font-weight: bold; font-size: 16px;
+      box-shadow: 0 5px 20px rgba(255,215,0,0.4);
+      transition: all 0.3s ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .debug { font-size: 12px; color: #999; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="content">
+      <div class="icon loading">⏳</div>
+      <h1>Vérification en cours...</h1>
+      <p>Nous vérifions ton lien, un instant...</p>
+      <div id="debug-info" class="debug"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCIUcMu5xi_UUVfUn1twv8F6jLqYOeAylE",
+      authDomain: "app-christ-en-nous.firebaseapp.com",
+      projectId: "app-christ-en-nous",
+      storageBucket: "app-christ-en-nous.appspot.com",
+      messagingSenderId: "774503250388",
+      appId: "1:774503250388:web:932b03c828bc58264f3e41"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let token, tokenData;
+    const debugInfo = document.getElementById('debug-info');
+
+    function addDebug(message) {
+      console.log(message);
+      debugInfo.innerHTML += `<p>${message}</p>`;
+    }
+
+    async function verifyEmail() {
+      try {
+        // 1. Récupérer le token
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get('token');
+        
+        addDebug(`🔍 Token récupéré: ${token}`);
+        
+        if (!token) {
+          return showError('Lien invalide', 'Token manquant.');
+        }
+
+        // 2. FORCER L'AUTHENTIFICATION ANONYME D'ABORD
+        addDebug('🔐 Connexion anonyme...');
+        
+        await signInAnonymously(auth);
+        addDebug('✅ Connexion anonyme réussie');
+
+        // 3. Attendre que l'auth soit prête puis continuer
+        setTimeout(async () => {
+          await processToken();
+        }, 1000);
+
+      } catch (error) {
+        addDebug(`❌ Erreur verifyEmail: ${error.message}`);
+        showError('Erreur', error.message);
+      }
+    }
+
+    async function processToken() {
+      try {
+        addDebug('📖 Lecture du token dans Firestore...');
+        
+        const tokenRef = doc(db, 'email_verifications', token);
+        const tokenDoc = await getDoc(tokenRef);
+        
+        addDebug(`📄 Document existe: ${tokenDoc.exists()}`);
+        
+        if (!tokenDoc.exists()) {
+          return showError('Lien invalide', 'Ce lien n\'existe pas ou a déjà été utilisé.');
+        }
+
+        tokenData = tokenDoc.data();
+        addDebug(`📋 Données du token: ${JSON.stringify(tokenData)}`);
+        
+        if (tokenData.used) {
+          return showAlreadyVerified();
+        }
+
+        const expiresAt = new Date(tokenData.expiresAt);
+        if (expiresAt < new Date()) {
+          return showError('Lien expiré', 'Ce lien a expiré.');
+        }
+
+        // 4. MISE À JOUR AVEC PLUS DE DEBUG
+        addDebug('💾 Mise à jour du profil utilisateur...');
+        
+        await updateDoc(doc(db, 'users', tokenData.userId), {
+          emailVerified: true,
+          emailVerifiedAt: new Date().toISOString()
+        });
+        
+        addDebug('✅ Profil utilisateur mis à jour');
+
+        addDebug('🔒 Marquage du token comme utilisé...');
+        
+        await updateDoc(doc(db, 'email_verifications', token), {
+          used: true,
+          usedAt: new Date().toISOString()
+        });
+        
+        addDebug('✅ Token marqué comme utilisé');
+
+        showSuccess();
+
+      } catch (error) {
+        addDebug(`❌ Erreur processToken: ${error.code} - ${error.message}`);
+        
+        if (error.code === 'permission-denied') {
+          showError('Problème de permissions', 'Erreur de configuration Firebase. Contacte le support.');
+        } else {
+          showError('Erreur technique', error.message);
+        }
+      }
+    }
+
+    function showSuccess() {
+      document.getElementById('content').innerHTML = `
+        <div class="icon success">✅</div>
+        <h1>Email confirmé !</h1>
+        <p>Félicitations ! Ton adresse email a été vérifiée avec succès.</p>
+        <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
+      `;
+    }
+
+    function showAlreadyVerified() {
+      document.getElementById('content').innerHTML = `
+        <div class="icon success">✓</div>
+        <h1>Déjà vérifié</h1>
+        <p>Ton email a déjà été confirmé précédemment.</p>
+        <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
+      `;
+    }
+
+    function showError(title, message) {
+      document.getElementById('content').innerHTML = `
+        <div class="icon error">❌</div>
+        <h1>${title}</h1>
+        <p>${message}</p>
+        <a href="#" class="button" onclick="openApp()">Retour à l'application</a>
+        <div class="debug" style="margin-top: 20px;">
+          <details>
+            <summary>Informations de debug</summary>
+            <div id="debug-info-copy">${debugInfo.innerHTML}</div>
+          </details>
+        </div>
+      `;
+    }
+
+    window.openApp = function() {
+      // Essayer d'ouvrir l'app via deep link
+      window.location.href = 'christennous://verified';
+      // Fallback vers le site web après 2 secondes
+      setTimeout(() => {
+        window.location.href = 'https://christennous.com';
+      }, 2000);
+    }
+
+    // 🚀 DÉMARRAGE
+    verifyEmail();
+  </script>
+</body>
+</html>
