@@ -1,39 +1,51 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# 📦 Dépendances Node
 node_modules/
 
-# Expo
+# ⚙️ Expo & builds
 .expo/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
-.kotlin/
-*.orig.*
+# 📁 Environnements locaux
+.env            # ⛔ fichier .env principal
+.env.*          # ⛔ tous les .env.staging, .env.production, etc.
+.env*.local     # ⛔ tous les .env.local, .env.development.local, etc.
+
+# 🛠️ Clés & certificats sensibles
+*.key
+*.pem
 *.jks
 *.p8
 *.p12
-*.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
-
-# debug
+# 🧪 Fichiers de debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# 🍎 macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
-
-# typescript
+# 🧮 Typescript
 *.tsbuildinfo
 
-app-example
+# 🧱 Kotlin native (si jamais tu ejectes d’Expo)
+.kotlin/
+*.orig.*
+
+# 🚇 Metro
+.metro-health-check*
+
+# 🔥 Firebase / Cloud Functions (optionnel si tu as ce dossier)
+functions/lib/
+functions/node_modules/
+functions/.env
+
+# 🧪 Exemples ou apps de test
+app-example/
+
+# 🧾 Plateformes de déploiement
+.vercel/
+.netlify/

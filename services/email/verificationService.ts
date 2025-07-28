@@ -1,5 +1,6 @@
 // services/email/verificationService.ts
 import { db } from '../firebase/firebaseConfig';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import uuid from 'react-native-uuid';
 
@@ -7,9 +8,9 @@ import uuid from 'react-native-uuid';
  * Génère un token de vérification et le stocke dans Firestore
  */
 export async function generateVerificationToken(userId: string, email: string): Promise<string> {
- const token = uuid.v4() as string;
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24); // Expire dans 24h
+const token = uuid.v4() as string;
+const expiresAt = new Date();
+expiresAt.setHours(expiresAt.getHours() + 24); // Expire dans 24h
   
   // Stocker le token dans Firestore
   await setDoc(doc(db, 'email_verifications', token), {

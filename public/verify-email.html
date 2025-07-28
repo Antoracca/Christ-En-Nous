@@ -19,9 +19,9 @@
       position: relative; overflow: hidden;
     }
     .icon { font-size: 80px; margin-bottom: 20px; }
-    .success { color: #4CAF50; }
-    .error { color: #f44336; }
-    .loading { color: #FFD700; }
+    .success { color: #4CAF50; animation: none; }
+    .error { color: #f44336; animation: none; }
+    .loading { color: #FFD700; animation: spin 1.5s linear infinite; }
     h1 { color: #002366; margin-bottom: 20px; font-size: 28px; }
     p { color: #666; line-height: 1.6; margin-bottom: 30px; font-size: 16px; }
     .button {
@@ -33,7 +33,11 @@
       transition: all 0.3s ease;
     }
     .button:hover { transform: translateY(-2px); }
-    .debug { font-size: 12px; color: #999; margin-top: 20px; }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -41,15 +45,14 @@
     <div id="content">
       <div class="icon loading">⏳</div>
       <h1>Vérification en cours...</h1>
-      <p>Nous vérifions ton lien, un instant...</p>
-      <div id="debug-info" class="debug"></div>
+      <p>Nous validons votre lien, veuillez patienter.</p>
     </div>
   </div>
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getFirestore, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyCIUcMu5xi_UUVfUn1twv8F6jLqYOeAylE",
@@ -64,105 +67,79 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let token, tokenData;
-    const debugInfo = document.getElementById('debug-info');
-
-    function addDebug(message) {
-      console.log(message);
-      debugInfo.innerHTML += `<p>${message}</p>`;
-    }
-
     async function verifyEmail() {
       try {
-        // 1. Récupérer le token
         const urlParams = new URLSearchParams(window.location.search);
-        token = urlParams.get('token');
+        const token = urlParams.get('token');
         
-        addDebug(`🔍 Token récupéré: ${token}`);
+        console.log(`[DEV] 🔍 Token récupéré: ${token}`);
         
         if (!token) {
-          return showError('Lien invalide', 'Token manquant.');
+          return showError('Lien invalide', 'Aucun token trouvé dans l\'URL.');
         }
 
-        // 2. FORCER L'AUTHENTIFICATION ANONYME D'ABORD
-        addDebug('🔐 Connexion anonyme...');
-        
+        console.log('[DEV] 🔐 Tentative de connexion anonyme pour obtenir les permissions...');
         await signInAnonymously(auth);
-        addDebug('✅ Connexion anonyme réussie');
-
-        // 3. Attendre que l'auth soit prête puis continuer
-        setTimeout(async () => {
-          await processToken();
-        }, 1000);
-
-      } catch (error) {
-        addDebug(`❌ Erreur verifyEmail: ${error.message}`);
-        showError('Erreur', error.message);
-      }
-    }
-
-    async function processToken() {
-      try {
-        addDebug('📖 Lecture du token dans Firestore...');
+        console.log('[DEV] ✅ Connexion anonyme réussie.');
         
+        // --- La logique de vérification commence ici ---
+        console.log('[DEV] 📖 Lecture du token dans Firestore...');
         const tokenRef = doc(db, 'email_verifications', token);
         const tokenDoc = await getDoc(tokenRef);
         
-        addDebug(`📄 Document existe: ${tokenDoc.exists()}`);
-        
         if (!tokenDoc.exists()) {
+          console.error('[DEV] ❌ Le document du token n\'existe pas.');
           return showError('Lien invalide', 'Ce lien n\'existe pas ou a déjà été utilisé.');
         }
 
-        tokenData = tokenDoc.data();
-        addDebug(`📋 Données du token: ${JSON.stringify(tokenData)}`);
+        const tokenData = tokenDoc.data();
+        console.log('[DEV] 📋 Données du token récupérées:', tokenData);
         
         if (tokenData.used) {
+          console.warn('[DEV] ⚠️ Ce token a déjà été utilisé.');
           return showAlreadyVerified();
         }
 
         const expiresAt = new Date(tokenData.expiresAt);
         if (expiresAt < new Date()) {
-          return showError('Lien expiré', 'Ce lien a expiré.');
+          console.error('[DEV] ❌ Ce token a expiré.');
+          return showError('Lien expiré', 'Pour votre sécurité, ce lien de vérification a expiré. Veuillez en demander un nouveau.');
         }
 
-        // 4. MISE À JOUR AVEC PLUS DE DEBUG
-        addDebug('💾 Mise à jour du profil utilisateur...');
-        
+        console.log('[DEV] 💾 Mise à jour du profil utilisateur...');
         await updateDoc(doc(db, 'users', tokenData.userId), {
           emailVerified: true,
           emailVerifiedAt: new Date().toISOString()
         });
-        
-        addDebug('✅ Profil utilisateur mis à jour');
+        console.log('[DEV] ✅ Profil utilisateur mis à jour.');
 
-        addDebug('🔒 Marquage du token comme utilisé...');
-        
-        await updateDoc(doc(db, 'email_verifications', token), {
+        console.log('[DEV] 🔒 Marquage du token comme utilisé...');
+        await updateDoc(tokenRef, {
           used: true,
           usedAt: new Date().toISOString()
         });
-        
-        addDebug('✅ Token marqué comme utilisé');
+        console.log('[DEV] ✅ Token marqué comme utilisé.');
 
+        // Si tout s'est bien passé
         showSuccess();
 
       } catch (error) {
-        addDebug(`❌ Erreur processToken: ${error.code} - ${error.message}`);
+        console.error('[DEV] ❌ Erreur globale dans le processus de vérification:', error);
         
         if (error.code === 'permission-denied') {
-          showError('Problème de permissions', 'Erreur de configuration Firebase. Contacte le support.');
+          showError('Problème de Permissions', 'La configuration de sécurité de la base de données empêche cette opération. Veuillez contacter le support technique.');
         } else {
-          showError('Erreur technique', error.message);
+          showError('Erreur Technique', 'Une erreur inattendue est survenue. Veuillez réessayer ou contacter le support.');
         }
       }
     }
 
+    // --- Fonctions d'affichage (inchangées) ---
     function showSuccess() {
       document.getElementById('content').innerHTML = `
         <div class="icon success">✅</div>
         <h1>Email confirmé !</h1>
-        <p>Félicitations ! Ton adresse email a été vérifiée avec succès.</p>
+        <p>Félicitations ! Votre adresse email a été vérifiée avec succès.</p>
         <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
       `;
     }
@@ -171,7 +148,7 @@
       document.getElementById('content').innerHTML = `
         <div class="icon success">✓</div>
         <h1>Déjà vérifié</h1>
-        <p>Ton email a déjà été confirmé précédemment.</p>
+        <p>Votre email a déjà été confirmé précédemment. Tout est en ordre !</p>
         <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
       `;
     }
@@ -182,25 +159,15 @@
         <h1>${title}</h1>
         <p>${message}</p>
         <a href="#" class="button" onclick="openApp()">Retour à l'application</a>
-        <div class="debug" style="margin-top: 20px;">
-          <details>
-            <summary>Informations de debug</summary>
-            <div id="debug-info-copy">${debugInfo.innerHTML}</div>
-          </details>
-        </div>
       `;
     }
 
     window.openApp = function() {
-      // Essayer d'ouvrir l'app via deep link
       window.location.href = 'christennous://verified';
-      // Fallback vers le site web après 2 secondes
-      setTimeout(() => {
-        window.location.href = 'https://christennous.com';
-      }, 2000);
+      setTimeout(() => { window.location.href = 'https://christennous.com'; }, 2000);
     }
 
-    // 🚀 DÉMARRAGE
+    // 🚀 Démarrage du processus au chargement de la page
     verifyEmail();
   </script>
 </body>

@@ -27,10 +27,14 @@ import { auth, db } from '../../../services/firebase/firebaseConfig';
 import SuccessModal from '../../components/register/SuccessModal';
 import { mapStepBaptismToFirestore } from 'utils/mapStepBaptismToFirestore';
 import LottieView from 'lottie-react-native';
+import { sendCustomVerificationEmail } from 'services/email/emailService';
 import { isNameAndSurnameTaken } from 'utils/isNameAndSurnameTaken'; // ✅ Import corrigé
 import { validateStepNameFields } from 'utils/validateStepNameFields';
 import { validateStepCredentialsFields } from 'utils/validateStepCredentialsFields';
 import rolesData from 'assets/data/churchRoles.json';
+
+
+// Ajoute ce bouton à côté de l'autre
 
 export default function RegisterScreen() {
   const phoneUtil = PhoneNumberUtil.getInstance();
@@ -125,6 +129,26 @@ const [phoneDuplicateError, setPhoneDuplicateError] = useState(false);
 
   return false;
 };
+const testEmail = async () => {
+  console.log('🧪 Test email en cours...');
+  try {
+    const result = await sendCustomVerificationEmail({
+      userId: 'test-123',
+      email: 'anthonykouenilucien@gmail.com', // ⚠️ REMPLACE PAR TON EMAIL
+      prenom: 'Antoni',
+      nom: 'Koueni'
+    });
+    
+    if (result) {
+      alert('✅ Email envoyé ! Vérifie ta boîte email');
+    } else {
+      alert('❌ Erreur envoi email');
+    }
+  } catch (error) {
+    alert('💥 Erreur: ' + error);
+    console.error(error);
+  }
+};
 
   const nextDisabled = getNextButtonDisabled();
 
@@ -178,7 +202,7 @@ useEffect(() => {
   // 🎯 Commencer la vérification immédiatement
   setCheckingEmail(true);
   setEmailDuplicateError(false);  // Reset l'erreur avant la vérification
-  
+  ;
   const timeoutId = setTimeout(async () => {
     try {
       const taken = await isEmailTaken(email);
@@ -303,71 +327,125 @@ async function isPhoneTaken(phone: string): Promise<boolean> {
   }
 }
   const handleRegister = async () => {
-    if (!validateCurrentStep()) {
-      setForceValidation(true);
-      return;
+  if (!validateCurrentStep()) {
+    setForceValidation(true);
+    return;
+  }
+  
+  setLoading(true);
+  let userCred: any = null;
+
+  try {
+    setForceValidation(false);
+    
+    // Préparer les données
+    const baptismData = mapStepBaptismToFirestore({
+      baptise: form.baptise as 'oui' | 'non' | '',
+      immersion: form.immersion as 'oui' | 'non' | '',
+      desire: form.desire as 'oui' | 'non' | '',
+    });
+
+    const cleanForm = {
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      username: form.username.trim().toLowerCase(),
+      birthdate: formatDateToISO(form.birthdate),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      pays: form.pays.trim(),
+      ville: form.ville.trim(),
+      quartier: form.quartier.trim(),
+      baptise: form.baptise,
+      desire: form.desire,
+      immersion: form.immersion,
+      statut: form.statut,
+      fonction: form.fonction,
+      sousFonction: form.sousFonction,
+      moyen: form.moyen,
+      recommandePar: form.recommandePar,
+      egliseOrigine: form.egliseOrigine,
+    };
+
+    // 1️⃣ Créer le compte Firebase Auth
+    console.log('🔐 Création du compte...');
+    userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+    const uid = userCred.user.uid;
+console.log('📧 Avant sendCustomVerificationEmail');
+console.log('UserId:', uid);
+console.log('Email:', form.email);
+    // 2️⃣ Tenter d'envoyer l'email AVANT de sauvegarder
+    console.log('📧 Envoi de l\'email de vérification...');
+    const emailSent = await sendCustomVerificationEmail({
+      userId: uid,
+      email: form.email.trim(),
+      prenom: form.prenom.trim(),
+      nom: form.nom.trim(),
+    });
+console.log('📧 Résultat emailSent:', emailSent);
+    // 3️⃣ Si l'email échoue -> ROLLBACK
+    if (!emailSent) {
+      throw new Error('EMAIL_SEND_FAILED');
     }
-    setLoading(true);
 
-    try {
-      setForceValidation(false);
-      const baptismData = mapStepBaptismToFirestore({
-        baptise: form.baptise as 'oui' | 'non' | '',
-        immersion: form.immersion as 'oui' | 'non' | '',
-        desire: form.desire as 'oui' | 'non' | '',
-      });
+    // 4️⃣ Email OK -> Sauvegarder dans Firestore
+    console.log('💾 Sauvegarde des données...');
+    await setDoc(doc(db, 'users', uid), {
+      ...cleanForm,
+      ...baptismData,
+      uid,
+      emailVerified: false,
+      createdAt: new Date().toISOString(),
+    });
 
-      // Création de l'utilisateur Firebase Auth
-      const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const uid = userCred.user.uid;
-      const cleanForm = {
-  nom: form.nom.trim(),
-  prenom: form.prenom.trim(),
-  username: form.username.trim().toLowerCase(),
-  birthdate: formatDateToISO(form.birthdate), // à créer ci-dessous
-  email: form.email.trim(),
-  phone: form.phone.trim(),
-  pays: form.pays.trim(),
-  ville: form.ville.trim(),
-  quartier: form.quartier.trim(),
-  baptise: form.baptise,
-  desire: form.desire,
-  immersion: form.immersion,
-  statut: form.statut,
-  fonction: form.fonction,
-  sousFonction: form.sousFonction,
-  moyen: form.moyen,
-  recommandePar: form.recommandePar,
-  egliseOrigine: form.egliseOrigine,
+    // 5️⃣ Tout est OK -> Afficher le succès
+    console.log('✅ Inscription réussie !');
+    setShowCheck(true);
+    setTimeout(() => {
+      setShowSuccessModal(true);
+      setShowCheck(false);
+    }, 2800);
+
+  } catch (error: any) {
+    console.error('❌ Erreur inscription:', error);
+    
+    // 🔄 ROLLBACK : Supprimer le compte si créé
+    if (userCred && userCred.user) {
+      try {
+        console.log('🗑️ Suppression du compte suite à l\'erreur...');
+        await userCred.user.delete();
+      } catch (deleteError) {
+        console.error('Impossible de supprimer le compte:', deleteError);
+      }
+    }
+    
+    // 📢 Messages d'erreur personnalisés
+    let errorMessage = "Une erreur s'est produite lors de l'inscription.";
+    
+    if (error.message === 'EMAIL_SEND_FAILED') {
+      errorMessage = 
+        "Impossible d'envoyer l'email de confirmation.\n\n" +
+        "Vérifie ta connexion internet et réessaye.\n" +
+        "Si le problème persiste, contacte le support.";
+    } else if (error.code === 'auth/email-already-in-use') {
+      errorMessage = "Cet email est déjà utilisé.";
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = "Le mot de passe est trop faible.";
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = "L'adresse email est invalide.";
+    }
+    
+    alert(errorMessage);
+    
+  } finally {
+    setLoading(false);
+  }
 };
 
-
-      // Ajout dans Firestore
-      await setDoc(doc(db, 'users', uid), {
-  ...cleanForm,
-  ...baptismData,
-  uid,
-  createdAt: new Date().toISOString(),
-});
+// Fonction helper pour formater la date
 function formatDateToISO(dateStr: string): string {
   const [day, month, year] = dateStr.split('/');
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`; // ex: 06/09/2004 → 2004-09-06
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
-
-      
-      setShowCheck(true);
-      setTimeout(() => {
-        setShowSuccessModal(true);
-        setShowCheck(false);
-      }, 2800);
-      // ✅ Supprimé le double appel à setShowSuccessModal
-    } catch (error: any) {
-      console.error('handleRegister error:', error);
-      alert("Une erreur s'est produite lors de l'inscription. Veuillez réessayer.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   async function validateCurrentStep(): Promise<boolean> {
     switch (step) {
@@ -499,16 +577,31 @@ function formatDateToISO(dateStr: string): string {
         return true;
       }
       case 5: {
-        // rôle d'église
-        const { statut, fonction, sousFonction } = form;
-        if (!statut) return false;
-        if (!fonction) return false;
-        const subs = rolesData[fonction as keyof typeof rolesData] || [];
-        const manualSub = !!fonction && subs.length === 0;
-        if (!manualSub && subs.length > 0 && !sousFonction) return false;
-        if (manualSub && !sousFonction) return false;
-        return true;
-      }
+  // rôle d'église
+  const { statut, fonction, sousFonction } = form;
+  
+  // 1. Le statut est obligatoire
+  if (!statut) return false;
+  
+  // 2. Si "nouveau" → pas besoin de fonction/sous-fonction
+  if (statut === 'nouveau') {
+    return true; // ✅ Validation réussie pour les nouveaux
+  }
+  
+  // 3. Si "ancien" → fonction obligatoire
+  if (statut === 'ancien') {
+    if (!fonction) return false;
+    
+    const subs = rolesData[fonction as keyof typeof rolesData] || [];
+    const manualSub = !!fonction && subs.length === 0;
+    
+    // Sous-fonction obligatoire si elle existe dans les données
+    if (!manualSub && subs.length > 0 && !sousFonction) return false;
+    if (manualSub && !sousFonction) return false;
+  }
+  
+  return true;
+}
       case 6: {
         // découverte
         const { moyen, recommandePar, egliseOrigine } = form;
@@ -733,6 +826,15 @@ function formatDateToISO(dateStr: string): string {
         showsVerticalScrollIndicator={false}
       >
         <RegisterHeader logoSize={100} />
+        <Button 
+  mode="outlined" 
+  onPress={testEmail}
+  style={{ margin: 10 }}
+>
+  🧪 Tester Template Email
+</Button>
+
+        {/* BOUTON DE TEST TEMPORAIRE */}
         <View style={styles.formContainer}>{renderStep()}</View>
         {renderNavigation()}
         {showCheck && (
