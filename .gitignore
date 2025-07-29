@@ -1,51 +1,59 @@
-# 📦 Dépendances Node
-node_modules/
+# ==========================
+# Ignorer les secrets
+# ==========================
+.env
+.env.local
+.env.*.local
 
-# ⚙️ Expo & builds
+# ==========================
+# Ignorer les dépendances
+# ==========================
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# ==========================
+# Ignorer les builds Expo & RN
+# ==========================
 .expo/
+.expo-shared/
 dist/
 web-build/
-expo-env.d.ts
 
-# 📁 Environnements locaux
-.env            # ⛔ fichier .env principal
-.env.*          # ⛔ tous les .env.staging, .env.production, etc.
-.env*.local     # ⛔ tous les .env.local, .env.development.local, etc.
+# ==========================
+# Ignorer Android
+# ==========================
+android/.gradle/
+android/app/build/
+android/build/
 
-# 🛠️ Clés & certificats sensibles
-*.key
-*.pem
-*.jks
-*.p8
-*.p12
-*.mobileprovision
+# ==========================
+# Ignorer iOS
+# ==========================
+ios/Pods/
+ios/build/
+*.xcworkspace
+*.xcuserdata
+*.xcuserstate
 
-# 🧪 Fichiers de debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# 🍎 macOS
+# ==========================
+# Ignorer macOS et Windows
+# ==========================
 .DS_Store
+Thumbs.db
 
-# 🧮 Typescript
-*.tsbuildinfo
-
-# 🧱 Kotlin native (si jamais tu ejectes d’Expo)
-.kotlin/
-*.orig.*
-
-# 🚇 Metro
-.metro-health-check*
-
-# 🔥 Firebase / Cloud Functions (optionnel si tu as ce dossier)
-functions/lib/
+# ==========================
+# Ignorer Firebase functions
+# ==========================
 functions/node_modules/
-functions/.env
+functions/lib/
 
-# 🧪 Exemples ou apps de test
-app-example/
-
-# 🧾 Plateformes de déploiement
-.vercel/
-.netlify/
+# ==========================
+# Logs & caches
+# ==========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+.cache/
