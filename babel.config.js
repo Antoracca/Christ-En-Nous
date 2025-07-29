@@ -11,6 +11,21 @@ module.exports = function (api) {
           },
         },
       ],
+      // 🔧 Plugin .env AVANT reanimated
+      [
+        'module:react-native-dotenv',
+        {
+          envName: 'APP_ENV',
+          moduleName: '@env',
+          path: '.env',
+          blocklist: null,
+          allowlist: null,
+          safe: false,
+          allowUndefined: true,
+          verbose: false,
+        },
+      ],
+      // 🔧 IMPORTANT: reanimated TOUJOURS en dernier !
       'react-native-reanimated/plugin',
     ],
   };

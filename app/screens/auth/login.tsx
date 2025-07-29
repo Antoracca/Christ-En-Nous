@@ -1,14 +1,20 @@
-// src/screens/Login.tsx
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as React from 'react';
 import {
   View,
   Text,
   ImageBackground,
-  Image,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   StatusBar,
+  Platform,
+  Animated,
+  Easing,
+  Vibration,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Alert,
+  Pressable,
  
 } from 'react-native';
 import {
@@ -16,299 +22,463 @@ import {
   DefaultTheme,
   TextInput,
   Button,
+  HelperText,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from 'navigation/AppNavigator';
-import Svg, { Path } from 'react-native-svg';
-import { auth, db } from 'services/firebase/firebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore/lite';
-import LeftInputIcon from '../../components/LeftInputIcon';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { useBiometricAuth } from 'utils/useBiometricAuth';
+import {
+  signInWithEmailAndPassword,
+  Auth,
+ 
+} from 'firebase/auth';
+import {
+  collection,
+  query,
+  where,
+  limit,
+  getDocs,
+  Firestore,
+} from 'firebase/firestore';
+import { auth, db } from 'services/firebase/firebaseConfig'; // Assurez-vous que ce chemin est correct
 
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#002366',
-    accent: '#FFD700',
-  },
+// =================================================================
+// 1. COMPOSANT LeftInputIcon (AVEC MICRO-ANIMATIONS)
+// =================================================================
+export interface LeftInputIconProps {
+  icon: React.ComponentProps<typeof FontAwesome5>['name'];
+  size?: number;
+  primaryColor?: string;
+  accentColor?: string;
+  isFocused?: boolean;
+}
+
+const LeftInputIcon = ({
+  icon,
+  size = 36,
+  primaryColor = '#001F5B',
+  accentColor = '#003B99',
+  isFocused = false,
+}: LeftInputIconProps) => {
+  const pressAnim = React.useRef(new Animated.Value(0)).current;
+  const focusAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(focusAnim, {
+      toValue: isFocused ? 1 : 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [isFocused, focusAnim]);
+
+  const handlePressIn = () => Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, friction: 6, tension: 100 }).start();
+  const handlePressOut = () => Animated.spring(pressAnim, { toValue: 0, useNativeDriver: true, friction: 6, tension: 100 }).start();
+
+  const scale = pressAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.92] });
+  const rotate = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '10deg'] });
+  const BORDER = 2;
+  const outerSize = size + BORDER * 2;
+
+  return (
+    <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} style={iconStyles.wrapper} hitSlop={6}>
+      <LinearGradient colors={[primaryColor, accentColor]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[iconStyles.gradientBorder, { width: outerSize, height: outerSize, borderRadius: outerSize / 2 }]}>
+        <Animated.View style={[iconStyles.innerCircle, { width: size, height: size, borderRadius: size / 2, transform: [{ scale }] }]}>
+          <Animated.View style={{ transform: [{ rotate }] }}>
+            <FontAwesome5 name={icon} size={size * 0.5} color={primaryColor} />
+          </Animated.View>
+        </Animated.View>
+      </LinearGradient>
+      <LinearGradient colors={[accentColor, primaryColor]} style={[iconStyles.separator, { height: outerSize + 4 }]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} />
+    </Pressable>
+  );
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
-interface LoginProps {
-  logoSize?: number;
-}
-export default function Login({ logoSize = 140 }: LoginProps) {
-  const navigation = useNavigation<NavigationProp>();
-  const insets = useSafeAreaInsets();
+const iconStyles = StyleSheet.create({
+  wrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: 8 },
+  gradientBorder: { justifyContent: 'center', alignItems: 'center' },
+  innerCircle: { backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  separator: { width: 2, borderRadius: 1.5, marginLeft: 8 },
+});
 
+
+// =================================================================
+// 3. HOOK DE LOGIQUE MÉTIER (COMPLET)
+// =================================================================
+type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
+
+const useLogin = () => {
+   
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [identifier, setIdentifier] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [isSuccess, setIsSuccess] = React.useState(false);
+  const [failedAttempts, setFailedAttempts] = React.useState(0);
+  const [lockoutTime, setLockoutTime] = React.useState(0);
+  const [validationStatus, setValidationStatus] = React.useState<ValidationStatus>('idle');
+  const [validationMessage, setValidationMessage] = React.useState<string | null>(null);
+  const isLockedOut = lockoutTime > 0;
+
+  const { promptToSaveCredentials } = useBiometricAuth(); // 🆕 AJOUTE CETTE LIGNE
+  
+  
+
+  React.useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLockedOut) {
+      timer = setInterval(() => {
+        setLockoutTime(prev => {
+          const newTime = Math.max(0, prev - 1);
+          if (newTime === 0) {
+            setErrorMessage(null);
+            setFailedAttempts(0); 
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isLockedOut]);
+
+  React.useEffect(() => {
+    const handler = setTimeout(async () => {
+      const value = identifier.trim();
+      if (value.length < 3) {
+        setValidationStatus('idle'); setValidationMessage(null); return;
+      }
+      setValidationStatus('validating'); setValidationMessage(null);
+      if (value.includes('@')) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          setValidationStatus('invalid'); setValidationMessage("Format d'email invalide.");
+        } else {
+          const usersQ = query(collection(db as Firestore, 'users'), where('email', '==', value.toLowerCase()), limit(1));
+          const usersSnap = await getDocs(usersQ);
+          setValidationStatus(usersSnap.empty ? 'invalid' : 'valid');
+          setValidationMessage(usersSnap.empty ? "Cet email n'est pas reconnu." : 'Email valide ✓');
+        }
+      } else {
+        const usersQ = query(collection(db as Firestore, 'users'), where('username', '==', value.toLowerCase()), limit(1));
+        const usersSnap = await getDocs(usersQ);
+        setValidationStatus(usersSnap.empty ? 'invalid' : 'valid');
+        setValidationMessage(usersSnap.empty ? "Ce pseudo n'est pas reconnu." : 'Pseudo valide ✓');
+      }
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [identifier]);
+
+  React.useEffect(() => {
+    if (identifier || password) setErrorMessage(null);
+  }, [identifier, password]);
+
+  const loginWithCredentials = async (id: string, pass: string) => {
+    setLoading(true);
+    setErrorMessage(null);
+    let emailToUse: string | null = null;
+    try {
+      if (!id.includes('@')) {
+        const usersQ = query(collection(db as Firestore, 'users'), where('username', '==', id.toLowerCase()), limit(1));
+        const usersSnap = await getDocs(usersQ);
+        if (usersSnap.empty) throw new Error('auth/user-not-found');
+        emailToUse = usersSnap.docs[0].data().email as string;
+      } else {
+        emailToUse = id;
+      }
+      if (emailToUse) {
+        await signInWithEmailAndPassword(auth as Auth, emailToUse, pass);
+        setIsSuccess(true);
+      }
+    } catch (err: any) {
+      Vibration.vibrate(100);
+      setErrorMessage("Les identifiants sauvegardés ne sont plus valides. Veuillez vous reconnecter.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
+    if (isLockedOut) {
+      setErrorMessage(`Trop de tentatives. Veuillez réessayer dans ${lockoutTime} secondes.`);
+      return;
+    }
     setErrorMessage(null);
-    if (!identifier.trim() || !password) {
-      setErrorMessage("Merci de renseigner ton email (ou pseudo) et ton mot de passe.");
+    setIsSuccess(false);
+    Keyboard.dismiss();
+    const identifierTrimmed = identifier.trim();
+    if (!identifierTrimmed || !password) {
+      setErrorMessage("Merci de renseigner tous les champs.");
+      Vibration.vibrate(100);
       return;
     }
     setLoading(true);
+    let emailToUse: string | null = null;
     try {
-      let emailToUse = identifier.trim();
-      if (!emailToUse.includes('@')) {
-        const usersQ = query(
-          collection(db, 'users'),
-          where('username', '==', emailToUse),
-          limit(1)
-        );
+      if (!identifierTrimmed.includes('@')) {
+        const usersQ = query(collection(db as Firestore, 'users'), where('username', '==', identifierTrimmed.toLowerCase()), limit(1));
         const usersSnap = await getDocs(usersQ);
-        if (usersSnap.empty) throw { code: 'USERNAME_NOT_FOUND' };
+        if (usersSnap.empty) { throw new Error('auth/user-not-found'); }
         emailToUse = usersSnap.docs[0].data().email as string;
-      }
-      await signInWithEmailAndPassword(auth, emailToUse, password);
-      navigation.replace('Home');
-    } catch (err: any) {
-      console.error('handleLogin error:', err.code || err);
-      const code = err.code as string;
-      if (
-        code === 'USERNAME_NOT_FOUND' ||
-        code === 'auth/user-not-found' ||
-        code === 'auth/invalid-credential'
-      ) {
-        setErrorMessage("Identifiants incorrects. Vérifie ton email, pseudo ou mot de passe.");
-      } else if (code === 'auth/wrong-password') {
-        setErrorMessage("Mot de passe incorrect. 😔");
-      } else if (code === 'auth/invalid-email') {
-        setErrorMessage("Adr. email invalide. Vérifie ton écriture.");
       } else {
-        setErrorMessage("Oups ! Quelque chose s'est mal passé. Réessaie plus tard.");
+        emailToUse = identifierTrimmed;
+      }
+      if (emailToUse) {
+        await signInWithEmailAndPassword(auth as Auth, emailToUse, password);
+setFailedAttempts(0);
+// 🆕 AJOUTE CETTE LIGNE :
+await promptToSaveCredentials(identifierTrimmed, password);
+setIsSuccess(true);
+        
+      }
+    } catch (err: any) {
+      Vibration.vibrate(100);
+      const newAttemptCount = failedAttempts + 1;
+      setFailedAttempts(newAttemptCount);
+      if (newAttemptCount >= 3) {
+        const lockoutDuration = 15 * (newAttemptCount - 2);
+        setLockoutTime(lockoutDuration);
+        setErrorMessage(`Trop de tentatives. Veuillez réessayer dans ${lockoutDuration} secondes.`);
+      } else {
+        if (err.code === 'auth/network-request-failed') {
+          setErrorMessage("Problème de connexion.");
+        } else {
+          setErrorMessage("Identifiant ou mot de passe incorrect.");
+        }
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // Hauteur totale scrollable (écran + safe-area bottom)
-  const totalScrollHeight = SCREEN_HEIGHT + insets.bottom;
+  return {
+    identifier, setIdentifier, password, setPassword, errorMessage, handleLogin,
+    isLoading: loading, isSuccess, isLockedOut, lockoutTime, validationStatus, validationMessage,
+    loginWithCredentials,
+  };
+};
+
+// =================================================================
+// 4. THÈME ET COMPOSANTS UI AUXILIAIRES
+// =================================================================
+const theme = {
+  ...DefaultTheme,
+  roundness: 12,
+  colors: { ...DefaultTheme.colors, primary: '#0A72BB', accent: '#E5B20A', background: '#F7FAFC', surface: '#FFFFFF', text: '#1A202C', error: '#E53E3E', placeholder: '#A0AEC0', onSurface: '#1A202C', success: '#2F855A' },
+};
+
+const ICON_SIZE = 30;
+const LOGO_SIZE = 140;
+
+const FormSkeleton = () => {
+  const anim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(anim, { toValue: 0, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    ).start();
+  }, [anim]);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] });
+  return (
+    <View>
+      <Animated.View style={[styles.skeletonItem, { height: 58, opacity }]} />
+      <Animated.View style={[styles.skeletonItem, { height: 20, width: '60%', marginTop: 4, opacity }]} />
+      <Animated.View style={[styles.skeletonItem, { height: 58, marginTop: 18, opacity }]} />
+      <Animated.View style={[styles.skeletonItem, { height: 58, marginTop: 32, borderRadius: 50, opacity }]} />
+    </View>
+  );
+};
+
+// =================================================================
+// 5. ÉCRAN DE CONNEXION PRINCIPAL (COMPLET)
+// =================================================================
+export default function LoginScreen() {
+  const {
+    identifier, setIdentifier, password, setPassword, errorMessage, handleLogin, isLoading, isSuccess,
+    isLockedOut, lockoutTime, validationStatus, validationMessage, loginWithCredentials,
+  } = useLogin();
+  const { isBiometricSupported, biometricType, handleBiometricLogin, promptToSaveCredentials } = useBiometricAuth();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const [focusedInput, setFocusedInput] = React.useState<'identifier' | 'password' | null>(null);
+  const passwordInputRef = React.useRef<any>(null);
+
+  const masterAnim = React.useRef(new Animated.Value(0)).current;
+  const shakeAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(masterAnim, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [masterAnim]);
+
+  React.useEffect(() => {
+    if (errorMessage && !isLockedOut) {
+      shakeAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 12, duration: 80, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -12, duration: 80, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 12, duration: 80, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [errorMessage, isLockedOut, shakeAnim]);
+  
+  React.useEffect(() => {
+    if (isSuccess) {
+      Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => navigation.replace('Home'));
+    }
+  }, [isSuccess, masterAnim, navigation]);
+
+  const triggerBiometricLogin = async () => {
+    const credentials = await handleBiometricLogin();
+    if (credentials) {
+      await loginWithCredentials(credentials.identifier, credentials.password);
+    }
+  };
+
+  const headerOpacity = masterAnim.interpolate({ inputRange: [0, 0.5, 2], outputRange: [0, 1, 0] });
+  const headerTranslateY = masterAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0], extrapolate: 'clamp' });
+  const formOpacity = masterAnim.interpolate({ inputRange: [0.3, 1, 2], outputRange: [0, 1, 0] });
+  const formTranslateY = masterAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [40, 0, -40] });
+
+  const hasValidationMessage = validationStatus !== 'idle' && validationMessage;
+  const isValidationInvalid = validationStatus === 'invalid';
+  const isValidationValid = validationStatus === 'valid';
+
+  const biometricIconName = biometricType === 'face' ? 'id-badge' : 'fingerprint';
+  const biometricText = biometricType === 'face' ? 'Face ID' : 'Empreinte biométrique';
 
   return (
     <PaperProvider theme={theme}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <ImageBackground source={require('assets/images/imagebacklogin.png')} style={styles.backgroundImage} resizeMode="cover">
+        <LinearGradient colors={['rgba(6, 60, 115, 0.9)', 'rgba(10, 114, 187, 0.7)', 'rgba(180, 210, 235, 0.5)']} style={StyleSheet.absoluteFill} />
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAwareScrollView style={styles.flex} contentContainerStyle={styles.scrollViewContent} enableOnAndroid extraScrollHeight={Platform.OS === 'ios' ? 20 : 0} keyboardShouldPersistTaps="handled">
+            <SafeAreaView style={styles.flex} edges={['bottom']}>
+              <View style={styles.contentWrapper}>
+                <Animated.View style={[styles.headerContainer, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
+                  <Animated.Image source={require('assets/images/logoSimpleT.png')} style={[styles.logo, { transform: [{ scale: masterAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }] }]} resizeMode="contain" />
+                  <Text style={styles.titleText}>Christ En Nous</Text>
+                  <Text style={styles.subtitle}>Shalom ! Connecte-toi à ton église.</Text>
+                </Animated.View>
 
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <KeyboardAwareScrollView
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.scrollView,
-            { minHeight: totalScrollHeight, paddingBottom: insets.bottom },
-          ]}
-          enableOnAndroid
-          extraScrollHeight={insets.bottom + 20}
-          keyboardOpeningTime={0}
-          enableAutomaticScroll
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* HEADER */}
-          <ImageBackground
-            source={require('assets/images/imagebacklogin.png')}
-            style={[styles.headerBackground, { height: SCREEN_HEIGHT * 0.35 + insets.top }]}
-            resizeMode="cover"
-          >
-            <LinearGradient
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-              colors={[
-                'rgba(6, 60, 115, 0.95)',
-                'rgba(10, 114, 187, 0.95)',
-                'rgba(180, 210, 235, 1)',
-              ]}
-              locations={[0, 0.9, 0.9]}
-              style={styles.gradientOverlay}
-            />
-            <Svg height="150" width="150%" viewBox="0 0 1440 320" style={styles.wave}>
-              <Path
-                fill="rgba(229, 178, 10, 0.95)"
-                d="M0,160 C360,240 1080,80 1440,160 L1440,320 L0,320 Z"
-              />
-            </Svg>
-            <View
-              style={[
-                styles.circleBackground,
-                {
-                  width: logoSize * 0.8,
-                  height: logoSize,
-                  borderTopLeftRadius: logoSize,
-                  borderTopRightRadius: logoSize,
-                },
-              ]}
-            >
-              <Image
-                source={require('assets/images/logoSimpleT.png')}
-                style={{ width: logoSize, height: logoSize }}
-                resizeMode="contain"
-              />
-            </View>
-          </ImageBackground>
+                <Animated.View style={[styles.formContainer, { opacity: formOpacity, transform: [{ translateY: formTranslateY }, { translateX: shakeAnim }] }]}>
+                  {isLoading ? <FormSkeleton /> : (
+                    <>
+                      <View>
+                        <TextInput
+                          mode="outlined"
+                          label="Email ou nom d'utilisateur"
+                          value={identifier}
+                          onChangeText={setIdentifier}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          style={styles.input}
+                          onFocus={() => setFocusedInput('identifier')}
+                          onBlur={() => setFocusedInput(null)}
+                          onSubmitEditing={() => passwordInputRef.current?.focus()}
+                          returnKeyType="next"
+                          disabled={isLockedOut}
+                          left={<TextInput.Icon forceTextInputFocus={false} icon={() => (<LeftInputIcon icon="user" size={ICON_SIZE} primaryColor={theme.colors.primary} accentColor={theme.colors.accent} isFocused={focusedInput === 'identifier'} />)}/>}
+                        />
+                        {validationStatus === 'validating' && <ActivityIndicator style={styles.validationLoader} size="small" />}
+                      </View>
+                      <HelperText type={isValidationInvalid ? 'error' : 'info'} visible={!!hasValidationMessage} style={[styles.validationText, isValidationValid && { color: theme.colors.success }]}>
+                        {validationMessage || ' '}
+                      </HelperText>
+                      
+                      <TextInput
+                        ref={passwordInputRef}
+                        mode="outlined"
+                        label="Mot de passe"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry={!showPassword}
+                        right={<TextInput.Icon icon={showPassword ? 'eye-off' : 'eye'} size={ICON_SIZE} onPress={() => setShowPassword(!showPassword)} disabled={isLockedOut} />}
+                        style={styles.input}
+                        onFocus={() => setFocusedInput('password')}
+                        onBlur={() => setFocusedInput(null)}
+                        returnKeyType="done"
+                        onSubmitEditing={handleLogin}
+                        disabled={isLockedOut}
+                        left={<TextInput.Icon forceTextInputFocus={false} icon={() => (<LeftInputIcon icon="lock" size={ICON_SIZE} primaryColor={theme.colors.primary} accentColor={theme.colors.accent} isFocused={focusedInput === 'password'} />)}/>}
+                      />
+                      
+                      <HelperText type="error" visible={!!errorMessage} style={styles.errorText}>{errorMessage || ' '}</HelperText>
 
-          {/* TITRE & FORM */}
-          <Text style={[styles.logoText, { fontSize: logoSize / 5 }]}>Christ en Nous</Text>
-          <Text style={styles.subtitle}>
-            Shalom, bien-aimé(e) ! Connecte-toi à ton église
-          </Text>
+                      <Button mode="contained" onPress={handleLogin} disabled={isLockedOut} style={[styles.loginButton, isLockedOut && styles.lockedButton]} contentStyle={styles.loginButtonContent} labelStyle={styles.loginButtonLabel} buttonColor={isLockedOut ? '#A0AEC0' : theme.colors.accent}>
+                        {isLockedOut ? `Réessayer dans ${lockoutTime}s` : 'Se connecter'}
+                      </Button>
 
-          <View style={styles.formContainer}>
-            <TextInput
-              mode="outlined"
-              label="Email ou nom d'utilisateur"
-              value={identifier}
-              onChangeText={setIdentifier}
-              placeholder="Entrez votre email ou Pseudo"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              left={
-                <TextInput.Icon
-                  forceTextInputFocus
-                  icon={({ size, color }) => (
-                    <LeftInputIcon
-                      icon="user"
-                      size={size}
-                      primaryColor={color}
-                      accentColor={theme.colors.accent}
-                    />
+                      {isBiometricSupported && (
+                        <TouchableOpacity onPress={triggerBiometricLogin} style={styles.biometricContainer} disabled={isLockedOut}>
+                          <FontAwesome5 name={biometricIconName} size={22} color={theme.colors.primary} />
+                          <Text style={styles.biometricText}>{biometricText}</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      <View style={styles.actionsContainer}>
+                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} disabled={isLockedOut}><Text style={styles.linkText}>Mot de passe oublié ?</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => Alert.alert("Aide", "Pour tout problème de connexion, veuillez contacter le support de l'église.")} disabled={isLockedOut}><Text style={styles.linkText}>Besoin d&apos;aide ?</Text></TouchableOpacity>
+                      </View>
+                      <TouchableOpacity style={styles.registerContainer} onPress={() => navigation.navigate('Register')} disabled={isLockedOut}><Text style={[styles.linkText, styles.registerLink]}>Première fois ? S&apos;inscrire</Text></TouchableOpacity>
+                    </>
                   )}
-                />
-              }
-              style={styles.input}
-              underlineColor="transparent"
-            />
-
-            <TextInput
-              mode="outlined"
-              label="Mot de passe"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Entrez votre mot de passe"
-              secureTextEntry={!showPassword}
-              left={
-                <TextInput.Icon
-                  forceTextInputFocus
-                  icon={({ size, color }) => (
-                    <LeftInputIcon
-                      icon="lock"
-                      size={size}
-                      primaryColor={color}
-                      accentColor={theme.colors.accent}
-                    />
-                  )}
-                />
-              }
-              right={
-                <TextInput.Icon
-                  icon={showPassword ? 'eye-off' : 'eye'}
-                  onPress={() => setShowPassword(!showPassword)}
-                />
-              }
-              style={styles.input}
-              underlineColor="transparent"
-            />
-
-            {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
-
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              loading={loading}
-              disabled={loading}
-              style={styles.loginButton}
-              buttonColor="rgba(229, 178, 10, 0.95)"
-              textColor="#FFFFFF"
-            >
-              Se connecter
-            </Button>
-
-            <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Première fois ? Inscris-toi !</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAwareScrollView>
-      </SafeAreaView>
+                </Animated.View>
+              </View>
+            </SafeAreaView>
+          </KeyboardAwareScrollView>
+        </TouchableWithoutFeedback>
+      </ImageBackground>
     </PaperProvider>
   );
 }
 
+// =================================================================
+// 6. STYLES CENTRALISÉS ET DE QUALITÉ PROFESSIONNELLE
+// =================================================================
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollView: { flexGrow: 1 },
-  headerBackground: {
-    width: SCREEN_WIDTH,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  gradientOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-  },
-  wave: { position: 'absolute', bottom: 0 },
-  circleBackground: {
-    position: 'absolute',
-    bottom: -80,
-    backgroundColor: '#FFFFFF',
+  backgroundImage: { flex: 1 },
+  scrollViewContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 20 },
+  contentWrapper: { paddingHorizontal: 24 },
+  headerContainer: { alignItems: 'center', marginBottom: 24, backgroundColor: 'transparent' },
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE, marginBottom: 16 },
+  titleText: { fontSize: 34, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0, 0, 0, 0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
+  subtitle: { fontSize: 16, color: '#E0F2FE', textAlign: 'center', marginTop: 8 },
+  formContainer: { backgroundColor: 'rgba(255, 255, 255, 0.95)', paddingTop: 24, paddingBottom: 16, paddingHorizontal: 24, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
+  input: { backgroundColor: theme.colors.surface },
+  validationLoader: { position: 'absolute', right: 16, top: 18 },
+  validationText: { fontSize: 13, fontWeight: '500', minHeight: 20, marginTop: -10, marginBottom: 6, paddingHorizontal: 4 },
+  loginButton: { borderRadius: 50, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+  loginRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  biometricContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    marginTop: 20,
+    paddingVertical: 10,
   },
-  logoText: {
-    color: '#0A72BB',
-    fontWeight: '800',
-    textAlign: 'center',
-    marginTop: 50,
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#444',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  formContainer: { padding: 20 },
-  input: { backgroundColor: '#FFFFFF', marginBottom: 20 },
-  loginButton: { marginTop: 10, marginBottom: 20, paddingVertical: 5 },
-  forgotPasswordText: {
-    color: '#002366',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    fontSize: 13,
-  },
-  registerLink: {
-    color: '#0A72BB',
+  biometricText: {
+    marginLeft: 12,
+    fontSize: 15,
+    color: theme.colors.primary,
     fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 12,
-    textDecorationLine: 'underline',
-    fontSize: 13,
   },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20,
-    fontSize: 13,
-    paddingHorizontal: 10,
-    lineHeight: 18,
-  },
+  lockedButton: { backgroundColor: '#A0AEC0' },
+  loginButtonContent: { paddingVertical: 12 },
+  loginButtonLabel: { fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5, color: '#FFFFFF' },
+  errorText: { textAlign: 'center', fontSize: 14, fontWeight: '500', minHeight: 20, marginTop: -8, marginBottom: 8 },
+  actionsContainer: { marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  registerContainer: { marginTop: 8, alignItems: 'center' },
+  linkText: { color: theme.colors.primary, fontSize: 14, paddingVertical: 8, fontWeight: '500' },
+  registerLink: { fontWeight: 'bold', color: theme.colors.primary, fontSize: 15 },
+  skeletonItem: { backgroundColor: 'rgba(200, 200, 220, 0.5)', borderRadius: 8, marginBottom: 12 },
 });
