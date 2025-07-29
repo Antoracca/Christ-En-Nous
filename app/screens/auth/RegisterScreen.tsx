@@ -134,7 +134,7 @@ const testEmail = async () => {
   try {
     const result = await sendCustomVerificationEmail({
       userId: 'test-123',
-      email: 'ouamsj@gmail.com', // ⚠️ REMPLACE PAR TON EMAIL
+      email: 'r.merveille@hestim.ma', // ⚠️ REMPLACE PAR TON EMAIL
       prenom: 'Antoni',
       nom: 'Koueni'
     });

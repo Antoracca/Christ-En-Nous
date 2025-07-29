@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as React from 'react';
 import {
   View,
@@ -15,7 +14,7 @@ import {
   TouchableWithoutFeedback,
   Alert,
   Pressable,
- 
+  GestureResponderEvent,
 } from 'react-native';
 import {
   Provider as PaperProvider,
@@ -30,12 +29,13 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { useBiometricAuth } from 'utils/useBiometricAuth';
+import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import {
   signInWithEmailAndPassword,
   Auth,
- 
 } from 'firebase/auth';
 import {
   collection,
@@ -48,9 +48,9 @@ import {
 import { auth, db } from 'services/firebase/firebaseConfig'; // Assurez-vous que ce chemin est correct
 
 // =================================================================
-// 1. COMPOSANT LeftInputIcon (AVEC MICRO-ANIMATIONS)
+// 1. COMPOSANT LeftInputIcon
 // =================================================================
-export interface LeftInputIconProps {
+interface LeftInputIconProps {
   icon: React.ComponentProps<typeof FontAwesome5>['name'];
   size?: number;
   primaryColor?: string;
@@ -58,7 +58,7 @@ export interface LeftInputIconProps {
   isFocused?: boolean;
 }
 
-const LeftInputIcon = ({
+const LeftInputIcon = React.memo(({
   icon,
   size = 36,
   primaryColor = '#001F5B',
@@ -69,16 +69,11 @@ const LeftInputIcon = ({
   const focusAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
-    Animated.timing(focusAnim, {
-      toValue: isFocused ? 1 : 0,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(focusAnim, { toValue: isFocused ? 1 : 0, duration: 300, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
   }, [isFocused, focusAnim]);
 
-  const handlePressIn = () => Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, friction: 6, tension: 100 }).start();
-  const handlePressOut = () => Animated.spring(pressAnim, { toValue: 0, useNativeDriver: true, friction: 6, tension: 100 }).start();
+  const handlePressIn = React.useCallback(() => Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, friction: 6, tension: 100 }).start(), [pressAnim]);
+  const handlePressOut = React.useCallback(() => Animated.spring(pressAnim, { toValue: 0, useNativeDriver: true, friction: 6, tension: 100 }).start(), [pressAnim]);
 
   const scale = pressAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.92] });
   const rotate = focusAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '10deg'] });
@@ -97,7 +92,8 @@ const LeftInputIcon = ({
       <LinearGradient colors={[accentColor, primaryColor]} style={[iconStyles.separator, { height: outerSize + 4 }]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} />
     </Pressable>
   );
-};
+});
+LeftInputIcon.displayName = "LeftInputIcon";
 
 const iconStyles = StyleSheet.create({
   wrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingLeft: 8 },
@@ -106,29 +102,142 @@ const iconStyles = StyleSheet.create({
   separator: { width: 2, borderRadius: 1.5, marginLeft: 8 },
 });
 
+// =================================================================
+// 2. HOOK POUR LA LOGIQUE BIOMÉTRIQUE
+// =================================================================
+const CREDENTIALS_KEY = 'userCredentials';
+const BIOMETRIC_ENABLED_KEY = 'biometricEnabled';
+type BiometricType = 'face' | 'fingerprint' | null;
+
+const useBiometricAuth = () => {
+  const [isBiometricSupported, setIsBiometricSupported] = React.useState(false);
+  const [biometricType, setBiometricType] = React.useState<BiometricType>(null);
+  const [isBiometricEnabled, setIsBiometricEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkSupport = async () => {
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        const supported = hasHardware && isEnrolled;
+        setIsBiometricSupported(supported);
+
+        if (supported) {
+          const enabled = await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY);
+          setIsBiometricEnabled(enabled === 'true');
+
+          const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+          if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+            setBiometricType('face');
+          } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+            setBiometricType('fingerprint');
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification du support biométrique:", error);
+      }
+    };
+    checkSupport();
+  }, []);
+
+  const getBiometricDisplayInfo = React.useCallback(() => {
+    if (Platform.OS === 'ios' && biometricType === 'face') {
+      return {
+        iconName: 'face-recognition' as const,
+        displayText: 'Face ID',
+        modalTitle: 'Activer Face ID',
+        modalMessage: 'Voulez-vous utiliser Face ID pour vous connecter plus rapidement la prochaine fois ?',
+        authPrompt: 'Authentification via Face ID'
+      };
+    }
+    return {
+      iconName: 'fingerprint' as const,
+      displayText: 'Authentification biométrique',
+      modalTitle: 'Activer la connexion biométrique',
+      modalMessage: 'Voulez-vous utiliser votre empreinte pour vous connecter plus rapidement la prochaine fois ?',
+      authPrompt: 'Connectez-vous avec votre empreinte'
+    };
+  }, [biometricType]);
+
+  const promptToSaveCredentials = React.useCallback(async (identifier: string, password: string): Promise<void> => {
+    if (!isBiometricSupported) return;
+
+    const { modalTitle, modalMessage } = getBiometricDisplayInfo();
+    return new Promise((resolve) => {
+      Alert.alert(modalTitle, modalMessage, [
+        { text: "Plus tard", style: "cancel", onPress: () => resolve() },
+        {
+          text: "Activer",
+          onPress: async () => {
+            try {
+              await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify({ identifier, password }));
+              await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, 'true');
+              setIsBiometricEnabled(true);
+            } catch (error) {
+              Alert.alert("Erreur", "Impossible d'activer la connexion biométrique.");
+            } finally {
+              resolve();
+            }
+          }
+        },
+      ]);
+    });
+  }, [isBiometricSupported, getBiometricDisplayInfo]);
+
+  const handleBiometricPress = React.useCallback(async (): Promise<{ identifier: string; password: string } | null> => {
+    if (!isBiometricEnabled) {
+      const { displayText } = getBiometricDisplayInfo();
+      Alert.alert(
+        "Fonctionnalité non activée",
+        `Pour utiliser ${displayText}, veuillez d'abord vous connecter avec votre mot de passe et l'activer.`,
+        [{ text: "Compris" }]
+      );
+      return null;
+    }
+
+    try {
+      const credsString = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+      if (!credsString) return null;
+
+      const { authPrompt } = getBiometricDisplayInfo();
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: authPrompt,
+        cancelLabel: 'Annuler',
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        return JSON.parse(credsString);
+      }
+      return null;
+    } catch (error) {
+      Alert.alert("Erreur", "L'authentification biométrique a échoué.");
+      return null;
+    }
+  }, [isBiometricEnabled, getBiometricDisplayInfo]);
+
+  return { isBiometricSupported, isBiometricEnabled, handleBiometricPress, promptToSaveCredentials, getBiometricDisplayInfo };
+};
 
 // =================================================================
-// 3. HOOK DE LOGIQUE MÉTIER (COMPLET)
+// 3. HOOK DE LOGIQUE MÉTIER
 // =================================================================
 type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
 
 const useLogin = () => {
-   
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [identifier, setIdentifier] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [isBiometricLoading, setIsBiometricLoading] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [failedAttempts, setFailedAttempts] = React.useState(0);
   const [lockoutTime, setLockoutTime] = React.useState(0);
   const [validationStatus, setValidationStatus] = React.useState<ValidationStatus>('idle');
   const [validationMessage, setValidationMessage] = React.useState<string | null>(null);
   const isLockedOut = lockoutTime > 0;
-
-  const { promptToSaveCredentials } = useBiometricAuth(); // 🆕 AJOUTE CETTE LIGNE
-  
-  
+  const { promptToSaveCredentials } = useBiometricAuth();
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -138,7 +247,7 @@ const useLogin = () => {
           const newTime = Math.max(0, prev - 1);
           if (newTime === 0) {
             setErrorMessage(null);
-            setFailedAttempts(0); 
+            setFailedAttempts(0);
           }
           return newTime;
         });
@@ -178,8 +287,8 @@ const useLogin = () => {
     if (identifier || password) setErrorMessage(null);
   }, [identifier, password]);
 
-  const loginWithCredentials = async (id: string, pass: string) => {
-    setLoading(true);
+  const loginWithCredentials = async (id: string, pass: string, p0: boolean) => {
+    setIsBiometricLoading(true);
     setErrorMessage(null);
     let emailToUse: string | null = null;
     try {
@@ -199,7 +308,7 @@ const useLogin = () => {
       Vibration.vibrate(100);
       setErrorMessage("Les identifiants sauvegardés ne sont plus valides. Veuillez vous reconnecter.");
     } finally {
-      setLoading(false);
+      setIsBiometricLoading(false);
     }
   };
 
@@ -230,11 +339,9 @@ const useLogin = () => {
       }
       if (emailToUse) {
         await signInWithEmailAndPassword(auth as Auth, emailToUse, password);
-setFailedAttempts(0);
-// 🆕 AJOUTE CETTE LIGNE :
-await promptToSaveCredentials(identifierTrimmed, password);
-setIsSuccess(true);
-        
+        setFailedAttempts(0);
+        await promptToSaveCredentials(identifierTrimmed, password);
+        setIsSuccess(true);
       }
     } catch (err: any) {
       Vibration.vibrate(100);
@@ -247,8 +354,10 @@ setIsSuccess(true);
       } else {
         if (err.code === 'auth/network-request-failed') {
           setErrorMessage("Problème de connexion.");
+        } else if (validationStatus === 'valid' && (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential')) {
+          setErrorMessage("Mot de passe incorrect.");
         } else {
-          setErrorMessage("Identifiant ou mot de passe incorrect.");
+          setErrorMessage("Identifiant et mot de passe incorrects.");
         }
       }
     } finally {
@@ -259,52 +368,30 @@ setIsSuccess(true);
   return {
     identifier, setIdentifier, password, setPassword, errorMessage, handleLogin,
     isLoading: loading, isSuccess, isLockedOut, lockoutTime, validationStatus, validationMessage,
-    loginWithCredentials,
+    loginWithCredentials, isBiometricLoading,
   };
 };
 
 // =================================================================
-// 4. THÈME ET COMPOSANTS UI AUXILIAIRES
+// THÈME ET COMPOSANTS UI AUXILIAIRES
 // =================================================================
 const theme = {
   ...DefaultTheme,
   roundness: 12,
   colors: { ...DefaultTheme.colors, primary: '#0A72BB', accent: '#E5B20A', background: '#F7FAFC', surface: '#FFFFFF', text: '#1A202C', error: '#E53E3E', placeholder: '#A0AEC0', onSurface: '#1A202C', success: '#2F855A' },
 };
-
 const ICON_SIZE = 30;
 const LOGO_SIZE = 140;
 
-const FormSkeleton = () => {
-  const anim = React.useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        Animated.timing(anim, { toValue: 0, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-      ])
-    ).start();
-  }, [anim]);
-  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] });
-  return (
-    <View>
-      <Animated.View style={[styles.skeletonItem, { height: 58, opacity }]} />
-      <Animated.View style={[styles.skeletonItem, { height: 20, width: '60%', marginTop: 4, opacity }]} />
-      <Animated.View style={[styles.skeletonItem, { height: 58, marginTop: 18, opacity }]} />
-      <Animated.View style={[styles.skeletonItem, { height: 58, marginTop: 32, borderRadius: 50, opacity }]} />
-    </View>
-  );
-};
-
 // =================================================================
-// 5. ÉCRAN DE CONNEXION PRINCIPAL (COMPLET)
+// ÉCRAN DE CONNEXION PRINCIPAL
 // =================================================================
 export default function LoginScreen() {
   const {
     identifier, setIdentifier, password, setPassword, errorMessage, handleLogin, isLoading, isSuccess,
-    isLockedOut, lockoutTime, validationStatus, validationMessage, loginWithCredentials,
+    isLockedOut, lockoutTime, validationStatus, validationMessage, loginWithCredentials, isBiometricLoading,
   } = useLogin();
-  const { isBiometricSupported, biometricType, handleBiometricLogin, promptToSaveCredentials } = useBiometricAuth();
+  const { isBiometricSupported, handleBiometricPress, getBiometricDisplayInfo } = useBiometricAuth();
   const [showPassword, setShowPassword] = React.useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [focusedInput, setFocusedInput] = React.useState<'identifier' | 'password' | null>(null);
@@ -312,6 +399,7 @@ export default function LoginScreen() {
 
   const masterAnim = React.useRef(new Animated.Value(0)).current;
   const shakeAnim = React.useRef(new Animated.Value(0)).current;
+  const biometricSuccessAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     Animated.timing(masterAnim, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
@@ -336,9 +424,17 @@ export default function LoginScreen() {
   }, [isSuccess, masterAnim, navigation]);
 
   const triggerBiometricLogin = async () => {
-    const credentials = await handleBiometricLogin();
+    const credentials = await handleBiometricPress();
     if (credentials) {
-      await loginWithCredentials(credentials.identifier, credentials.password);
+      setIdentifier(credentials.identifier);
+      setPassword(credentials.password);
+      Animated.sequence([
+        Animated.timing(biometricSuccessAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.delay(800),
+      ]).start(() => {
+        loginWithCredentials(credentials.identifier, credentials.password, true);
+        biometricSuccessAnim.setValue(0);
+      });
     }
   };
 
@@ -346,13 +442,15 @@ export default function LoginScreen() {
   const headerTranslateY = masterAnim.interpolate({ inputRange: [0, 1], outputRange: [-40, 0], extrapolate: 'clamp' });
   const formOpacity = masterAnim.interpolate({ inputRange: [0.3, 1, 2], outputRange: [0, 1, 0] });
   const formTranslateY = masterAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [40, 0, -40] });
+  const biometricSuccessBadgeStyle = {
+    opacity: biometricSuccessAnim,
+    transform: [{ scale: biometricSuccessAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+  };
 
   const hasValidationMessage = validationStatus !== 'idle' && validationMessage;
   const isValidationInvalid = validationStatus === 'invalid';
   const isValidationValid = validationStatus === 'valid';
-
-  const biometricIconName = biometricType === 'face' ? 'id-badge' : 'fingerprint';
-  const biometricText = biometricType === 'face' ? 'Face ID' : 'Empreinte biométrique';
+  const biometricInfo = getBiometricDisplayInfo();
 
   return (
     <PaperProvider theme={theme}>
@@ -370,22 +468,14 @@ export default function LoginScreen() {
                 </Animated.View>
 
                 <Animated.View style={[styles.formContainer, { opacity: formOpacity, transform: [{ translateY: formTranslateY }, { translateX: shakeAnim }] }]}>
-                  {isLoading ? <FormSkeleton /> : (
+                  {isLoading ? <ActivityIndicator size="large" color={theme.colors.primary} /> : (
                     <>
                       <View>
                         <TextInput
-                          mode="outlined"
-                          label="Email ou nom d'utilisateur"
-                          value={identifier}
-                          onChangeText={setIdentifier}
-                          keyboardType="email-address"
-                          autoCapitalize="none"
-                          style={styles.input}
-                          onFocus={() => setFocusedInput('identifier')}
-                          onBlur={() => setFocusedInput(null)}
-                          onSubmitEditing={() => passwordInputRef.current?.focus()}
-                          returnKeyType="next"
-                          disabled={isLockedOut}
+                          mode="outlined" label="Email ou nom d'utilisateur" value={identifier} onChangeText={setIdentifier}
+                          keyboardType="email-address" autoCapitalize="none" style={styles.input}
+                          onFocus={() => setFocusedInput('identifier')} onBlur={() => setFocusedInput(null)}
+                          onSubmitEditing={() => passwordInputRef.current?.focus()} returnKeyType="next" disabled={isLockedOut}
                           left={<TextInput.Icon forceTextInputFocus={false} icon={() => (<LeftInputIcon icon="user" size={ICON_SIZE} primaryColor={theme.colors.primary} accentColor={theme.colors.accent} isFocused={focusedInput === 'identifier'} />)}/>}
                         />
                         {validationStatus === 'validating' && <ActivityIndicator style={styles.validationLoader} size="small" />}
@@ -395,19 +485,10 @@ export default function LoginScreen() {
                       </HelperText>
                       
                       <TextInput
-                        ref={passwordInputRef}
-                        mode="outlined"
-                        label="Mot de passe"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                        right={<TextInput.Icon icon={showPassword ? 'eye-off' : 'eye'} size={ICON_SIZE} onPress={() => setShowPassword(!showPassword)} disabled={isLockedOut} />}
-                        style={styles.input}
-                        onFocus={() => setFocusedInput('password')}
-                        onBlur={() => setFocusedInput(null)}
-                        returnKeyType="done"
-                        onSubmitEditing={handleLogin}
-                        disabled={isLockedOut}
+                        ref={passwordInputRef} mode="outlined" label="Mot de passe" value={password} onChangeText={setPassword}
+                        secureTextEntry={!showPassword} right={<TextInput.Icon icon={showPassword ? 'eye-off' : 'eye'} size={ICON_SIZE} onPress={() => setShowPassword(!showPassword)} disabled={isLockedOut} />}
+                        style={styles.input} onFocus={() => setFocusedInput('password')} onBlur={() => setFocusedInput(null)}
+                        returnKeyType="done" onSubmitEditing={handleLogin} disabled={isLockedOut}
                         left={<TextInput.Icon forceTextInputFocus={false} icon={() => (<LeftInputIcon icon="lock" size={ICON_SIZE} primaryColor={theme.colors.primary} accentColor={theme.colors.accent} isFocused={focusedInput === 'password'} />)}/>}
                       />
                       
@@ -419,16 +500,16 @@ export default function LoginScreen() {
 
                       {isBiometricSupported && (
                         <TouchableOpacity onPress={triggerBiometricLogin} style={styles.biometricContainer} disabled={isLockedOut}>
-                          <FontAwesome5 name={biometricIconName} size={22} color={theme.colors.primary} />
-                          <Text style={styles.biometricText}>{biometricText}</Text>
+                          <MaterialCommunityIcons name={biometricInfo.iconName as any} size={24} color={theme.colors.primary} />
+                          <Text style={styles.biometricText}>{biometricInfo.displayText}</Text>
                         </TouchableOpacity>
                       )}
 
                       <View style={styles.actionsContainer}>
                         <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} disabled={isLockedOut}><Text style={styles.linkText}>Mot de passe oublié ?</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={() => Alert.alert("Aide", "Pour tout problème de connexion, veuillez contacter le support de l'église.")} disabled={isLockedOut}><Text style={styles.linkText}>Besoin d&apos;aide ?</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => Alert.alert("Aide", "Pour tout problème de connexion, veuillez contacter le support de l'église.")} disabled={isLockedOut}><Text style={styles.linkText}>Besoin d'aide ?</Text></TouchableOpacity>
                       </View>
-                      <TouchableOpacity style={styles.registerContainer} onPress={() => navigation.navigate('Register')} disabled={isLockedOut}><Text style={[styles.linkText, styles.registerLink]}>Première fois ? S&apos;inscrire</Text></TouchableOpacity>
+                      <TouchableOpacity style={styles.registerContainer} onPress={() => navigation.navigate('Register')} disabled={isLockedOut}><Text style={[styles.linkText, styles.registerLink]}>Première fois ? S'inscrire</Text></TouchableOpacity>
                     </>
                   )}
                 </Animated.View>
@@ -436,13 +517,24 @@ export default function LoginScreen() {
             </SafeAreaView>
           </KeyboardAwareScrollView>
         </TouchableWithoutFeedback>
+        {isBiometricLoading && (
+          <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill}>
+            <View style={styles.biometricLoadingOverlay}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={styles.biometricLoadingText}>Authentification en cours...</Text>
+            </View>
+          </BlurView>
+        )}
+        <Animated.View style={[styles.successBadge, biometricSuccessBadgeStyle]} pointerEvents="none">
+          <FontAwesome5 name="check" size={40} color="#FFFFFF" />
+        </Animated.View>
       </ImageBackground>
     </PaperProvider>
   );
 }
 
 // =================================================================
-// 6. STYLES CENTRALISÉS ET DE QUALITÉ PROFESSIONNELLE
+// STYLES
 // =================================================================
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -450,28 +542,16 @@ const styles = StyleSheet.create({
   scrollViewContent: { flexGrow: 1, justifyContent: 'center', paddingBottom: 20 },
   contentWrapper: { paddingHorizontal: 24 },
   headerContainer: { alignItems: 'center', marginBottom: 24, backgroundColor: 'transparent' },
-  logo: { width: LOGO_SIZE, height: LOGO_SIZE, marginBottom: 16 },
+  logo: { width: LOGO_SIZE, height: LOGO_SIZE, marginBottom: -15, marginTop: 60, },
   titleText: { fontSize: 34, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', textShadowColor: 'rgba(0, 0, 0, 0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
   subtitle: { fontSize: 16, color: '#E0F2FE', textAlign: 'center', marginTop: 8 },
   formContainer: { backgroundColor: 'rgba(255, 255, 255, 0.95)', paddingTop: 24, paddingBottom: 16, paddingHorizontal: 24, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
   input: { backgroundColor: theme.colors.surface },
   validationLoader: { position: 'absolute', right: 16, top: 18 },
   validationText: { fontSize: 13, fontWeight: '500', minHeight: 20, marginTop: -10, marginBottom: 6, paddingHorizontal: 4 },
-  loginButton: { borderRadius: 50, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
-  loginRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  biometricContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    paddingVertical: 10,
-  },
-  biometricText: {
-    marginLeft: 12,
-    fontSize: 15,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
+  loginButton: { borderRadius: 50, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, marginTop: 8 },
+  biometricContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, paddingVertical: 12, backgroundColor: 'rgba(10, 114, 187, 0.1)', borderRadius: 50, borderColor: theme.colors.primary, borderWidth: 1 },
+  biometricText: { marginLeft: 12, fontSize: 15, color: theme.colors.primary, fontWeight: '600' },
   lockedButton: { backgroundColor: '#A0AEC0' },
   loginButtonContent: { paddingVertical: 12 },
   loginButtonLabel: { fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5, color: '#FFFFFF' },
@@ -481,4 +561,7 @@ const styles = StyleSheet.create({
   linkText: { color: theme.colors.primary, fontSize: 14, paddingVertical: 8, fontWeight: '500' },
   registerLink: { fontWeight: 'bold', color: theme.colors.primary, fontSize: 15 },
   skeletonItem: { backgroundColor: 'rgba(200, 200, 220, 0.5)', borderRadius: 8, marginBottom: 12 },
+  successBadge: { position: 'absolute', alignSelf: 'center', top: '45%', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(47, 133, 90, 0.9)', justifyContent: 'center', alignItems: 'center' },
+  biometricLoadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  biometricLoadingText: { marginTop: 16, fontSize: 16, color: theme.colors.primary, fontWeight: '600' },
 });

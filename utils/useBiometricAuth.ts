@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
@@ -12,6 +12,7 @@ type BiometricType = 'face' | 'fingerprint' | null;
 export const useBiometricAuth = () => {
   const [isBiometricSupported, setIsBiometricSupported] = React.useState(false);
   const [biometricType, setBiometricType] = React.useState<BiometricType>(null);
+  const [hasStoredCredentials, setHasStoredCredentials] = React.useState(false);
 
   // Vérifie si l'appareil est compatible au premier chargement
   React.useEffect(() => {
@@ -19,6 +20,10 @@ export const useBiometricAuth = () => {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
       setIsBiometricSupported(hasHardware && isEnrolled);
+
+      // Vérifier s'il y a des credentials stockés
+      const credsString = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+      setHasStoredCredentials(!!credsString);
 
       // 🆕 NOUVEAU : Détection du type de biométrie
       if (hasHardware) {
@@ -31,59 +36,96 @@ export const useBiometricAuth = () => {
       }
     };
     
-    checkSupport(); // 🔧 CORRECTION : Appel de la fonction !
+    checkSupport();
   }, []);
 
+  // Fonction pour obtenir l'icône et le texte adaptés à la plateforme
+  const getBiometricDisplayInfo = () => {
+    if (Platform.OS === 'ios' && biometricType === 'face') {
+      return {
+        iconName: 'face-id',
+        displayText: 'Face ID',
+        modalTitle: 'Connexion Face ID',
+        modalMessage: 'Voulez-vous vous connecter avec Face ID pour la prochaine fois ?',
+        authPrompt: 'Authentification via Face ID'
+      };
+    } else {
+      return {
+        iconName: 'fingerprint',
+        displayText: 'Authentification biométrique',
+        modalTitle: 'Connexion biométrique',
+        modalMessage: 'Voulez-vous vous connecter avec empreinte biométrique pour la prochaine fois ?',
+        authPrompt: 'Connectez-vous avec votre empreinte'
+      };
+    }
+  };
+
   /**
-   * Propose à l'utilisateur d'activer la connexion biométrique et sauvegarde les identifiants si accepté.
-   * @param identifier - L'email ou le pseudo de l'utilisateur.
-   * @param password - Le mot de passe de l'utilisateur.
-   * @returns Une promesse qui se résout quand l'utilisateur a fait son choix.
+   * Propose à l'utilisateur d'activer la connexion biométrique avec modal élégant
    */
   const promptToSaveCredentials = (identifier: string, password: string): Promise<void> => {
-    const promptMessage = biometricType === 'face' 
-      ? "Voulez-vous activer la connexion par Face ID pour la prochaine fois ?"
-      : "Voulez-vous activer la connexion par empreinte pour la prochaine fois ?";
+    const displayInfo = getBiometricDisplayInfo();
 
     return new Promise((resolve) => {
       Alert.alert(
-        "Connexion Rapide",
-        promptMessage, // 🔧 CORRECTION : Message adaptatif !
+        displayInfo.modalTitle,
+        displayInfo.modalMessage,
         [
-          { text: "Non merci", style: "cancel", onPress: () => resolve() },
+          { 
+            text: "Non merci", 
+            style: "cancel", 
+            onPress: () => resolve() 
+          },
           {
             text: "Activer",
+            style: "default",
             onPress: async () => {
               await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify({ identifier, password }));
+              setHasStoredCredentials(true);
               resolve();
             }
           },
-        ]
+        ],
+        { cancelable: false }
       );
     });
   };
 
   /**
-   * Tente de connecter l'utilisateur via la biométrie.
-   * @returns Les identifiants (`{ identifier, password }`) en cas de succès, ou `null` en cas d'échec ou d'annulation.
+   * Gère le clic sur le bouton biométrique
    */
-  const handleBiometricLogin = async (): Promise<{ identifier: string; password: string } | null> => {
+  const handleBiometricPress = async (): Promise<{ identifier: string; password: string } | null> => {
+    // Vérifier s'il y a des credentials stockés
+    const credsString = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+    
+    if (!credsString) {
+      const displayInfo = getBiometricDisplayInfo();
+      Alert.alert(
+        "Première connexion requise",
+        `Pour utiliser ${displayInfo.displayText}, veuillez d'abord vous connecter une fois avec votre mot de passe.`,
+        [{ text: "Compris", style: "default" }]
+      );
+      return null;
+    }
+
+    return await performBiometricAuth();
+  };
+
+  /**
+   * Effectue l'authentification biométrique
+   */
+  const performBiometricAuth = async (): Promise<{ identifier: string; password: string } | null> => {
     try {
       const credsString = await SecureStore.getItemAsync(CREDENTIALS_KEY);
-      if (!credsString) {
-        Alert.alert("Action requise", "Veuillez d'abord vous connecter une fois avec votre mot de passe pour activer cette fonctionnalité.");
-        return null;
-      }
+      if (!credsString) return null;
 
-      const promptMessage = biometricType === 'face' 
-        ? 'Authentification via Face ID' 
-        : 'Connectez-vous avec votre empreinte';
+      const displayInfo = getBiometricDisplayInfo();
 
-      // 🔧 CORRECTION : Options d'authentification améliorées
+      // 🔧 CORRECTION CRITIQUE : Force Face ID uniquement sur iOS
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage, // 🔧 Message adaptatif selon le type de biométrie
-        cancelLabel: 'Utiliser le mot de passe',
-        disableDeviceFallback: false, // Permet le repli vers le code d'accès
+        promptMessage: displayInfo.authPrompt,
+        cancelLabel: 'Annuler',
+        disableDeviceFallback: true, // Force biométrie uniquement
       });
 
       if (result.success) {
@@ -99,8 +141,11 @@ export const useBiometricAuth = () => {
 
   return {
     isBiometricSupported,
-    biometricType, // 🔧 CORRECTION : Retourne le type de biométrie !
-    handleBiometricLogin,
+    biometricType,
+    hasStoredCredentials,
+    handleBiometricPress,
+    performBiometricAuth,
     promptToSaveCredentials,
+    getBiometricDisplayInfo,
   };
 };
