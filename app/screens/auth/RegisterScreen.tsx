@@ -401,7 +401,14 @@ export default function RegisterScreen() {
           </KeyboardAwareScrollView>
         </SafeAreaView>
         
-        <SuccessModal onContinue={() => navigation.replace('Home')} visible={showSuccessModal} userName={form.prenom} />
+       <SuccessModal 
+    visible={showSuccessModal} 
+    userName={form.prenom}
+    onContinue={() => {
+        setShowSuccessModal(false); // On cache d'abord le modal
+        navigation.replace('Main');  // PUIS on navigue
+    }}
+/>
 
         <Modal
           visible={loading}
