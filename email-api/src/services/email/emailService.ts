@@ -11,6 +11,13 @@ import {
   VERIFICATION_EMAIL_TEXT_TEMPLATE 
 } from './templates/verificationTemplate';
 
+// 🎯 NOUVEAU : Import du template de bienvenue
+import { 
+  WELCOME_EMAIL_HTML_TEMPLATE, 
+  WELCOME_EMAIL_TEXT_TEMPLATE,
+  replaceWelcomeTemplateVariables
+} from './templates/welcomeTemplate';
+
 // Configuration anti-spam
 const IMPERSONATED_SENDER_EMAIL = 'teamsupport@christennous.com';
 const SENDER_NAME = 'Christ en Nous';
@@ -312,6 +319,103 @@ export class EmailService {
         to: userData.email,
         error: error.message,
         timestamp: new Date().toISOString(),
+      });
+      
+      return false;
+    }
+  }
+
+  /**
+   * 🎯 NOUVELLE MÉTHODE : Envoie un email de bienvenue après vérification du compte
+   */
+  async sendWelcomeEmail(userData: {
+    userId: string;
+    email: string;
+    prenom: string;
+    nom: string;
+  }): Promise<boolean> {
+    console.log(`🎉 Sending welcome email to ${userData.email}`);
+    
+    try {
+      // Validation de l'email
+      if (!isValidEmail(userData.email)) {
+        console.error('❌ Invalid email address:', userData.email);
+        return false;
+      }
+      
+      // Application du rate limit
+      await this.applyRateLimit();
+      
+      // Génération des données
+      const messageId = generateMessageId();
+      const unsubscribeToken = generateUnsubscribeToken(userData.email);
+      const unsubscribeLink = `${UNSUBSCRIBE_URL}?token=${unsubscribeToken}&email=${encodeURIComponent(userData.email)}`;
+      
+      // Variables pour les templates de bienvenue
+      const templateData = {
+        prenom: userData.prenom,
+        email: userData.email,
+        unsubscribeLink: unsubscribeLink,
+        messageId: messageId,
+        timestamp: new Date().toISOString(),
+      };
+      
+      // Génération du contenu de bienvenue
+      const htmlContent = replaceWelcomeTemplateVariables(WELCOME_EMAIL_HTML_TEMPLATE, templateData);
+      const textContent = replaceWelcomeTemplateVariables(WELCOME_EMAIL_TEXT_TEMPLATE, templateData);
+      
+      // Construction de l'email de bienvenue
+      const rawEmail = buildRawEmail(
+        userData.email,
+        `${userData.prenom} ${userData.nom}`,
+        'Bienvenue dans la famille Christ en Nous !',
+        textContent,
+        htmlContent,
+        messageId,
+        unsubscribeToken
+      );
+      
+      // Encodage pour l'API Gmail
+      const encodedMessage = Buffer.from(rawEmail)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      
+      // Envoi via Gmail API
+      const response = await this.gmail.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: encodedMessage,
+        },
+      });
+      
+      console.log('✅ Welcome email sent successfully!', {
+        messageId: messageId,
+        gmailId: response.data.id,
+        recipient: userData.email
+      });
+      
+      // Log pour monitoring
+      this.logEmailSent({
+        to: userData.email,
+        messageId: messageId,
+        timestamp: new Date().toISOString(),
+        status: 'success',
+        type: 'welcome'
+      });
+      
+      return true;
+      
+    } catch (error: any) {
+      console.error('❌ Error sending welcome email:', error);
+      
+      // Log d'erreur pour debugging
+      this.logEmailError({
+        to: userData.email,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+        type: 'welcome'
       });
       
       return false;

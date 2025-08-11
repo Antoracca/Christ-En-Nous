@@ -6,11 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Platform,
   Animated,
   Easing,
   Vibration,
   Keyboard,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   TouchableWithoutFeedback,
   Pressable,
   GestureResponderEvent,
@@ -23,6 +25,7 @@ import {
   TextInput,
   Button,
   HelperText,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ActivityIndicator,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';

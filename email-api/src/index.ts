@@ -25,6 +25,14 @@ interface SendEmailRequest {
   nom: string;
 }
 
+// 🎯 NOUVEAU : Interface pour l'email de bienvenue
+interface SendWelcomeEmailRequest {
+  userId: string;
+  email: string;
+  prenom: string;
+  nom: string;
+}
+
 // --- Route de santé pour Cloud Run ---
 app.get('/health', (req: any, res: any) => {
   res.status(200).json({ 
@@ -40,12 +48,13 @@ app.get('/', (req: any, res: any) => {
     message: 'Christ en Nous - Email API v1.0',
     endpoints: {
       health: '/health',
-      sendEmail: 'POST /api/send-email'
+      sendEmail: 'POST /api/send-email',
+      sendWelcomeEmail: 'POST /api/send-welcome-email'
     }
   });
 });
 
-// --- Route d'envoi d'e-mail ---
+// --- Route d'envoi d'e-mail de vérification ---
 app.post('/api/send-email', async (req: any, res: any) => {
   try {
     const { userId, email, prenom, nom } = req.body as SendEmailRequest;
@@ -83,6 +92,49 @@ app.post('/api/send-email', async (req: any, res: any) => {
     console.error(`[API] Erreur lors du traitement de la requête:`, error);
     return res.status(500).json({ 
       error: 'Internal server error' 
+    });
+  }
+});
+
+// 🎯 NOUVELLE ROUTE : Email de bienvenue après vérification
+app.post('/api/send-welcome-email', async (req: any, res: any) => {
+  try {
+    const { userId, email, prenom, nom } = req.body as SendWelcomeEmailRequest;
+
+    // Validation des champs requis
+    if (!userId || !email || !prenom) {
+      return res.status(400).json({ 
+        error: 'Missing required fields in request body',
+        required: ['userId', 'email', 'prenom', 'nom']
+      });
+    }
+
+    console.log(`[API] 🎉 Requête email de bienvenue reçue pour ${email}`);
+    
+    // Envoi de l'email de bienvenue via le service
+    const success = await emailService.sendWelcomeEmail({ 
+      userId, 
+      email, 
+      prenom, 
+      nom: nom || '' // nom optionnel
+    });
+
+    if (success) {
+      return res.status(200).json({ 
+        message: 'Welcome email sent successfully!',
+        recipient: email,
+        type: 'welcome'
+      });
+    } else {
+      return res.status(500).json({ 
+        error: 'Failed to send welcome email' 
+      });
+    }
+    
+  } catch (error) {
+    console.error(`[API] ❌ Erreur envoi email bienvenue:`, error);
+    return res.status(500).json({ 
+      error: 'Internal server error while sending welcome email' 
     });
   }
 });

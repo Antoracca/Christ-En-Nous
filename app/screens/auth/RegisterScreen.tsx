@@ -12,6 +12,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button, Provider as PaperProvider, DefaultTheme, ActivityIndicator } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { PhoneNumberUtil } from 'google-libphonenumber';
@@ -141,6 +142,7 @@ export default function RegisterScreen() {
     setCheckingUsername(true);
     const timeoutId = setTimeout(async () => {
       try { setUsernameAvailable(!(await isUsernameTaken(username))); } 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       catch (e) { setUsernameAvailable(null); } 
       finally { setCheckingUsername(false); }
     }, 1500);
@@ -157,6 +159,7 @@ export default function RegisterScreen() {
       try {
         const taken = await isEmailTaken(email);
         setEmailAvailable(!taken); setEmailDuplicateError(taken);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         setEmailAvailable(null); setEmailDuplicateError(false);
       } finally {
@@ -183,6 +186,7 @@ export default function RegisterScreen() {
       try {
         const taken = await isPhoneTaken(phone);
         setPhoneAvailable(!taken); setPhoneDuplicateError(taken);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         setPhoneAvailable(null); setPhoneDuplicateError(false);
       } finally {

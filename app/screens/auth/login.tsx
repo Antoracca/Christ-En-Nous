@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as React from 'react';
 import {
   View,
@@ -173,6 +174,7 @@ const useBiometricAuth = () => {
               await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify({ identifier, password }));
               await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, 'true');
               setIsBiometricEnabled(true);
+             
             } catch (error) {
               Alert.alert("Erreur", "Impossible d'activer la connexion biométrique.");
             } finally {

@@ -427,7 +427,10 @@
           // Le token sera marqué comme utilisé
         }
 
-        // Étape 4 : Marquer le token comme utilisé
+        // Dans verify-email.html - REMPLACER la section "Étape 4" (vers ligne 200)
+// Cherchez cette section et remplacez-la par le code ci-dessous :
+
+        // Étape 4 : Marquer le token comme utilisé ET déclencher email bienvenue
         updateStep('step-complete', 'active');
         addDebugLog('🔒 Marquage du token comme utilisé...');
         
@@ -445,6 +448,34 @@
         }
 
         updateStep('step-complete', 'completed');
+
+        // 🎯 NOUVEAU : Déclencher email de bienvenue automatiquement
+        addDebugLog('🎉 Déclenchement automatique de l\'email de bienvenue...');
+        try {
+          const welcomeResponse = await fetch('https://email-api-649301029359.europe-west1.run.app/api/send-welcome-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: tokenData.userId,
+              email: tokenData.email,
+              prenom: userData?.prenom || 'Frère/Sœur',
+              nom: userData?.nom || ''
+            })
+          });
+          
+          if (welcomeResponse.ok) {
+            const welcomeResult = await welcomeResponse.json();
+            addDebugLog('✅ Email de bienvenue envoyé avec succès', welcomeResult);
+          } else {
+            const welcomeError = await welcomeResponse.json();
+            addDebugLog('⚠️ Échec envoi email bienvenue (non bloquant)', welcomeError);
+          }
+        } catch (welcomeError) {
+          addDebugLog('⚠️ Erreur technique email bienvenue (non bloquant)', welcomeError.message);
+          // On ne bloque pas le processus de vérification même si l'email de bienvenue échoue
+        }
 
         // Afficher le succès avec les informations de l'utilisateur
         setTimeout(() => {
