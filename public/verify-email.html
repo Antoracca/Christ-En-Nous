@@ -7,36 +7,175 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       background: linear-gradient(135deg, #002366, #0052cc);
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
       color: #333;
     }
     .container {
-      background: white; border-radius: 20px;
+      background: white; 
+      border-radius: 20px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      max-width: 500px; width: 90%; padding: 50px 40px; text-align: center;
-      position: relative; overflow: hidden;
+      max-width: 500px; 
+      width: 90%; 
+      padding: 50px 40px; 
+      text-align: center;
+      position: relative; 
+      overflow: hidden;
     }
-    .icon { font-size: 80px; margin-bottom: 20px; }
-    .success { color: #4CAF50; animation: none; }
-    .error { color: #f44336; animation: none; }
-    .loading { color: #FFD700; animation: spin 1.5s linear infinite; }
-    h1 { color: #002366; margin-bottom: 20px; font-size: 28px; }
-    p { color: #666; line-height: 1.6; margin-bottom: 30px; font-size: 16px; }
+    .icon { 
+      font-size: 80px; 
+      margin-bottom: 20px; 
+    }
+    .success { color: #4CAF50; }
+    .error { color: #f44336; }
+    .warning { color: #FF9800; }
+    .loading { 
+      color: #FFD700; 
+      animation: spin 1.5s linear infinite; 
+    }
+    h1 { 
+      color: #002366; 
+      margin-bottom: 20px; 
+      font-size: 28px; 
+    }
+    p { 
+      color: #666; 
+      line-height: 1.6; 
+      margin-bottom: 30px; 
+      font-size: 16px; 
+    }
     .button {
-      display: inline-block; padding: 15px 40px;
+      display: inline-block; 
+      padding: 15px 40px;
       background: linear-gradient(135deg, #FFD700, #FFC500);
-      color: #002366; text-decoration: none;
-      border-radius: 30px; font-weight: bold; font-size: 16px;
+      color: #002366; 
+      text-decoration: none;
+      border-radius: 30px; 
+      font-weight: bold; 
+      font-size: 16px;
       box-shadow: 0 5px 20px rgba(255,215,0,0.4);
       transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+      margin: 10px;
     }
-    .button:hover { transform: translateY(-2px); }
-    
+    .button:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 8px 25px rgba(255,215,0,0.5);
+    }
+    .button-secondary {
+      background: linear-gradient(135deg, #6c757d, #495057);
+      color: white;
+    }
+    .user-info {
+      background: #f8f9fa;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .user-info h3 {
+      color: #002366;
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    .user-info .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .user-info .info-row:last-child {
+      border-bottom: none;
+    }
+    .user-info .label {
+      font-weight: 600;
+      color: #555;
+    }
+    .user-info .value {
+      color: #333;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-verified {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .debug-info {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 10px;
+      font-size: 12px;
+      text-align: left;
+      color: #666;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .debug-info strong {
+      color: #333;
+    }
+    .progress-steps {
+      margin: 30px 0;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      margin: 15px 0;
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+    .step.active {
+      opacity: 1;
+    }
+    .step.completed {
+      opacity: 1;
+    }
+    .step-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 15px;
+      font-size: 14px;
+    }
+    .step.active .step-icon {
+      background: #FFD700;
+      animation: pulse 1.5s infinite;
+    }
+    .step.completed .step-icon {
+      background: #4CAF50;
+      color: white;
+    }
+    .step-text {
+      flex: 1;
+      text-align: left;
+    }
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
     }
   </style>
 </head>
@@ -46,13 +185,52 @@
       <div class="icon loading">⏳</div>
       <h1>Vérification en cours...</h1>
       <p>Nous validons votre lien, veuillez patienter.</p>
+      
+      <div class="progress-steps" style="display: none;" id="progress">
+        <div class="step" id="step-auth">
+          <div class="step-icon">1</div>
+          <div class="step-text">Authentification...</div>
+        </div>
+        <div class="step" id="step-token">
+          <div class="step-icon">2</div>
+          <div class="step-text">Vérification du token...</div>
+        </div>
+        <div class="step" id="step-profile">
+          <div class="step-icon">3</div>
+          <div class="step-text">Mise à jour du profil...</div>
+        </div>
+        <div class="step" id="step-complete">
+          <div class="step-icon">4</div>
+          <div class="step-text">Finalisation...</div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="debug" class="debug-info" style="display: none;">
+      <strong>Informations de débogage :</strong>
+      <div id="debug-content"></div>
     </div>
   </div>
 
   <script type="module">
+    // Configuration Firebase
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { 
+      getFirestore, 
+      collection, 
+      query, 
+      where, 
+      getDocs, 
+      updateDoc,
+      doc,
+      getDoc,
+      serverTimestamp 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { 
+      getAuth, 
+      signInAnonymously,
+      onAuthStateChanged 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyCIUcMu5xi_UUVfUn1twv8F6jLqYOeAylE",
@@ -67,89 +245,298 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    // Mode debug (activé en ajoutant ?debug=true à l'URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get('debug') === 'true';
+    const showProgress = urlParams.get('progress') !== 'false';
+    
+    if (showProgress) {
+      document.getElementById('progress').style.display = 'block';
+    }
+    
+    function updateStep(stepId, status) {
+      const step = document.getElementById(stepId);
+      if (step) {
+        step.className = `step ${status}`;
+        if (status === 'completed') {
+          step.querySelector('.step-icon').innerHTML = '✓';
+        }
+      }
+    }
+    
+    function addDebugLog(message, data = null) {
+      console.log(`[VERIFY] ${message}`, data || '');
+      if (debugMode) {
+        const debugDiv = document.getElementById('debug');
+        const debugContent = document.getElementById('debug-content');
+        debugDiv.style.display = 'block';
+        const timestamp = new Date().toLocaleTimeString();
+        debugContent.innerHTML += `<div>[${timestamp}] ${message}${data ? ': ' + JSON.stringify(data, null, 2) : ''}</div>`;
+      }
+    }
+
     async function verifyEmail() {
       try {
-        const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         
-        console.log(`[DEV] 🔍 Token récupéré: ${token}`);
+        addDebugLog('🔍 Token récupéré', token);
         
         if (!token) {
+          addDebugLog('❌ Aucun token dans l\'URL');
           return showError('Lien invalide', 'Aucun token trouvé dans l\'URL.');
         }
 
-        console.log('[DEV] 🔐 Tentative de connexion anonyme pour obtenir les permissions...');
-        await signInAnonymously(auth);
-        console.log('[DEV] ✅ Connexion anonyme réussie.');
+        // Étape 1 : Connexion anonyme
+        updateStep('step-auth', 'active');
+        addDebugLog('🔐 Tentative de connexion anonyme...');
         
-        // --- La logique de vérification commence ici ---
-        console.log('[DEV] 📖 Lecture du token dans Firestore...');
-        const tokenRef = doc(db, 'email_verifications', token);
-        const tokenDoc = await getDoc(tokenRef);
+        try {
+          await signInAnonymously(auth);
+          
+          // Attendre que l'authentification soit confirmée
+          await new Promise((resolve) => {
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+              if (user) {
+                addDebugLog('✅ Connexion anonyme réussie', { uid: user.uid });
+                updateStep('step-auth', 'completed');
+                unsubscribe();
+                resolve(user);
+              }
+            });
+          });
+          
+        } catch (authError) {
+          addDebugLog('❌ Erreur de connexion anonyme', authError.message);
+          throw authError;
+        }
+
+        // Étape 2 : Recherche du token dans Firestore
+        updateStep('step-token', 'active');
+        addDebugLog('📖 Recherche du token dans Firestore...');
         
-        if (!tokenDoc.exists()) {
-          console.error('[DEV] ❌ Le document du token n\'existe pas.');
+        const tokensRef = collection(db, 'verification_tokens');
+        const q = query(tokensRef, where("token", "==", token));
+        
+        let querySnapshot;
+        try {
+          querySnapshot = await getDocs(q);
+          addDebugLog(`📊 Résultat de la requête`, { 
+            empty: querySnapshot.empty, 
+            size: querySnapshot.size 
+          });
+        } catch (queryError) {
+          addDebugLog('❌ Erreur lors de la requête Firestore', {
+            code: queryError.code,
+            message: queryError.message
+          });
+          
+          if (queryError.code === 'permission-denied') {
+            return showError(
+              'Problème de Configuration', 
+              'Les règles de sécurité empêchent cette opération. Contactez le support.'
+            );
+          }
+          throw queryError;
+        }
+        
+        if (querySnapshot.empty) {
+          addDebugLog('❌ Aucun document trouvé pour ce token');
           return showError('Lien invalide', 'Ce lien n\'existe pas ou a déjà été utilisé.');
         }
 
+        // Récupération des données du token
+        const tokenDoc = querySnapshot.docs[0];
         const tokenData = tokenDoc.data();
-        console.log('[DEV] 📋 Données du token récupérées:', tokenData);
+        addDebugLog('📋 Token trouvé', {
+          id: tokenDoc.id,
+          email: tokenData.email,
+          userId: tokenData.userId,
+          used: tokenData.used,
+          expiresAt: tokenData.expiresAt?.toDate?.()?.toISOString()
+        });
         
+        // Vérifier si déjà utilisé
         if (tokenData.used) {
-          console.warn('[DEV] ⚠️ Ce token a déjà été utilisé.');
+          addDebugLog('⚠️ Token déjà utilisé');
+          updateStep('step-token', 'completed');
+          
+          // Vérifier quand même le statut de l'utilisateur
+          try {
+            const userRef = doc(db, 'users', tokenData.userId);
+            const userDoc = await getDoc(userRef);
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              return showAlreadyVerified(userData);
+            }
+          } catch (e) {
+            addDebugLog('Impossible de récupérer les infos utilisateur', e.message);
+          }
+          
           return showAlreadyVerified();
         }
 
-        const expiresAt = new Date(tokenData.expiresAt);
+        // Vérifier l'expiration
+        const expiresAt = tokenData.expiresAt?.toDate ? tokenData.expiresAt.toDate() : new Date(tokenData.expiresAt);
         if (expiresAt < new Date()) {
-          console.error('[DEV] ❌ Ce token a expiré.');
-          return showError('Lien expiré', 'Pour votre sécurité, ce lien de vérification a expiré. Veuillez en demander un nouveau.');
+          addDebugLog('❌ Token expiré', { expiresAt: expiresAt.toISOString() });
+          return showError(
+            'Lien expiré', 
+            'Ce lien a expiré. Veuillez demander un nouveau lien de vérification.'
+          );
         }
 
-        console.log('[DEV] 💾 Mise à jour du profil utilisateur...');
-        await updateDoc(doc(db, 'users', tokenData.userId), {
-          emailVerified: true,
-          emailVerifiedAt: new Date().toISOString()
-        });
-        console.log('[DEV] ✅ Profil utilisateur mis à jour.');
+        updateStep('step-token', 'completed');
 
-        console.log('[DEV] 🔒 Marquage du token comme utilisé...');
-        await updateDoc(tokenRef, {
-          used: true,
-          usedAt: new Date().toISOString()
-        });
-        console.log('[DEV] ✅ Token marqué comme utilisé.');
+        // Étape 3 : Mise à jour du profil utilisateur
+        updateStep('step-profile', 'active');
+        addDebugLog('👤 Mise à jour du profil utilisateur...');
+        
+        const userRef = doc(db, 'users', tokenData.userId);
+        let userData = null;
+        
+        try {
+          // Récupérer les données actuelles de l'utilisateur
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            userData = userDoc.data();
+            addDebugLog('Données utilisateur récupérées', {
+              nom: userData.nom,
+              prenom: userData.prenom,
+              email: userData.email,
+              emailVerified: userData.emailVerified
+            });
+          }
+          
+          // Mettre à jour le profil avec emailVerified = true
+          await updateDoc(userRef, {
+            emailVerified: true,
+            emailVerifiedAt: serverTimestamp(),
+            lastUpdated: serverTimestamp()
+          });
+          
+          addDebugLog('✅ Profil utilisateur mis à jour avec succès');
+          updateStep('step-profile', 'completed');
+          
+        } catch (updateError) {
+          addDebugLog('⚠️ Erreur lors de la mise à jour du profil', {
+            code: updateError.code,
+            message: updateError.message
+          });
+          
+          // Continuer même si la mise à jour du profil échoue
+          // Le token sera marqué comme utilisé
+        }
 
-        // Si tout s'est bien passé
-        showSuccess();
+        // Étape 4 : Marquer le token comme utilisé
+        updateStep('step-complete', 'active');
+        addDebugLog('🔒 Marquage du token comme utilisé...');
+        
+        try {
+          await updateDoc(tokenDoc.ref, {
+            used: true,
+            usedAt: serverTimestamp()
+          });
+          addDebugLog('✅ Token marqué comme utilisé');
+        } catch (updateError) {
+          addDebugLog('❌ Erreur lors de la mise à jour du token', {
+            code: updateError.code,
+            message: updateError.message
+          });
+        }
+
+        updateStep('step-complete', 'completed');
+
+        // Afficher le succès avec les informations de l'utilisateur
+        setTimeout(() => {
+          showSuccess(userData || { email: tokenData.email });
+        }, 500);
 
       } catch (error) {
-        console.error('[DEV] ❌ Erreur globale dans le processus de vérification:', error);
+        addDebugLog('❌ Erreur globale dans le processus', {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        });
         
-        if (error.code === 'permission-denied') {
-          showError('Problème de Permissions', 'La configuration de sécurité de la base de données empêche cette opération. Veuillez contacter le support technique.');
-        } else {
-          showError('Erreur Technique', 'Une erreur inattendue est survenue. Veuillez réessayer ou contacter le support.');
+        if (!document.getElementById('content').innerHTML.includes('error')) {
+          showError('Erreur Technique', 'Une erreur inattendue est survenue. Veuillez réessayer.');
         }
       }
     }
 
-    // --- Fonctions d'affichage (inchangées) ---
-    function showSuccess() {
+    // Fonctions d'affichage améliorées
+    function showSuccess(userData) {
+      const userName = userData.prenom ? `${userData.prenom} ${userData.nom || ''}`.trim() : '';
+      const email = userData.email || '';
+      
       document.getElementById('content').innerHTML = `
         <div class="icon success">✅</div>
-        <h1>Email confirmé !</h1>
-        <p>Félicitations ! Votre adresse email a été vérifiée avec succès.</p>
-        <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
+        <h1>Email validé avec succès !</h1>
+        
+        ${userName || email ? `
+          <div class="user-info">
+            <h3>Informations du compte</h3>
+            ${userName ? `
+              <div class="info-row">
+                <span class="label">Nom :</span>
+                <span class="value">${userName}</span>
+              </div>
+            ` : ''}
+            ${email ? `
+              <div class="info-row">
+                <span class="label">Email :</span>
+                <span class="value">${email}</span>
+              </div>
+            ` : ''}
+            <div class="info-row">
+              <span class="label">Statut :</span>
+              <span class="value">
+                <span class="status-badge status-verified">✓ Email vérifié</span>
+              </span>
+            </div>
+          </div>
+        ` : ''}
+        
+        <p>
+          Votre compte est maintenant entièrement activé.<br/>
+          Vous pouvez accéder à toutes les fonctionnalités de l'application.
+        </p>
+        
+        <button class="button" onclick="openApp()">Ouvrir l'application</button>
+        <button class="button button-secondary" onclick="closeWindow()">Fermer cette page</button>
       `;
     }
 
-    function showAlreadyVerified() {
+    function showAlreadyVerified(userData = null) {
+      const userName = userData?.prenom ? `${userData.prenom} ${userData.nom || ''}`.trim() : '';
+      
       document.getElementById('content').innerHTML = `
         <div class="icon success">✓</div>
-        <h1>Déjà vérifié</h1>
-        <p>Votre email a déjà été confirmé précédemment. Tout est en ordre !</p>
-        <a href="#" class="button" onclick="openApp()">Ouvrir l'application</a>
+        <h1>Email déjà vérifié</h1>
+        
+        ${userName ? `
+          <div class="user-info">
+            <h3>Compte vérifié</h3>
+            <div class="info-row">
+              <span class="label">Utilisateur :</span>
+              <span class="value">${userName}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Email :</span>
+              <span class="value">${userData.email || 'Non disponible'}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Statut :</span>
+              <span class="value">
+                <span class="status-badge status-verified">✓ Déjà vérifié</span>
+              </span>
+            </div>
+          </div>
+        ` : ''}
+        
+        <p>Votre email a déjà été confirmé. Vous pouvez retourner dans l'application.</p>
+        <button class="button" onclick="openApp()">Ouvrir l'application</button>
       `;
     }
 
@@ -158,16 +545,34 @@
         <div class="icon error">❌</div>
         <h1>${title}</h1>
         <p>${message}</p>
-        <a href="#" class="button" onclick="openApp()">Retour à l'application</a>
+        <button class="button" onclick="retry()">Réessayer</button>
+        <button class="button button-secondary" onclick="openApp()">Retour à l'application</button>
       `;
     }
 
+    // Fonctions globales
     window.openApp = function() {
+      // Essayer d'ouvrir l'app mobile
       window.location.href = 'christennous://verified';
-      setTimeout(() => { window.location.href = 'https://christennous.com'; }, 2000);
+      // Fallback vers le site web après 2 secondes
+      setTimeout(() => { 
+        window.location.href = 'https://christennous.com'; 
+      }, 2000);
     }
 
-    // 🚀 Démarrage du processus au chargement de la page
+    window.closeWindow = function() {
+      window.close();
+      // Si la fermeture échoue, rediriger
+      setTimeout(() => {
+        window.location.href = 'https://christennous.com';
+      }, 100);
+    }
+
+    window.retry = function() {
+      window.location.reload();
+    }
+
+    // Démarrage du processus de vérification
     verifyEmail();
   </script>
 </body>

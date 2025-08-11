@@ -1,6 +1,10 @@
 // app/components/register/SuccessModal.tsx
-// 🎨 Version 2.0 - Design Ultra-Moderne Apple & Android
-import React, { useEffect, useRef, useState } from 'react';
+// 🎨 Version 3.1 - 100% Compatible Expo Go
+// Les bibliothèques ci-dessous sont incluses dans le SDK Expo.
+// Assurez-vous qu'elles sont bien listées dans votre package.json.
+// expo install react-native-reanimated react-native-gesture-handler expo-blur expo-linear-gradient lottie-react-native
+
+import React, { useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,456 +12,305 @@ import {
   StyleSheet,
   TouchableOpacity,
   Linking,
-  Animated,
-  Dimensions,
   Platform,
   Vibration,
+  Dimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface SuccessModalProps {
   visible: boolean;
   onContinue: () => void;
-  userName?: string; // Pour personnaliser le message
+  userName?: string;
 }
 
-export default function SuccessModal({ 
-  visible, 
-  onContinue, 
-  userName = "frère/sœur" 
-}: SuccessModalProps) {
-  // 🎬 Animations
-  const scaleAnim = useRef(new Animated.Value(0.7)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
-  
-  // 🎯 État interne
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [showContent, setShowContent] = useState(false);
+// Composant stylisé pour les lignes de message
+const InfoRow = ({ icon, color, text }: { icon: keyof typeof Ionicons.glyphMap; color: string; text: string }) => (
+  <View style={styles.iconMessageRow}>
+    <View style={[styles.iconContainer, { backgroundColor: `${color}1A` }]}>
+      <Ionicons name={icon} size={20} color={color} />
+    </View>
+    <Text style={styles.message}>{text}</Text>
+  </View>
+);
 
-  // 🎬 Animation d'entrée
+export default function SuccessModal({
+  visible,
+  onContinue,
+  userName = "explorateur/trice",
+}: SuccessModalProps) {
+  // --- ANIMATIONS (REANIMATED) ---
+  const scale = useSharedValue(0.8);
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(50);
+
+  // --- EFFETS ---
   useEffect(() => {
     if (visible) {
-      // Haptic feedback pour iOS
+      // Démarrer l'animation d'entrée
+      scale.value = withSpring(1, { damping: 15, stiffness: 120 });
+      opacity.value = withTiming(1, { duration: 300 });
+      translateY.value = withSpring(0, { damping: 18, stiffness: 100 });
+
+      // Effets sensoriels
       if (Platform.OS === 'ios') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        // Vibration pour Android
-        Vibration.vibrate([0, 200, 100, 200]);
+        // Vibration simple pour Android
+        Vibration.vibrate(100);
       }
-
-      setShowContent(true);
-      
-      // Animation d'entrée séquentielle
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 8,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 80,
-          friction: 8,
-        }),
-      ]).start();
-
-      // Animation de pulsation continue
-      const startPulse = () => {
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ]).start(() => startPulse());
-      };
-      
-      // Démarrer la pulsation après 1 seconde
-      setTimeout(startPulse, 1000);
     } else {
-      setShowContent(false);
-      scaleAnim.setValue(0.7);
-      opacityAnim.setValue(0);
-      slideAnim.setValue(50);
+      // Réinitialiser les animations pour la prochaine ouverture
+      opacity.value = withTiming(0, { duration: 200 });
+      scale.value = withTiming(0.8, { duration: 200 });
+      translateY.value = withTiming(50, { duration: 200 });
     }
-  }, [opacityAnim, pulseAnim, scaleAnim, slideAnim, visible]);
+  }, [visible, scale, opacity, translateY]);
 
-  // 🎬 Animation du bouton
-  const handleButtonPressIn = () => {
-    Animated.spring(buttonScale, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      tension: 150,
-      friction: 4,
-    }).start();
-  };
+  // --- STYLES ANIMÉS ---
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value }
+    ],
+  }));
 
-  const handleButtonPressOut = () => {
-    Animated.spring(buttonScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 150,
-      friction: 4,
-    }).start();
-  };
-
+  // --- GESTIONNAIRES D'ÉVÉNEMENTS ---
   const handleContinue = () => {
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    
-    // Animation de sortie
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onContinue();
+    // Animation de sortie avant de fermer
+    opacity.value = withTiming(0, { duration: 200 });
+    scale.value = withTiming(0.9, { duration: 200 });
+    // Utiliser runOnJS pour appeler une fonction non-animée depuis le thread UI
+    translateY.value = withTiming(50, { duration: 200 }, () => {
+      runOnJS(onContinue)();
     });
   };
 
   const handleOpenEmail = async () => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
+    if (Platform.OS === 'ios') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const url = 'mailto:';
+    const canOpen = await Linking.canOpenURL(url);
     try {
-      // Tenter d'ouvrir l'app mail native
-      const canOpen = await Linking.canOpenURL('mailto:');
       if (canOpen) {
-        await Linking.openURL('mailto:');
+        await Linking.openURL(url);
       } else {
-        // Fallback vers Gmail web
+        // Fallback pour les simulateurs ou si aucune app mail n'est installée
         await Linking.openURL('https://mail.google.com');
       }
     } catch (error) {
-      console.log('Erreur ouverture email:', error);
+      console.error('Impossible d\'ouvrir l\'application mail:', error);
     }
   };
 
   if (!visible) return null;
 
   return (
-    <Modal 
-      visible={visible} 
-      transparent 
-      animationType="none" // On gère l'animation nous-mêmes
-      statusBarTranslucent
-    >
-      {/* 🌫️ Fond flouté dynamique */}
-      <View style={StyleSheet.absoluteFillObject}>
-        <BlurView 
-          intensity={Platform.OS === 'ios' ? 100 : 80} 
-          tint="dark" 
-          style={StyleSheet.absoluteFillObject} 
-        />
-        <LinearGradient
-          colors={[
-            'rgba(0, 0, 0, 0.4)',
-            'rgba(0, 20, 60, 0.6)',
-            'rgba(0, 0, 0, 0.8)'
-          ]}
-          locations={[0, 0.5, 1]}
+    <GestureHandlerRootView style={StyleSheet.absoluteFill}>
+      <Modal
+        visible={visible}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+      >
+        {/* Fond flouté */}
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 80 : 60}
+          tint="dark"
           style={StyleSheet.absoluteFillObject}
         />
-      </View>
+        <View style={[StyleSheet.absoluteFillObject, styles.scrim]} />
 
-      {/* 🎯 Container principal animé */}
-      <Animated.View 
-        style={[
-          styles.centeredContainer,
-          {
-            opacity: opacityAnim,
-            transform: [
-              { scale: scaleAnim },
-              { translateY: slideAnim }
-            ]
-          }
-        ]}
-      >
-        {/* 🎨 Card principale avec glassmorphism */}
-        <LinearGradient
-          colors={[
-            'rgba(255, 255, 255, 0.95)',
-            'rgba(255, 255, 255, 0.85)',
-            'rgba(248, 250, 252, 0.90)'
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.modal}
-        >
-          {/* 🌟 Animation Lottie avec pulsation */}
-          <Animated.View
-            style={[
-              styles.lottieContainer,
-              { transform: [{ scale: pulseAnim }] }
-            ]}
+        {/* Conteneur principal animé */}
+        <Reanimated.View style={[styles.centeredContainer, containerAnimatedStyle]}>
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.9)', 'rgba(245, 245, 255, 0.85)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.modal}
           >
             <LottieView
-              source={require('assets/animations/check-success.json')}
+              source={require('../../../assets/animations/check-success.json')}
               autoPlay
               loop={false}
               style={styles.lottie}
             />
-          </Animated.View>
 
-          {/* ✨ Titre avec dégradé */}
-          <LinearGradient
-            colors={['#1e40af', '#3b82f6', '#06b6d4']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.titleGradient}
-          >
-            <Text style={styles.title}>
-              🎉 Inscription réussie !
+            <Text style={styles.title}>Inscription Réussie !</Text>
+            <Text style={styles.subtitle}>
+              Bienvenue dans l&apos;aventure, {userName} 👋
             </Text>
-          </LinearGradient>
 
-          {/* 📝 Message personnalisé */}
-          <Text style={styles.subtitle}>
-            Bienvenue {userName} ! 👋
-          </Text>
-
-          <View style={styles.messageContainer}>
-            <View style={styles.iconMessageRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="mail" size={20} color="#3b82f6" />
-              </View>
-              <Text style={styles.message}>
-                Un email de confirmation a été envoyé
-              </Text>
+            <View style={styles.messageContainer}>
+              <InfoRow
+                icon="mail-unread-outline"
+                color="#2563eb"
+                text="Un e-mail de confirmation vous a été envoyé."
+              />
+              <InfoRow
+                icon="shield-checkmark-outline"
+                color="#16a34a"
+                text="Veuillez vérifier votre boîte de réception pour activer votre compte."
+              />
             </View>
-            
-            <View style={styles.iconMessageRow}>
-              <View style={styles.iconContainer}>
-                <Ionicons name="shield-checkmark" size={20} color="#10b981" />
-              </View>
-              <Text style={styles.message}>
-                Vérifiez votre boîte mail pour activer votre compte
-              </Text>
-            </View>
-          </View>
 
-          {/* 🔗 Bouton d'ouverture d'email moderne */}
-          <TouchableOpacity 
-            style={styles.emailButton}
-            onPress={handleOpenEmail}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#f59e0b', '#f97316', '#ea580c']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.emailButtonGradient}
-            >
-              <Ionicons name="mail-open" size={18} color="white" />
-              <Text style={styles.emailButtonText}>
-                Ouvrir ma boîte mail
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* ➡️ Bouton principal avec animation */}
-          <Animated.View
-            style={[
-              styles.buttonContainer,
-              { transform: [{ scale: buttonScale }] }
-            ]}
-          >
+            {/* Bouton principal */}
             <TouchableOpacity
-              onPress={handleContinue}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              activeOpacity={0.9}
               style={styles.continueButton}
+              onPress={handleContinue}
+              activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#1e40af', '#3b82f6', '#2563eb']}
+                colors={['#3b82f6', '#2563eb']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.continueButtonGradient}
               >
-                <Text style={styles.continueButtonText}>
-                  Continuer vers l&apos;accueil
-                </Text>
-                <Ionicons name="arrow-forward" size={20} color="white" />
+                <Text style={styles.continueButtonText}>Commencer l&apos;exploration</Text>
+                <Ionicons name="arrow-forward-circle" size={22} color="white" />
               </LinearGradient>
             </TouchableOpacity>
-          </Animated.View>
 
-          {/* 🏷️ Footer subtil */}
-          <Text style={styles.footer}>
-            Vous pouvez fermer cette fenêtre
-          </Text>
-        </LinearGradient>
-      </Animated.View>
-    </Modal>
+            {/* Bouton secondaire */}
+            <TouchableOpacity
+              style={styles.emailButton}
+              onPress={handleOpenEmail}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="mail-open-outline" size={18} color="#475569" />
+              <Text style={styles.emailButtonText}>Ouvrir ma boîte mail</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </Reanimated.View>
+      </Modal>
+    </GestureHandlerRootView>
   );
 }
 
+// --- STYLES ---
 const styles = StyleSheet.create({
+  scrim: {
+    backgroundColor: 'rgba(10, 20, 40, 0.3)',
+  },
   centeredContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   modal: {
-    width: SCREEN_WIDTH * 0.9,
-    maxWidth: 400,
-    borderRadius: 32,
-    paddingVertical: 40,
-    paddingHorizontal: 28,
+    width: '100%',
+    maxWidth: SCREEN_WIDTH * 0.9,
+    borderRadius: 32, // Bordures plus arrondies
+    padding: 24,
     alignItems: 'center',
-    // Shadow iOS
+    // Ombre douce et moderne
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.25,
-    shadowRadius: 25,
-    // Shadow Android
-    elevation: 25,
-    // Glassmorphism effect
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  lottieContainer: {
-    marginBottom: 24,
+    shadowOffset: { width: 0, height: 15 },
+    shadowOpacity: 0.15,
+    shadowRadius: 30,
+    elevation: 20,
+    // Effet de verre subtil
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
   lottie: {
-    width: 120,
-    height: 120,
-  },
-  titleGradient: {
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginBottom: 12,
+    width: 130,
+    height: 130,
+    marginTop: -20,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '800', // Plus audacieux
     textAlign: 'center',
-    color: 'white',
-    letterSpacing: 0.5,
+    color: '#1e293b', // Couleur plus douce que le noir pur
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 24,
+    fontSize: 17,
+    fontWeight: '500',
+    color: '#475569', // Gris-bleu pour le contraste
+    marginBottom: 28,
     textAlign: 'center',
   },
   messageContainer: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 28,
+    gap: 16, // Espacement entre les lignes
   },
   iconMessageRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    alignItems: 'center',
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    marginTop: 2,
   },
   message: {
     fontSize: 15,
-    color: '#4b5563',
+    color: '#334155',
     lineHeight: 22,
     flex: 1,
     fontWeight: '500',
   },
-  emailButton: {
-    marginBottom: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  emailButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  emailButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  buttonContainer: {
-    width: '100%',
-    marginBottom: 16,
-  },
   continueButton: {
+    width: '100%',
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#1e40af',
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowRadius: 15,
+    elevation: 10,
+    marginBottom: 12,
   },
   continueButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   continueButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
-  footer: {
-    fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
-    fontWeight: '500',
-    opacity: 0.8,
+  emailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(148, 163, 184, 0.2)', // Fond très léger
+    gap: 8,
+  },
+  emailButtonText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

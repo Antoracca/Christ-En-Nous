@@ -507,9 +507,9 @@ export default function LoginScreen() {
 
                       <View style={styles.actionsContainer}>
                         <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')} disabled={isLockedOut}><Text style={styles.linkText}>Mot de passe oublié ?</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={() => Alert.alert("Aide", "Pour tout problème de connexion, veuillez contacter le support de l'église.")} disabled={isLockedOut}><Text style={styles.linkText}>Besoin d'aide ?</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => Alert.alert("Aide", "Pour tout problème de connexion, veuillez contacter le support de l'église.")} disabled={isLockedOut}><Text style={styles.linkText}>Besoin d&apos;aide ?</Text></TouchableOpacity>
                       </View>
-                      <TouchableOpacity style={styles.registerContainer} onPress={() => navigation.navigate('Register')} disabled={isLockedOut}><Text style={[styles.linkText, styles.registerLink]}>Première fois ? S'inscrire</Text></TouchableOpacity>
+                      <TouchableOpacity style={styles.registerContainer} onPress={() => navigation.navigate('Register')} disabled={isLockedOut}><Text style={[styles.linkText, styles.registerLink]}>Première fois ? S&apos;inscrire</Text></TouchableOpacity>
                     </>
                   )}
                 </Animated.View>
