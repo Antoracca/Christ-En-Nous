@@ -17,6 +17,7 @@ import { Button, Provider as PaperProvider, DefaultTheme, ActivityIndicator } fr
 import { Ionicons } from '@expo/vector-icons';
 import { PhoneNumberUtil } from 'google-libphonenumber';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '@/context/AuthContext';
 import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -103,7 +104,10 @@ export default function RegisterScreen() {
   const [step, setStep] = useState(0);
   const [forceValidation, setForceValidation] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  
+  // ✅ MODIFICATION 1: Simplification du useAuth
+  const { refreshUserProfile, setIsRegistering } = useAuth();
+  
   const [loading, setLoading] = useState(false);
   const [nameDuplicateError, setNameDuplicateError] = useState(false);
   const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
@@ -114,6 +118,10 @@ export default function RegisterScreen() {
   const [phoneDuplicateError, setPhoneDuplicateError] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
+  
+  // ✅ MODIFICATION 2: Ajout des états locaux pour le modal
+  const [showLocalSuccessModal, setShowLocalSuccessModal] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
   
   const [form, setForm] = useState({
     nom: '', prenom: '', username: '', birthdate: '', password: '', confirmPassword: '',
@@ -132,6 +140,17 @@ export default function RegisterScreen() {
   useEffect(() => {
     Animated.timing(progressAnim, { toValue: step, duration: 400, easing: Easing.out(Easing.ease), useNativeDriver: false }).start();
   }, [step, progressAnim]);
+  
+  // ✅ MODIFICATION 3: Bloquer le retour arrière après inscription
+  useEffect(() => {
+    if (registrationComplete) {
+      const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+        // Empêcher le retour arrière
+        e.preventDefault();
+      });
+      return unsubscribe;
+    }
+  }, [navigation, registrationComplete]);
 
   // --- LOGIQUE DE VALIDATION EN TEMPS RÉEL ---
   useEffect(() => {
@@ -291,36 +310,86 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!(await validateCurrentStep())) {
-      setForceValidation(true); return;
+  if (!(await validateCurrentStep())) {
+    setForceValidation(true);
+    return;
+  }
+  
+  setLoading(true);
+  let userCred: any = null;
+  setIsRegistering(true); // ✅ Bloquer la navigation auto
+  
+  try {
+    // 1. Mapper les données baptême
+    const baptismData = mapStepBaptismToFirestore({ 
+      baptise: form.baptise as any, 
+      immersion: form.immersion as any, 
+      desire: form.desire as any 
+    });
+    
+    // 2. Créer le compte Firebase Auth
+    userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+    const uid = userCred.user.uid;
+    
+    // 3. Envoyer l'email de vérification
+    const emailSent = await sendCustomVerificationEmail({ 
+      userId: uid, 
+      email: form.email.trim(), 
+      prenom: form.prenom.trim(), 
+      nom: form.nom.trim() 
+    });
+    
+    if (!emailSent) {
+      throw new Error('EMAIL_SEND_FAILED');
     }
-    setLoading(true);
-    let userCred: any = null;
-    try {
-      const baptismData = mapStepBaptismToFirestore({ baptise: form.baptise as any, immersion: form.immersion as any, desire: form.desire as any });
-      userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const uid = userCred.user.uid;
-      const emailSent = await sendCustomVerificationEmail({ userId: uid, email: form.email.trim(), prenom: form.prenom.trim(), nom: form.nom.trim() });
-      if (!emailSent) throw new Error('EMAIL_SEND_FAILED');
-      
-      await setDoc(doc(db, 'users', uid), {
-        ...form,
-        nom: form.nom.trim(), prenom: form.prenom.trim(), username: form.username.trim().toLowerCase(),
-        birthdate: formatDateToISO(form.birthdate), email: form.email.trim(), phone: form.phone.trim(),
-        ...baptismData, uid, emailVerified: false, createdAt: new Date().toISOString(),
-      });
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      if (userCred && userCred.user) await userCred.user.delete();
-      let msg = "Une erreur s'est produite.";
-      if (error.message === 'EMAIL_SEND_FAILED') msg = "Impossible d'envoyer l'email de confirmation. Veuillez réessayer.";
-      else if (error.code === 'auth/email-already-in-use') msg = "Cet email est déjà utilisé.";
-      else if (error.code === 'auth/weak-password') msg = "Le mot de passe est trop faible (6 caractères min).";
-      Alert.alert("Erreur d'inscription", msg);
-    } finally {
-      setLoading(false);
+    
+    // 4. Créer le document Firestore
+    await setDoc(doc(db, 'users', uid), {
+      ...form,
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      username: form.username.trim().toLowerCase(),
+      birthdate: formatDateToISO(form.birthdate),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      ...baptismData,
+      uid,
+      emailVerified: false,
+      createdAt: new Date().toISOString(),
+    });
+    
+    // 5. Rafraîchir le profil utilisateur
+    await refreshUserProfile();
+    
+    // 6. Marquer l'inscription comme complète et afficher le modal
+    setRegistrationComplete(true);
+    setShowLocalSuccessModal(true);
+    // ✅ NE PAS FAIRE LA NAVIGATION ICI !
+    // ✅ NE PAS METTRE setIsRegistering(false) ICI !
+    
+  } catch (error: any) {
+    // ⚠️ En cas d'erreur, débloquer la navigation
+    setIsRegistering(false);
+    
+    // Nettoyer en cas d'erreur
+    if (userCred && userCred.user) {
+      await userCred.user.delete();
     }
-  };
+    
+    let msg = "Une erreur s'est produite.";
+    if (error.message === 'EMAIL_SEND_FAILED') {
+      msg = "Impossible d'envoyer l'email de confirmation. Veuillez réessayer.";
+    } else if (error.code === 'auth/email-already-in-use') {
+      msg = "Cet email est déjà utilisé.";
+    } else if (error.code === 'auth/weak-password') {
+      msg = "Le mot de passe est trop faible (6 caractères min).";
+    }
+    
+    Alert.alert("Erreur d'inscription", msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleNext = async () => {
     const isValid = await validateCurrentStep();
@@ -401,13 +470,18 @@ export default function RegisterScreen() {
           </KeyboardAwareScrollView>
         </SafeAreaView>
         
-       <SuccessModal 
-    visible={showSuccessModal} 
-    userName={form.prenom}
-    onContinue={() => {
-        setShowSuccessModal(false); // On cache d'abord le modal
-        navigation.replace('Main');  // PUIS on navigue
-    }}
+       {/* ✅ MODIFICATION 5: Modal avec gestion locale et navigation */}
+<SuccessModal 
+  visible={showLocalSuccessModal} 
+  userName={form.prenom}
+  onContinue={() => {
+    setShowLocalSuccessModal(false);
+    
+    // Attendre que le modal se ferme avant de débloquer
+    setTimeout(() => {
+      setIsRegistering(false); // ✅ Déclenche la navigation auto après 300ms
+    }, 300);
+  }}
 />
 
         <Modal
@@ -491,3 +565,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+

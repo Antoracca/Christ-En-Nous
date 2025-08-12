@@ -1,8 +1,7 @@
 // app/components/register/SuccessModal.tsx
-// 🎨 Version 3.1 - 100% Compatible Expo Go
-// Les bibliothèques ci-dessous sont incluses dans le SDK Expo.
-// Assurez-vous qu'elles sont bien listées dans votre package.json.
-// expo install react-native-reanimated react-native-gesture-handler expo-blur expo-linear-gradient lottie-react-native
+// 🎨 Version 3.2 - Compatible avec la nouvelle logique
+// NOTE: La navigation est gérée par le parent (RegisterScreen)
+// Ce composant reste un modal de présentation pure
 
 import React, { useEffect } from 'react';
 import {
@@ -34,7 +33,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface SuccessModalProps {
   visible: boolean;
-  onContinue: () => void;
+  onContinue: () => void; // Cette fonction gère TOUTE la logique (fermeture + navigation)
   userName?: string;
 }
 
@@ -95,11 +94,11 @@ export default function SuccessModal({
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    // Animation de sortie avant de fermer
+    // Animation de sortie avant d'appeler onContinue
     opacity.value = withTiming(0, { duration: 200 });
     scale.value = withTiming(0.9, { duration: 200 });
-    // Utiliser runOnJS pour appeler une fonction non-animée depuis le thread UI
     translateY.value = withTiming(50, { duration: 200 }, () => {
+      // Appeler la fonction du parent qui gère fermeture + navigation
       runOnJS(onContinue)();
     });
   };
@@ -171,7 +170,7 @@ export default function SuccessModal({
               />
             </View>
 
-            {/* Bouton principal */}
+            {/* Bouton principal - Appelle onContinue qui gère tout */}
             <TouchableOpacity
               style={styles.continueButton}
               onPress={handleContinue}
@@ -218,16 +217,14 @@ const styles = StyleSheet.create({
   modal: {
     width: '100%',
     maxWidth: SCREEN_WIDTH * 0.9,
-    borderRadius: 32, // Bordures plus arrondies
+    borderRadius: 32,
     padding: 24,
     alignItems: 'center',
-    // Ombre douce et moderne
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.15,
     shadowRadius: 30,
     elevation: 20,
-    // Effet de verre subtil
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
@@ -239,22 +236,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontWeight: '800', // Plus audacieux
+    fontWeight: '800',
     textAlign: 'center',
-    color: '#1e293b', // Couleur plus douce que le noir pur
+    color: '#1e293b',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 17,
     fontWeight: '500',
-    color: '#475569', // Gris-bleu pour le contraste
+    color: '#475569',
     marginBottom: 28,
     textAlign: 'center',
   },
   messageContainer: {
     width: '100%',
     marginBottom: 28,
-    gap: 16, // Espacement entre les lignes
+    gap: 16,
   },
   iconMessageRow: {
     flexDirection: 'row',
@@ -305,7 +302,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 16,
-    backgroundColor: 'rgba(148, 163, 184, 0.2)', // Fond très léger
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
     gap: 8,
   },
   emailButtonText: {

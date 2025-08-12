@@ -172,9 +172,9 @@ export default function MainNavigator() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
+      <Tab.Screen name="HomeTab" component={HomeScreen} />
       <Tab.Screen name="BibleTab" component={BibleScreen} />
       <Tab.Screen name="CoursesTab" component={CoursesScreen} />
-      <Tab.Screen name="HomeTab" component={HomeScreen} />
       <Tab.Screen name="PrayerTab" component={PrayerScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>

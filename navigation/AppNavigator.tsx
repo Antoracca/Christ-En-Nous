@@ -1,4 +1,4 @@
-// navigation/AppNavigator.tsx - VERSION AVEC GESTION DU MODAL
+// navigation/AppNavigator.tsx - VERSION CORRIGÉE
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,7 +12,6 @@ import LoginScreen from '@/screens/auth/login';
 import RegisterScreen from '@/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '@/screens/auth/forgotPassword';
 import MainNavigator from './MainNavigator';
-import SuccessModal from '@/components/register/SuccessModal'; // Importez le modal ici
 
 export type RootStackParamList = {
   Main: undefined;
@@ -25,11 +24,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   const { 
-      isAuthenticated, 
-      loading, 
-      postRegistrationSuccess, 
-      setPostRegistrationSuccess, 
-      userProfile 
+    isAuthenticated, 
+    loading,
+    isRegistering  // ✅ AJOUT: Récupération du flag isRegistering
   } = useAuth();
 
   if (loading) {
@@ -43,11 +40,11 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {isAuthenticated && !postRegistrationSuccess ? (
-          // Si l'utilisateur est connecté ET que l'inscription n'est pas en cours, on montre l'app
+        {isAuthenticated && !isRegistering ? (
+          // ✅ Navigation vers Main SEULEMENT si connecté ET pas en cours d'inscription
           <Stack.Screen name="Main" component={MainNavigator} />
         ) : (
-          // Sinon, on montre les écrans d'authentification
+          // Écrans d'authentification
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
@@ -55,16 +52,6 @@ export default function AppNavigator() {
           </>
         )}
       </Stack.Navigator>
-
-      {/* Le Modal est rendu ici, par-dessus toute la navigation */}
-      <SuccessModal
-        visible={postRegistrationSuccess}
-        userName={userProfile?.prenom}
-        onContinue={() => {
-          setPostRegistrationSuccess(false);
-          // Pas besoin de naviguer, le re-render de AppNavigator s'en chargera
-        }}
-      />
     </NavigationContainer>
   );
 }
