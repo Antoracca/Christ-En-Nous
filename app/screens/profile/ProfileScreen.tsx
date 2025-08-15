@@ -1,43 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useState } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator, 
-  Alert, 
-  TouchableOpacity,
-  ScrollView,
-  SafeAreaView,
-  Image
+  View, Text, StyleSheet, ActivityIndicator, Alert, 
+  TouchableOpacity, ScrollView, SafeAreaView, RefreshControl,
+  StatusBar, Platform
 } from 'react-native';
-import { useAuth } from '@/context/AuthContext';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAuth, UserProfile } from '@/context/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from 'services/firebase/firebaseConfig';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Feather } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Avatar from '@/components/profile/Avatar';
+
+// --- Sous-composants pour une meilleure lisibilité ---
 
 const SectionHeader = ({ title }: { title: string }) => {
     const theme = useAppTheme();
     return <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>{title}</Text>;
 };
 
-const InfoRow = ({ icon, label, value, onEdit }: { icon: keyof typeof Feather.glyphMap; label: string; value?: string | null; onEdit?: () => void; }) => {
+const InfoRow = ({ icon, label, value, isMultiLine = false }: { icon: keyof typeof Feather.glyphMap; label: string; value?: string | null; isMultiLine?: boolean }) => {
     const theme = useAppTheme();
     if (!value) return null;
-
     return (
         <View style={styles.infoRow}>
             <Feather name={icon} size={22} color={theme.custom.colors.placeholder} style={styles.infoRowIcon} />
             <View style={styles.infoRowTextContainer}>
                 <Text style={[styles.infoRowLabel, { color: theme.custom.colors.placeholder }]}>{label}</Text>
-                <Text style={[styles.infoRowValue, { color: theme.custom.colors.text }]}>{value}</Text>
+                <Text style={[styles.infoRowValue, { color: theme.custom.colors.text, ...(isMultiLine && { lineHeight: 22 }) }]}>{value}</Text>
             </View>
-            {onEdit && (
-                <TouchableOpacity onPress={onEdit}>
-                    <Feather name="edit-2" size={20} color={theme.colors.primary} />
-                </TouchableOpacity>
-            )}
         </View>
     );
 };
@@ -45,7 +36,6 @@ const InfoRow = ({ icon, label, value, onEdit }: { icon: keyof typeof Feather.gl
 const EmailInfoRow = ({ label, value, isVerified }: { label: string; value?: string | null; isVerified?: boolean }) => {
     const theme = useAppTheme();
     const verified = isVerified ?? false;
-
     return (
         <View style={styles.infoRow}>
             <Feather name="mail" size={22} color={theme.custom.colors.placeholder} style={styles.infoRowIcon} />
@@ -78,25 +68,88 @@ const NavButton = ({ icon, label, onPress }: { icon: keyof typeof Feather.glyphM
     );
 };
 
+const LogoutButton = ({ onPress, isLoading }: { onPress: () => void; isLoading: boolean; }) => {
+    const theme = useAppTheme();
+    const color = theme.colors.error;
+    return (
+        <TouchableOpacity style={styles.navButton} onPress={onPress} disabled={isLoading}>
+            <View style={[styles.navButtonIconContainer, { backgroundColor: color + '1A' }]}>
+                {isLoading 
+                    ? <ActivityIndicator size="small" color={color} /> 
+                    : <Feather name="log-out" size={24} color={color} />
+                }
+            </View>
+            <Text style={[styles.navButtonLabel, { color: color }]}>Se déconnecter</Text>
+        </TouchableOpacity>
+    );
+};
+
+// --- Composant Principal ---
+
 export default function ProfileScreen() {
   const theme = useAppTheme();
-  const { user, userProfile, loading,  } = useAuth();
+  const navigation = useNavigation();
+  const { userProfile, loading, refreshUserProfile } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  
+  useFocusEffect(
+    useCallback(() => {
+      if (refreshUserProfile) {
+        refreshUserProfile();
+      }
+    }, [refreshUserProfile])
+  );
 
-  const handleLogout = async () => {
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
     try {
-      await signOut(auth);
+      await refreshUserProfile();
     } catch (error) {
-      console.error("Erreur de déconnexion: ", error);
-      Alert.alert("Erreur", "Impossible de se déconnecter. Veuillez réessayer.");
+      console.error("Erreur lors du rafraîchissement:", error);
+      Alert.alert("Erreur", "Impossible de rafraîchir le profil.");
+    } finally {
+      setIsRefreshing(false);
     }
+  }, [refreshUserProfile]);
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Déconnexion",
+      "Voulez-vous vraiment vous déconnecter ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Se déconnecter",
+          style: "destructive",
+          onPress: async () => {
+            setIsLoggingOut(true);
+            try {
+              await signOut(auth);
+            } catch (error) {
+              console.error("Erreur de déconnexion:", error);
+              Alert.alert("Erreur", "Impossible de se déconnecter pour le moment.");
+            } finally {
+              setIsLoggingOut(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatDate = (dateString?: string) => {
       if (!dateString) return "Non renseignée";
-      const [year, month, day] = dateString.split('-');
-      return `${day}/${month}/${year}`;
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Date invalide";
+      return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatMemberSince = (dateString?: string) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Date d'inscription invalide";
+    return `Inscrit(e) depuis le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
   };
 
   const getBaptismStatus = () => {
@@ -106,7 +159,27 @@ export default function ProfileScreen() {
       return "Non baptisé(e)";
   };
 
-  if (loading && !userProfile) {
+  const displayRoles = (profile: UserProfile | null) => {
+    if (!profile) return 'Aucun';
+    if (profile.roles && profile.roles.length > 0) {
+        return profile.roles.map(role => 
+            role.sousFonction ? `${role.fonction} - ${role.sousFonction}` : role.fonction
+        ).join('\n');
+    }
+    if (profile.fonction) { // Fallback pour les anciens profils
+        return profile.sousFonction ? `${profile.fonction} - ${profile.sousFonction}` : profile.fonction;
+    }
+    return 'Aucun';
+  };
+
+  const displayOtherRoles = (profile: UserProfile | null) => {
+      if (profile?.otherRoles && profile.otherRoles.length > 0) {
+          return profile.otherRoles.join('\n');
+      }
+      return null; // Important: retourner null pour ne pas afficher la ligne si vide
+  };
+
+  if (loading && !userProfile && !isRefreshing) {
     return (
       <View style={[styles.loaderContainer, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -114,61 +187,78 @@ export default function ProfileScreen() {
     );
   }
 
-  const isVerified = user?.emailVerified ?? userProfile?.emailVerified;
+  const isVerified = userProfile?.emailVerified;
+  const memberSinceText = formatMemberSince(userProfile?.createdAt);
+  const otherRolesText = displayOtherRoles(userProfile);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-        <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.header}>
-                <Image 
-                    source={{ uri: userProfile?.photoURL || `https://i.pravatar.cc/150?u=${userProfile?.uid}` }} 
-                    style={styles.avatar}
-                />
-                <Text style={[styles.fullName, { color: theme.custom.colors.text }]}>
-                    {userProfile?.prenom} {userProfile?.nom}
-                </Text>
-                <Text style={[styles.username, { color: theme.custom.colors.placeholder }]}>
-                    @{userProfile?.username}
-                </Text>
-            </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={Platform.OS === 'ios' ? 'dark-content' : 'default'} backgroundColor={theme.colors.background} />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={isRefreshing} 
+            onRefresh={onRefresh} 
+            tintColor={theme.colors.primary} 
+          />
+        }
+      >
+        <View style={styles.header}>
+            <Avatar 
+                photoURL={userProfile?.photoURL}
+                prenom={userProfile?.prenom}
+                nom={userProfile?.nom}
+                size={100}
+            />
+            <Text style={[styles.fullName, { color: theme.custom.colors.text }]}>
+                {userProfile?.prenom} {userProfile?.nom}
+            </Text>
+            <Text style={[styles.username, { color: theme.custom.colors.placeholder }]}>
+                @{userProfile?.username || 'non-défini'}
+            </Text>
+            {memberSinceText && (
+                <Text style={styles.memberSinceText}>{memberSinceText}</Text>
+            )}
+        </View>
 
-            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                <SectionHeader title="Informations Personnelles" />
-                <EmailInfoRow label="Email" value={userProfile?.email} isVerified={isVerified} />
-                <InfoRow icon="phone" label="Téléphone" value={userProfile?.phone} />
-                <InfoRow icon="gift" label="Date de naissance" value={formatDate(userProfile?.birthdate)} />
-                <InfoRow icon="map-pin" label="Adresse" value={`${userProfile?.quartier}, ${userProfile?.ville}`} />
-            </View>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <SectionHeader title="Informations Personnelles" />
+            <EmailInfoRow label="Email" value={userProfile?.email} isVerified={isVerified} />
+            <InfoRow icon="phone" label="Téléphone" value={userProfile?.phone} />
+            <InfoRow icon="gift" label="Date de naissance" value={formatDate(userProfile?.birthdate)} />
+            <InfoRow icon="map-pin" label="Adresse" value={userProfile?.ville ? `${userProfile.quartier}, ${userProfile.ville}` : 'Non renseignée'} />
+            <InfoRow icon="globe" label="Pays" value={userProfile?.pays} />
+        </View>
 
-            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                <SectionHeader title="Parcours Spirituel" />
-                <InfoRow icon="check-circle" label="Statut de baptême" value={getBaptismStatus()} />
-                <InfoRow icon="users" label="Rôle dans l'église" value={`${userProfile?.fonction} (${userProfile?.sousFonction})`} />
-                <InfoRow icon="home" label="Église d'origine" value={userProfile?.egliseOrigine} />
-            </View>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <SectionHeader title="Parcours Spirituel" />
+            <InfoRow icon="check-circle" label="Statut de baptême" value={getBaptismStatus()} />
+            <InfoRow icon="users" label="Rôles officiels" value={displayRoles(userProfile)} isMultiLine />
+            {otherRolesText && (
+                <InfoRow icon="plus-circle" label="Autres fonctions" value={otherRolesText} isMultiLine />
+            )}
+            <InfoRow icon="home" label="Église d'origine" value={userProfile?.egliseOrigine} />
+        </View>
 
-            <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-                <SectionHeader title="Paramètres" />
-                <NavButton icon="edit" label="Modifier le profil" onPress={() => {}} />
-                <NavButton icon="shield" label="Sécurité" onPress={() => {}} />
-                <NavButton icon="bell" label="Notifications" onPress={() => {}} />
-            </View>
+        <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+            <SectionHeader title="Paramètres" />
+            <NavButton icon="edit" label="Modifier le profil" onPress={() => navigation.navigate('ModifierProfil' as never)} />
+            <NavButton icon="shield" label="Sécurité" onPress={() => {}} />
+            <NavButton icon="bell" label="Notifications" onPress={() => {}} />
+            <LogoutButton onPress={handleLogout} isLoading={isLoggingOut} />
+        </View>
 
-            <TouchableOpacity onPress={handleLogout}>
-                <LinearGradient
-                    colors={['#FF6B6B', '#E53E3E']}
-                    style={styles.logoutButton}
-                >
-                    <Feather name="log-out" size={22} color="white" />
-                    <Text style={styles.logoutButtonText}>Se déconnecter</Text>
-                </LinearGradient>
-            </TouchableOpacity>
-        </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -182,17 +272,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 30,
   },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: 'white',
-    marginBottom: 15,
-  },
   fullName: {
     fontSize: 26,
     fontFamily: 'Nunito_700Bold',
+    marginTop: 15,
   },
   username: {
     fontSize: 16,
@@ -207,6 +290,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
   },
   sectionTitle: {
     fontSize: 18,
@@ -215,13 +299,14 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   infoRowIcon: {
     marginRight: 20,
+    marginTop: 2,
   },
   infoRowTextContainer: {
     flex: 1,
@@ -271,18 +356,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Nunito_700Bold',
   },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 50,
-    marginTop: 20,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    marginLeft: 10,
+  memberSinceText: {
+    textAlign: 'center',
+    fontFamily: 'Nunito_400Regular',
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
   },
 });

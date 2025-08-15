@@ -224,6 +224,7 @@
       updateDoc,
       doc,
       getDoc,
+      setDoc,
       serverTimestamp 
     } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { 
@@ -394,38 +395,43 @@
         const userRef = doc(db, 'users', tokenData.userId);
         let userData = null;
         
-        try {
-          // Récupérer les données actuelles de l'utilisateur
-          const userDoc = await getDoc(userRef);
-          if (userDoc.exists()) {
-            userData = userDoc.data();
-            addDebugLog('Données utilisateur récupérées', {
-              nom: userData.nom,
-              prenom: userData.prenom,
-              email: userData.email,
-              emailVerified: userData.emailVerified
-            });
-          }
-          
-          // Mettre à jour le profil avec emailVerified = true
-          await updateDoc(userRef, {
-            emailVerified: true,
-            emailVerifiedAt: serverTimestamp(),
-            lastUpdated: serverTimestamp()
-          });
-          
-          addDebugLog('✅ Profil utilisateur mis à jour avec succès');
-          updateStep('step-profile', 'completed');
-          
-        } catch (updateError) {
-          addDebugLog('⚠️ Erreur lors de la mise à jour du profil', {
-            code: updateError.code,
-            message: updateError.message
-          });
-          
+       // Étape 3 : Mise à jour du profil utilisateur
+try {
+  const userDoc = await getDoc(userRef);
+  if (userDoc.exists()) {
+    userData = userDoc.data();
+    
+    // MISE À JOUR EN 2 TEMPS pour garantir le succès
+    // 1. D'abord emailVerified seul
+    await updateDoc(userRef, {
+      emailVerified: true
+    });
+    
+    // 2. Puis les timestamps
+    await updateDoc(userRef, {
+      emailVerifiedAt: serverTimestamp(),
+      lastUpdated: serverTimestamp()
+    });
+    
+    // 3. Vérification
+    const checkDoc = await getDoc(userRef);
+    const checkData = checkDoc.data();
+    
+    if (checkData.emailVerified !== true) {
+      // Si ça échoue encore, forcer avec setDoc merge
+      await setDoc(userRef, {
+        emailVerified: true
+      }, { merge: true });
+    }
+    
+    addDebugLog('✅ emailVerified forcé à true');
+  }
+} catch (error) {
+  addDebugLog('❌ Erreur mise à jour:', error);
+}
           // Continuer même si la mise à jour du profil échoue
           // Le token sera marqué comme utilisé
-        }
+        
 
         // Dans verify-email.html - REMPLACER la section "Étape 4" (vers ligne 200)
 // Cherchez cette section et remplacez-la par le code ci-dessous :

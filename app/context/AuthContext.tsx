@@ -1,8 +1,12 @@
-// app/context/AuthContext.tsx - VERSION CORRIGÉE
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore'; 
 import { auth, db } from 'services/firebase/firebaseConfig';
+
+export interface ChurchRole {
+  fonction: string;
+  sousFonction: string;
+}
 
 export interface UserProfile {
   uid: string;
@@ -19,9 +23,14 @@ export interface UserProfile {
   quartier?: string;
   isBaptized?: boolean;
   baptizedByImmersion?: boolean;
+  // Champs dépréciés (conservés pour la compatibilité)
   fonction?: string;
   sousFonction?: string;
+  // Nouveaux champs pour une gestion plus flexible
+  roles?: ChurchRole[];
+  otherRoles?: string[]; // Pour les rôles personnalisés
   egliseOrigine?: string;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -29,11 +38,11 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   isAuthenticated: boolean;
-  showSuccessModal: boolean;
-  setShowSuccessModal: (value: boolean) => void;
+  shouldShowRegisterSuccess: { show: boolean; userName: string; userEmail: string; } | null;
+  setShouldShowRegisterSuccess: (value: { show: boolean; userName: string; userEmail: string; } | null) => void;
+  isRegistering: boolean;
+  setIsRegistering: (isRegistering: boolean) => void;
   refreshUserProfile: () => Promise<void>;
-  isRegistering: boolean;  // ✅ AJOUT
-  setIsRegistering: (value: boolean) => void;  // ✅ AJOUT
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,119 +51,76 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);  // ✅ DÉJÀ PRÉSENT (ligne 43)
+  const [shouldShowRegisterSuccess, setShouldShowRegisterSuccess] = useState<{ show: boolean; userName: string; userEmail: string; } | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  // Fonction pour rafraîchir le profil utilisateur
-  const refreshUserProfile = async () => {
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-      const freshUser = auth.currentUser;
-      
-      if (freshUser) {
-        setUser(freshUser);
-        
-        try {
-          const userDocRef = doc(db, 'users', freshUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            const firestoreProfile = userDocSnap.data();
-            setUserProfile({
-              uid: freshUser.uid,
-              nom: firestoreProfile.nom || '',
-              prenom: firestoreProfile.prenom || '',
-              email: freshUser.email || firestoreProfile.email || '',
-              photoURL: freshUser.photoURL,
-              emailVerified: freshUser.emailVerified,
-              username: firestoreProfile.username,
-              phone: firestoreProfile.phone,
-              birthdate: firestoreProfile.birthdate,
-              ville: firestoreProfile.ville,
-              pays: firestoreProfile.pays,
-              quartier: firestoreProfile.quartier,
-              isBaptized: firestoreProfile.isBaptized,
-              baptizedByImmersion: firestoreProfile.baptizedByImmersion,
-              fonction: firestoreProfile.fonction,
-              sousFonction: firestoreProfile.sousFonction,
-              egliseOrigine: firestoreProfile.egliseOrigine,
-            });
-          }
-        } catch (error) {
-          console.error('Erreur lors de la récupération du profil:', error);
-        }
-      }
+  const refreshUserProfile = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      await currentUser.reload();
+      setUser(auth.currentUser ? { ...auth.currentUser } : null);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('🔄 Auth state changed:', firebaseUser?.uid || 'null');
-      
-      if (firebaseUser) {
-        // Recharger les infos de l'utilisateur pour avoir les dernières données
-        await firebaseUser.reload();
-        const freshUser = auth.currentUser;
-        
-        if (freshUser) {
-          setUser(freshUser);
-          
-          try {
-            const userDocRef = doc(db, 'users', freshUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            
-            if (userDocSnap.exists()) {
-              const firestoreProfile = userDocSnap.data();
-              setUserProfile({
-                uid: freshUser.uid,
-                nom: firestoreProfile.nom || '',
-                prenom: firestoreProfile.prenom || '',
-                email: freshUser.email || firestoreProfile.email || '',
-                photoURL: freshUser.photoURL,
-                emailVerified: freshUser.emailVerified,
-                username: firestoreProfile.username,
-                phone: firestoreProfile.phone,
-                birthdate: firestoreProfile.birthdate,
-                ville: firestoreProfile.ville,
-                pays: firestoreProfile.pays,
-                quartier: firestoreProfile.quartier,
-                isBaptized: firestoreProfile.isBaptized,
-                baptizedByImmersion: firestoreProfile.baptizedByImmersion,
-                fonction: firestoreProfile.fonction,
-                sousFonction: firestoreProfile.sousFonction,
-                egliseOrigine: firestoreProfile.egliseOrigine,
-              });
-            } else {
-              console.log('⚠️ Document utilisateur non trouvé dans Firestore');
-              setUserProfile(null);
-            }
-          } catch (error) {
-            console.error('❌ Erreur lors de la récupération du profil:', error);
-            setUserProfile(null);
-          }
-        }
-      } else {
-        // Aucun utilisateur connecté
-        setUser(null);
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      if (!firebaseUser) {
         setUserProfile(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
+    return () => unsubscribeAuth();
+  }, []);
 
-    return () => unsubscribe();
-  }, []); // Dépendances vides - s'exécute une seule fois
+  useEffect(() => {
+  let unsubscribeProfile: () => void = () => {};
+
+  if (user) { 
+    if (!userProfile) setLoading(true);
+    const userDocRef = doc(db, 'users', user.uid);
+    
+    unsubscribeProfile = onSnapshot(
+      userDocRef, 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const firestoreData = docSnap.data();
+          setUserProfile({
+            ...(firestoreData as UserProfile),
+            uid: user.uid,
+            email: user.email || firestoreData.email || '',
+            emailVerified: user.emailVerified || firestoreData.emailVerified || false,
+            photoURL: firestoreData.photoURL || user.photoURL || null,
+          });
+        } else {
+          setUserProfile(null);
+        }
+        setLoading(false);
+      }, 
+      (error) => {
+        console.error('Erreur onSnapshot:', error);
+        setUserProfile(null);
+        setLoading(false);
+      }
+    );
+  } else {
+    setLoading(false);
+  }
+
+  return () => unsubscribeProfile();
+}, [user]);
+
 
   const value = {
     user,
     userProfile,
     loading,
     isAuthenticated: !!user,
-    showSuccessModal,
-    setShowSuccessModal,
+    shouldShowRegisterSuccess,
+    setShouldShowRegisterSuccess,
+    isRegistering,
+    setIsRegistering,
     refreshUserProfile,
-    isRegistering,  // ✅ AJOUT
-    setIsRegistering,  // ✅ AJOUT
   };
 
   return (
