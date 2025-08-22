@@ -31,9 +31,11 @@ const Avatar = ({ photoURL, prenom, nom, size = 120 }: AvatarProps) => {
       <View style={[styles.avatarContainer, { width: size, height: size, borderRadius: size / 2 }]}>
         <Image 
             source={{ uri: photoURL }} 
-            style={styles.avatarImage} // L'image remplit le conteneur
+            style={styles.avatarImage}
             cachePolicy="disk"
             transition={300}
+            priority="high"
+            recyclingKey={photoURL}
         />
       </View>
     );

@@ -8,6 +8,7 @@ import { useFonts, Nunito_400Regular, Nunito_700Bold } from '@expo-google-fonts/
 import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from '../navigation/AppNavigator';
 import { AuthProvider } from '../app/context/AuthContext';
+import { ThemeProvider } from '../app/context/ThemeContext';
 import { LightAppTheme, DarkAppTheme } from '../app/constants/theme';
 import AnimatedSplashScreen from '../app/components/AnimatedSplashScreen'; // <-- 1. Importez le nouveau composant
 
@@ -16,7 +17,6 @@ SplashScreen.preventAutoHideAsync();
 // ... (le patch pour console.warn reste le même)
 
 export default function App() {
-  const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_700Bold,
@@ -24,8 +24,6 @@ export default function App() {
   
   // 2. Ajoutez un état pour savoir quand l'animation est terminée
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = useState(false);
-
-  const theme = colorScheme === 'dark' ? DarkAppTheme : LightAppTheme;
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded) {
@@ -38,19 +36,19 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      {/* 3. Affichez l'animation ou l'application en fonction de l'état */}
-      {isSplashAnimationFinished ? (
-        <PaperProvider theme={theme}>
+    <ThemeProvider>
+      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+        {/* 3. Affichez l'animation ou l'application en fonction de l'état */}
+        {isSplashAnimationFinished ? (
           <AuthProvider>
             <AppNavigator />
           </AuthProvider>
-        </PaperProvider>
-      ) : (
-        <AnimatedSplashScreen 
-          onAnimationEnd={() => setIsSplashAnimationFinished(true)} 
-        />
-      )}
-    </View>
+        ) : (
+          <AnimatedSplashScreen 
+            onAnimationEnd={() => setIsSplashAnimationFinished(true)} 
+          />
+        )}
+      </View>
+    </ThemeProvider>
   );
 }

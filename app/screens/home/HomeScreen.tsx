@@ -14,66 +14,16 @@ import {
   Easing
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Svg, Path, Circle, Rect, G } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import NotificationModal, { Notification } from '@/components/NotificationModal';
+import ModernMenuIcon from '@/components/ui/ModernMenuIcon';
+import HomeMenuModal from './HomeMenuModal';
+import Avatar from '@/components/profile/Avatar';
 
 const HEADER_MAX_HEIGHT = 280;
-
-// =================================================================
-// NOUVEAU COMPOSANT : Icône Menu Moderne (style référence)
-// =================================================================
-const ModernMenuIcon = ({ size = 24, color = "#fff" }: { size?: number; color?: string }) => {
-  // Design inspiré de l'image : 3 lignes avec différentes largeurs pour un effet moderne
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <G>
-        {/* Ligne supérieure - plus courte */}
-        <Rect x="3" y="6" width="14" height="2" rx="1" fill={color} />
-        {/* Ligne du milieu - pleine largeur */}
-        <Rect x="3" y="11" width="18" height="2" rx="1" fill={color} />
-        {/* Ligne inférieure - largeur moyenne */}
-        <Rect x="3" y="16" width="10" height="2" rx="1" fill={color} />
-      </G>
-    </Svg>
-  );
-};
-
-// =================================================================
-// COMPOSANT AMÉLIORÉ : Avatar avec icône par défaut élégante
-// =================================================================
-const GuestAvatarIcon = ({ size, color }: { size: number; color: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.5" />
-    <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="1.5" />
-    <Path 
-      d="M17 20C17 17.2386 14.7614 15 12 15C9.23858 15 7 17.2386 7 20" 
-      stroke={color} 
-      strokeWidth="1.5" 
-      strokeLinecap="round"
-    />
-  </Svg>
-);
-
-const EnhancedAvatar = ({ photoURL, prenom, nom, size }: { photoURL?: string | null; prenom?: string; nom?: string; size: number; }) => {
-  const theme = useAppTheme();
-  
-  if (photoURL) {
-    return <Image source={{ uri: photoURL }} style={{ width: size, height: size, borderRadius: size / 2 }} />;
-  }
-
-  return (
-    <View style={[
-      styles.avatarFallback, 
-      { width: size, height: size, borderRadius: size / 2, backgroundColor: 'rgba(255, 255, 255, 0.2)' }
-    ]}>
-      <GuestAvatarIcon size={size * 0.6} color={theme.colors.onPrimary} />
-    </View>
-  );
-};
 
 // =================================================================
 // COMPOSANT : Squelette de chargement pour l'accueil
@@ -137,81 +87,31 @@ const HomeScreenSkeleton = () => {
 };
 
 // =================================================================
-// COMPOSANT AMÉLIORÉ : Header avec logo en arrière-plan
+// COMPOSANT : Header de l'accueil
 // =================================================================
 const HomeHeader = ({ 
   onNotificationPress, 
-  unreadCount 
+  unreadCount,
+  onMenuPress
 }: { 
   onNotificationPress: () => void; 
   unreadCount: number; 
+  onMenuPress: () => void;
 }) => {
   const theme = useAppTheme();
   const { userProfile } = useAuth();
-  
-  // 🌟 ANIMATIONS MULTIPLES POUR UN EFFET WOW
-  const logoScale = useRef(new Animated.Value(0)).current;
-  const logoRotation = useRef(new Animated.Value(0)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const glowOpacity = useRef(new Animated.Value(0)).current;
   const particlesAnim = useRef(new Animated.Value(0)).current;
 
-  // ✨ ANIMATION COMPLEXE ET IMMERSIVE
   useEffect(() => {
-    // Animation séquentielle avec effet dramatique
-    Animated.sequence([
-      // 1. Apparition avec scale et rotation
-      Animated.parallel([
-        Animated.spring(logoScale, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoOpacity, {
-          toValue: 0.95,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoRotation, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ]),
-      // 2. Effet de glow qui pulse
-      Animated.timing(glowOpacity, {
-        toValue: 0.6,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Animation infinie de particules flottantes
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(particlesAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(particlesAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Rotation continue très subtile du logo
-    Animated.loop(
-      Animated.timing(logoRotation, {
-        toValue: 2,
-        duration: 20000,
+      Animated.timing(particlesAnim, {
+        toValue: 1,
+        duration: 5000,
         useNativeDriver: true,
+        easing: Easing.linear
       })
     ).start();
-  }, []);
+  }, [particlesAnim]);
   
   return (
     <View style={styles.headerContainer}>
@@ -219,10 +119,25 @@ const HomeHeader = ({
         colors={[theme.colors.primary, '#1E3A8A']}
         style={styles.headerCurve}
       >
+        <Animated.View style={[
+          styles.particlesContainer,
+          {
+            opacity: particlesAnim.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: [0.3, 0.7, 0.3]
+            }),
+          }
+        ]}>
+          <View style={[styles.sparkle, { top: '20%', right: '15%' }]} />
+          <View style={[styles.sparkle, { top: '40%', right: '30%' }]} />
+          <View style={[styles.sparkle, { top: '70%', right: '10%' }]} />
+          <View style={[styles.sparkle, { top: '30%', left: '15%' }]} />
+          <View style={[styles.sparkle, { top: '60%', left: '25%' }]} />
+        </Animated.View>
         
         <View style={styles.headerContentContainer}>
           <View style={styles.headerTopRow}>
-            <EnhancedAvatar 
+            <Avatar 
               photoURL={userProfile?.photoURL}
               prenom={userProfile?.prenom}
               nom={userProfile?.nom}
@@ -240,9 +155,8 @@ const HomeHeader = ({
                 )}
               </TouchableOpacity>
               
-              {/* NOUVEAU : Utilisation de l'icône menu moderne */}
-              <TouchableOpacity style={styles.iconButton}>
-                <ModernMenuIcon size={28} color={theme.colors.onPrimary} />
+              <TouchableOpacity style={styles.iconButton} onPress={onMenuPress}>
+                <ModernMenuIcon color={theme.colors.onPrimary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -261,93 +175,16 @@ const HomeHeader = ({
             </Text>
           </View>
           
-          <View style={[styles.searchContainer, { backgroundColor: theme.colors.surface + 'E6' }]}>
+          <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
             <TextInput
               placeholder="Recherche..."
-              placeholderTextColor={theme.custom.colors.placeholder}
-              style={[styles.searchInput, { color: theme.custom.colors.text }]}
+              placeholderTextColor={'rgba(255,255,255,0.6)'}
+              style={[styles.searchInput, { color: theme.colors.onPrimary }]}
             />
-            <Ionicons name="search" size={22} color={theme.custom.colors.placeholder} style={styles.searchIcon} />
+            <Ionicons name="search" size={22} color={'rgba(255,255,255,0.6)'} style={styles.searchIcon} />
           </View>
         </View>
       </LinearGradient>
-
-      {/* 🌟 LOGO EN DEHORS DU GRADIENT POUR ÉVITER L'OVERFLOW */}
-      {/* COUCHE 1: PARTICULES FLOTTANTES */}
-      <Animated.View style={[
-        styles.particlesContainer,
-        {
-          opacity: particlesAnim.interpolate({
-            inputRange: [0, 0.5, 1],
-            outputRange: [0.1, 0.3, 0.1]
-          }),
-          transform: [{
-            translateY: particlesAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [20, -20]
-            })
-          }]
-        }
-      ]}>
-        {/* Particules décoratives autour du logo */}
-        <View style={[styles.particle, { bottom: 60, right: 80 }]} />
-        <View style={[styles.particle, { bottom: 90, right: 40 }]} />
-        <View style={[styles.particle, { bottom: 120, right: 60 }]} />
-        <View style={[styles.particle, { bottom: 140, right: 20 }]} />
-        <View style={[styles.particle, { bottom: 100, right: 100 }]} />
-      </Animated.View>
-
-      {/* COUCHE 2: EFFET DE GLOW DERRIÈRE LE LOGO */}
-      <Animated.View style={[
-        styles.logoGlow,
-        {
-          opacity: glowOpacity,
-          transform: [{
-            scale: glowOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.8, 1.2]
-            })
-          }]
-        }
-      ]} />
-
-      {/* COUCHE 3: LOGO PRINCIPAL AVEC ANIMATIONS COMPLEXES */}
-      <Animated.View style={[
-        styles.logoContainer,
-        {
-          opacity: logoOpacity,
-          transform: [
-            {
-              scale: logoScale
-            },
-            {
-              rotate: logoRotation.interpolate({
-                inputRange: [0, 1, 2],
-                outputRange: ['0deg', '5deg', '360deg']
-              })
-            }
-          ]
-        }
-      ]}>
-        <Image
-          source={require('assets/images/logosbg.png')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-        
-        {/* Cercle décoratif autour du logo */}
-        <Animated.View style={[
-          styles.logoRing,
-          {
-            transform: [{
-              rotate: logoRotation.interpolate({
-                inputRange: [0, 2],
-                outputRange: ['0deg', '-360deg']
-              })
-            }]
-          }
-        ]} />
-      </Animated.View>
     </View>
   );
 };
@@ -382,9 +219,9 @@ export default function HomeScreen() {
   const theme = useAppTheme();
   const { loading: authLoading } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
-  
-  // États pour les notifications
+  const [isMenuVisible, setMenuVisible] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
@@ -404,75 +241,25 @@ export default function HomeScreen() {
       isRead: false,
       priority: 'high',
     },
-    {
-      id: '3',
-      title: 'Événement à venir',
-      message: 'Culte spécial dimanche prochain à 10h.',
-      type: 'event',
-      timestamp: new Date(Date.now() - 7200000),
-      isRead: true,
-      priority: 'normal',
-    },
-    {
-      id: '4',
-      title: 'Mise à jour système',
-      message: 'L\'application a été mise à jour avec de nouvelles fonctionnalités.',
-      type: 'system',
-      timestamp: new Date(Date.now() - 86400000),
-      isRead: false,
-      priority: 'low',
-    },
   ]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInitializing(false);
-    }, 1500);
+    const timer = setTimeout(() => setIsInitializing(false), 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Fonctions de gestion des notifications
-  const handleNotificationPress = () => {
-    setShowNotificationModal(true);
-  };
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === id ? { ...notif, isRead: true } : notif
-      )
-    );
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, isRead: true }))
-    );
-  };
-
-  const handleDeleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== id));
-  };
-
+  const handleNotificationPress = () => setShowNotificationModal(true);
+  const handleMarkAsRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const handleMarkAllAsRead = () => setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  const handleDeleteNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
   const handleNotificationItemPress = (notification: Notification) => {
-    if (!notification.isRead) {
-      handleMarkAsRead(notification.id);
-    }
+    if (!notification.isRead) handleMarkAsRead(notification.id);
     setShowNotificationModal(false);
-    console.log('Navigation vers:', notification.actionUrl || 'page par défaut');
   };
 
-  if (authLoading) {
-    return (
-      <View style={[styles.loaderContainer, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
-  if (isInitializing) {
+  if (authLoading || isInitializing) {
     return <HomeScreenSkeleton />;
   }
 
@@ -482,6 +269,7 @@ export default function HomeScreen() {
       <HomeHeader 
         onNotificationPress={handleNotificationPress}
         unreadCount={unreadCount}
+        onMenuPress={() => setMenuVisible(true)}
       />
 
       <ScrollView 
@@ -526,6 +314,11 @@ export default function HomeScreen() {
         onDeleteNotification={handleDeleteNotification}
         onNotificationPress={handleNotificationItemPress}
       />
+      
+      <HomeMenuModal 
+        isVisible={isMenuVisible}
+        onClose={() => setMenuVisible(false)}
+      />
     </View>
   );
 }
@@ -548,83 +341,30 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomLeftRadius: 50,
     borderBottomRightRadius: 50,
-    overflow: 'hidden', // Important pour contenir le logo
+    overflow: 'hidden', 
   },
-  // 🌟 STYLES POUR EFFETS IMMERSIFS
   particlesContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    zIndex: 77, // ✅ Visible mais en dessous du logo
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1, 
   },
-  particle: {
+  sparkle: { // Style manquant corrigé
     position: 'absolute',
-    width: 4,
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderRadius: 2,
-    shadowColor: '#fff',
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  logoContainer: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    right: 40, // Moitié hors écran (50% visible)
-    bottom: 40, // Moitié hors écran (50% visible)
-    zIndex: 50, // ✅ TRÈS ÉLEVÉ pour passer devant tout
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoImage: {
-    width: 250,
-    height: 250,
-    zIndex: 51, // ✅ AU-DESSUS DE TOUT
-    opacity: 0.4, // ✅ SEMI-TRANSPARENT pour effet subtil mais visible
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    right: -150,
-    bottom: -150,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 150,
-    zIndex: 45, // ✅ Juste en dessous du logo mais au-dessus du contenu
-    shadowColor: '#fff',
-    shadowOpacity: 0.6,
-    shadowRadius: 25,
-    elevation: 20,
-  },
-  logoRing: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 110,
-    borderStyle: 'dashed',
-    zIndex: 49, // ✅ Juste en dessous du logo
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   headerContentContainer: {
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 60,
     paddingHorizontal: 25,
     flex: 1,
     justifyContent: 'space-between',
-    zIndex: 1, // En dessous du logo maintenant
+    zIndex: 10, 
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  avatarFallback: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   headerIconsContainer: {
     flexDirection: 'row',
@@ -637,6 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
     position: 'relative',
+    zIndex: 20,
   },
   notificationBadge: {
     position: 'absolute',

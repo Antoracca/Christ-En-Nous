@@ -1,5 +1,7 @@
 // app/hooks/useAppTheme.ts
-import { useTheme } from 'react-native-paper';
-import type { AppThemeType } from '../constants/theme';
+import { useThemeContext } from '@/context/ThemeContext';
 
-export const useAppTheme = () => useTheme<AppThemeType>();
+export const useAppTheme = () => {
+  const { theme } = useThemeContext();
+  return theme;
+};

@@ -7,6 +7,7 @@ import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { Provider as PaperProvider } from 'react-native-paper';
 
 // Importer tous les écrans
 import LoginScreen from '@/screens/auth/login';
@@ -23,7 +24,7 @@ import ChangePasswordScreen from '@/screens/auth/ChangePasswordScreen';
 import PostEmailChangeScreen from '@/screens/auth/PostEmailChangeScreen';
 
 export type RootStackParamList = {
-  Main: undefined;
+  Main: { screen?: string } | undefined;
   // ✅ S'assurer que Login peut recevoir des paramètres
   Login: { email?: string };
   Register: undefined;
@@ -37,6 +38,8 @@ export type RootStackParamList = {
   PostEmailChange: { newEmail: string };
   // ✅ Ajout de l'écran de chargement initial
   InitialLoading: undefined;
+  // ✅ Ajout des onglets pour la navigation
+  ProfileTab: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -69,10 +72,11 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        screenOptions={{ headerShown: false }}
-      >
+    <PaperProvider theme={theme}>
+      <NavigationContainer>
+        <Stack.Navigator 
+          screenOptions={{ headerShown: false }}
+        >
         {shouldShowRegisterSuccess?.show ? (
           <Stack.Screen 
             name="RegisterSuccess" 
@@ -165,6 +169,7 @@ export default function AppNavigator() {
         )}
         
       </Stack.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+    </PaperProvider>
   );
 }

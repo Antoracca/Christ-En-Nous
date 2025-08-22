@@ -33,18 +33,40 @@ When you're ready, run:
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+# Christ en Nous - L'Application
 
-## Learn more
+## 📖 À propos du projet
 
-To learn more about developing your project with Expo, look at the following resources:
+**Christ en Nous** est une application mobile visant à digitaliser et à rassembler la vie de l'Église. Inspirée par la vision de notre pasteur, cette application a pour but de créer une communauté chrétienne connectée, de faciliter l'accès aux ressources spirituelles et de centraliser les activités de l'Église.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+L'objectif est de fournir une plateforme complète où les membres peuvent grandir dans leur foi, interagir les uns avec les autres et participer activement à la vie de la communauté.
 
-## Join the community
+## ✨ Fonctionnalités Prévues
 
-Join our community of developers creating universal apps.
+L'application s'articulera autour de plusieurs pôles majeurs :
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+* **Christ Social :** Un réseau social privé et sécurisé pour les chrétiens, permettant de partager des photos, des témoignages et des moments de fraternité.
+* **Intégration des Ministères :** Un accès centralisé aux différents ministères et programmes de l'Église :
+    * Christ en Nous Académie (formations, cours de baptême, leadership)
+    * Markos (Ministère des Jeunes)
+    * Christ en Nous Life TV
+    * Mission BOMI (Bonnes Œuvres Mission Internationale)
+* **Vie de l'Église :**
+    * **Annonces et Programmes :** Pour rester informé des derniers événements et services.
+    * **Notifications :** Alertes en temps réel pour les annonces importantes.
+    * **Services et Cultes en direct.**
+* **Croissance Spirituelle :**
+    * **Lecture de la Bible :** Un module intégré pour lire et méditer les Écritures.
+    * **Cours et Formations :** Accès aux cours de baptême, de discipolat et de leadership.
+* **Interaction :**
+    * **Chat en direct :** Pour communiquer avec d'autres membres ou des responsables.
+    * **Profils Certifiés :** Un système pour vérifier et authentifier les membres.
+
+## 🎯 Objectif Actuel : Version 1 (V1)
+
+La priorité actuelle est de lancer une première version (V1) fonctionnelle qui se concentre sur les fonctionnalités essentielles pour commencer à construire la communauté.
+
+## 🛠️ Technologies Utilisées
+
+* **Frontend :** React Native avec Expo (TypeScript)
+* **Backend :** Firebase (Authentication, Firestore, Cloud Functions)
