@@ -15,7 +15,6 @@ import {
   TouchableWithoutFeedback,
   Alert,
   Pressable,
-  GestureResponderEvent,
 } from 'react-native';
 import {
   Provider as PaperProvider,
@@ -26,28 +25,21 @@ import {
   ActivityIndicator,
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
-import {
-  signInWithEmailAndPassword,
-  Auth,
-} from 'firebase/auth';
-import {
-  collection,
-  query,
-  where,
-  limit,
-  getDocs,
-  Firestore,
-} from 'firebase/firestore';
-import { auth, db } from 'services/firebase/firebaseConfig'; // Assurez-vous que ce chemin est correct
+import { signInWithEmailAndPassword, Auth } from 'firebase/auth';
+import { collection, query, where, limit, getDocs, Firestore } from 'firebase/firestore';
+import { auth, db } from 'services/firebase/firebaseConfig';
 
+// ... (Le composant LeftInputIcon et le hook useBiometricAuth restent inchangés)
 // =================================================================
 // 1. COMPOSANT LeftInputIcon
 // =================================================================
@@ -221,12 +213,18 @@ const useBiometricAuth = () => {
   return { isBiometricSupported, isBiometricEnabled, handleBiometricPress, promptToSaveCredentials, getBiometricDisplayInfo };
 };
 
-// =================================================================
-// 3. HOOK DE LOGIQUE MÉTIER
-// =================================================================
-type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
 
-const useLogin = () => {
+// =================================================================
+// 3. HOOK DE LOGIQUE MÉTIER (MODIFIÉ)
+// =================================================================
+type LoginScreenParams = {
+  email?: string;
+};
+
+type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid' | 'info';
+
+// ✅ MODIFIÉ : Le hook accepte maintenant les paramètres de la route
+const useLogin = (routeParams: LoginScreenParams | undefined) => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [identifier, setIdentifier] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -258,37 +256,53 @@ const useLogin = () => {
     return () => clearInterval(timer);
   }, [isLockedOut]);
 
+  // ✅ MODIFIÉ : Logique de validation utilisant routeParams
   React.useEffect(() => {
     const handler = setTimeout(async () => {
-      const value = identifier.trim();
+      const value = identifier.trim().toLowerCase();
       if (value.length < 3) {
-        setValidationStatus('idle'); setValidationMessage(null); return;
+        setValidationStatus('idle');
+        setValidationMessage(null);
+        return;
       }
-      setValidationStatus('validating'); setValidationMessage(null);
+
+      // ✅ ÉTAPE 1: Vérifier si l'email dans l'input correspond au paramètre de navigation
+      if (routeParams?.email && value === routeParams.email.toLowerCase()) {
+        console.log("💡 [LOGIN] Scénario post-changement d'email détecté via route.params. Validation spéciale activée.");
+        setValidationStatus('info');
+        setValidationMessage('Veuillez vous reconnecter avec votre nouvelle adresse.');
+        return; // On arrête la validation ici
+      }
+
+      // Étape 2: Validation normale si la condition ci-dessus n'est pas remplie
+      setValidationStatus('validating');
+      setValidationMessage(null);
+
       if (value.includes('@')) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(value)) {
-          setValidationStatus('invalid'); setValidationMessage("Format d'email invalide.");
+          setValidationStatus('invalid');
+          setValidationMessage("Format d'email invalide.");
         } else {
-          const usersQ = query(collection(db as Firestore, 'users'), where('email', '==', value.toLowerCase()), limit(1));
+          const usersQ = query(collection(db as Firestore, 'users'), where('email', '==', value), limit(1));
           const usersSnap = await getDocs(usersQ);
           setValidationStatus(usersSnap.empty ? 'invalid' : 'valid');
           setValidationMessage(usersSnap.empty ? "Cet email n'est pas reconnu." : 'Email valide ✓');
         }
       } else {
-        const usersQ = query(collection(db as Firestore, 'users'), where('username', '==', value.toLowerCase()), limit(1));
+        const usersQ = query(collection(db as Firestore, 'users'), where('username', '==', value), limit(1));
         const usersSnap = await getDocs(usersQ);
         setValidationStatus(usersSnap.empty ? 'invalid' : 'valid');
         setValidationMessage(usersSnap.empty ? "Ce pseudo n'est pas reconnu." : 'Pseudo valide ✓');
       }
     }, 500);
     return () => clearTimeout(handler);
-  }, [identifier]);
+  }, [identifier, routeParams]); // On ajoute routeParams aux dépendances
 
   React.useEffect(() => {
     if (identifier || password) setErrorMessage(null);
   }, [identifier, password]);
-
+  
   const loginWithCredentials = async (id: string, pass: string, p0: boolean) => {
     setIsBiometricLoading(true);
     setErrorMessage(null);
@@ -386,16 +400,20 @@ const ICON_SIZE = 30;
 const LOGO_SIZE = 140;
 
 // =================================================================
-// ÉCRAN DE CONNEXION PRINCIPAL
+// ÉCRAN DE CONNEXION PRINCIPAL (MODIFIÉ)
 // =================================================================
 export default function LoginScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const route = useRoute<RouteProp<Record<string, LoginScreenParams>, string>>();
+  
+  // ✅ MODIFIÉ : On passe les paramètres de la route au hook
   const {
     identifier, setIdentifier, password, setPassword, errorMessage, handleLogin, isLoading, isSuccess,
     isLockedOut, lockoutTime, validationStatus, validationMessage, loginWithCredentials, isBiometricLoading,
-  } = useLogin();
+  } = useLogin(route.params);
+  
   const { isBiometricSupported, handleBiometricPress, getBiometricDisplayInfo } = useBiometricAuth();
   const [showPassword, setShowPassword] = React.useState(false);
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [focusedInput, setFocusedInput] = React.useState<'identifier' | 'password' | null>(null);
   const passwordInputRef = React.useRef<any>(null);
 
@@ -406,6 +424,20 @@ export default function LoginScreen() {
   React.useEffect(() => {
     Animated.timing(masterAnim, { toValue: 1, duration: 1200, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [masterAnim]);
+
+  // ✅ SIMPLIFIÉ : On se base uniquement sur les paramètres de la route pour le pré-remplissage
+  React.useEffect(() => {
+    if (route.params?.email) {
+      console.log('📧 [LOGIN] Pré-remplissage depuis route.params:', route.params.email);
+      setIdentifier(route.params.email);
+    }
+  }, [route.params?.email, setIdentifier]);
+
+  React.useEffect(() => {
+    if (isSuccess) {
+      Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => navigation.replace('Main'));
+    }
+  }, [isSuccess, masterAnim, navigation]);
 
   React.useEffect(() => {
     if (errorMessage && !isLockedOut) {
@@ -418,12 +450,6 @@ export default function LoginScreen() {
       ]).start();
     }
   }, [errorMessage, isLockedOut, shakeAnim]);
-  
-  React.useEffect(() => {
-    if (isSuccess) {
-      Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => navigation.replace('Home'));
-    }
-  }, [isSuccess, masterAnim, navigation]);
 
   const triggerBiometricLogin = async () => {
     const credentials = await handleBiometricPress();
@@ -452,6 +478,7 @@ export default function LoginScreen() {
   const hasValidationMessage = validationStatus !== 'idle' && validationMessage;
   const isValidationInvalid = validationStatus === 'invalid';
   const isValidationValid = validationStatus === 'valid';
+  const isValidationInfo = validationStatus === 'info';
   const biometricInfo = getBiometricDisplayInfo();
 
   return (
@@ -482,7 +509,16 @@ export default function LoginScreen() {
                         />
                         {validationStatus === 'validating' && <ActivityIndicator style={styles.validationLoader} size="small" />}
                       </View>
-                      <HelperText type={isValidationInvalid ? 'error' : 'info'} visible={!!hasValidationMessage} style={[styles.validationText, isValidationValid && { color: theme.colors.success }]}>
+                      
+                      <HelperText 
+                        type={isValidationInvalid ? 'error' : 'info'} 
+                        visible={!!hasValidationMessage} 
+                        style={[
+                          styles.validationText, 
+                          isValidationValid && { color: theme.colors.success },
+                          isValidationInfo && { color: theme.colors.primary }
+                        ]}
+                      >
                         {validationMessage || ' '}
                       </HelperText>
                       
@@ -534,6 +570,7 @@ export default function LoginScreen() {
     </PaperProvider>
   );
 }
+
 
 // =================================================================
 // STYLES

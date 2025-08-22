@@ -34,6 +34,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/context/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
@@ -182,6 +183,7 @@ const LOGO_SIZE = 140;
 export default function ForgotPasswordScreen() {
   const { email, setEmail, errorMessage, loading, isSuccess, handleResetPassword } = useForgotPassword();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { isAuthenticated } = useAuth();
   const masterAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
@@ -253,8 +255,8 @@ export default function ForgotPasswordScreen() {
                       Un lien pour réinitialiser votre mot de passe a été envoyé à <Text style={{ fontWeight: 'bold' }}>{email}</Text>.
                     </Text>
                     <Text style={styles.successSubMessage}>Veuillez vérifier votre boîte de réception et vos spams.</Text>
-                    <Button mode="contained" onPress={() => navigation.goBack()} style={styles.actionButton} contentStyle={styles.actionButtonContent} labelStyle={styles.actionButtonLabel} buttonColor={theme.colors.primary}>
-                      Retour à la connexion
+                    <Button mode="contained" onPress={() => isAuthenticated ? navigation.goBack() : navigation.navigate('Login')} style={styles.actionButton} contentStyle={styles.actionButtonContent} labelStyle={styles.actionButtonLabel} buttonColor={theme.colors.primary}>
+                      Retour
                     </Button>
                   </Animated.View>
                 ) : (
@@ -288,8 +290,8 @@ export default function ForgotPasswordScreen() {
                     </Button>
 
                     <View style={styles.actionsContainer}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} disabled={loading}>
-                            <Text style={styles.linkText}>Retour à la connexion</Text>
+                        <TouchableOpacity onPress={() => isAuthenticated ? navigation.goBack() : navigation.navigate('Login')} disabled={loading}>
+                            <Text style={styles.linkText}>Retour</Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={showHelpDialog} disabled={loading}>
                             <Text style={styles.linkText}>Besoin d&apos;aide ?</Text>

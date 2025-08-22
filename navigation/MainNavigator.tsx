@@ -1,7 +1,7 @@
 // navigation/MainNavigator.tsx - VERSION FINALE CORRIGÉE
 
 import { useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -34,13 +34,16 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const CentralHomeButton = ({ onPress, isFocused }: { onPress: () => void; isFocused: boolean }) => {
     const theme = useAppTheme();
     const scaleAnim = useSharedValue(1);
+    const opacityAnim = useSharedValue(1);
 
     useEffect(() => {
         scaleAnim.value = withSpring(isFocused ? 1.1 : 1, { damping: 10, stiffness: 120 });
-    }, [isFocused, scaleAnim]);
+        opacityAnim.value = withSpring(isFocused ? 1 : 0.9); // Opacité à 90% si non focus
+    }, [isFocused, scaleAnim, opacityAnim]);
 
     const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scaleAnim.value }]
+        transform: [{ scale: scaleAnim.value }],
+        opacity: opacityAnim.value,
     }));
 
     const handlePress = () => {
@@ -52,10 +55,13 @@ const CentralHomeButton = ({ onPress, isFocused }: { onPress: () => void; isFocu
         <TouchableOpacity onPress={handlePress} style={styles.centralButtonContainer} activeOpacity={0.9}>
             <Animated.View style={[styles.centralButton, animatedStyle]}>
                 <LinearGradient
-                    colors={[theme.colors.primary, '#1E3A8A']}
+                    colors={[theme.colors.primary, '#526fbdff']}
                     style={styles.centralButtonGradient}
                 >
-                    <Feather name="grid" size={32} color="white" />
+                    <Image 
+                      source={require('../assets/images/christlg.png')} 
+                      style={{ width: 55, height: 55, resizeMode: 'contain' }} 
+                    />
                 </LinearGradient>
             </Animated.View>
         </TouchableOpacity>
@@ -100,7 +106,7 @@ const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }
   }
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.tabItem} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} style={styles.tabItem} activeOpacity={1}>
       <Animated.View style={[styles.tabItemInner, animatedContainerStyle]}>
         {renderIcon()}
         <Animated.Text style={[styles.tabLabel, { color: theme.colors.primary }, animatedLabelStyle]}>
@@ -113,6 +119,7 @@ const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }
 
 // Composant CustomTabBar
 const CustomTabBar = ({ state, navigation }: any) => {
+  const theme = useAppTheme();
   const tabConfig = [
     { name: 'BibleTab', icon: 'book-open', label: 'Bible', type: 'feather' },
     { name: 'CoursesTab', icon: 'award', label: 'Cours', type: 'feather' },
@@ -125,7 +132,7 @@ const CustomTabBar = ({ state, navigation }: any) => {
     <View style={styles.tabBarWrapper}>
       <BlurView
         intensity={Platform.OS === 'ios' ? 90 : 100}
-        tint="light"
+        tint={theme.dark ? 'dark' : 'light'}
         style={styles.tabBarContainer}
       >
         <View style={styles.tabBarContent}>
@@ -185,12 +192,6 @@ export default function MainNavigator() {
         headerTintColor: theme.custom.colors.text,
       })}
     >
-      {/* ✅ ORDRE MODIFIÉ : HomeTab en premier pour être l'écran par défaut */}
-      <Tab.Screen 
-        name="HomeTab" 
-        component={HomeScreen} 
-        options={{ title: 'Accueil' }}
-      />
       <Tab.Screen 
         name="BibleTab" 
         component={BibleScreen} 
@@ -200,6 +201,12 @@ export default function MainNavigator() {
         name="CoursesTab" 
         component={CoursesScreen} 
         options={{ title: 'Cours' }}
+      />
+      {/* ✅ ORDRE MODIFIÉ : HomeTab au milieu */}
+      <Tab.Screen 
+        name="HomeTab" 
+        component={HomeScreen} 
+        options={{ title: 'Accueil' }}
       />
       <Tab.Screen 
         name="PrayerTab" 
@@ -270,10 +277,10 @@ const styles = StyleSheet.create({
     marginTop: -8,
   },
   centralButton: {
-    width: 50,
+    width: 70,
     height: 50,
     borderRadius: 35,
-    elevation: 8,
+    elevation: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

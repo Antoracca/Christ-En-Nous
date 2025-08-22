@@ -11,6 +11,7 @@ import { auth } from 'services/firebase/firebaseConfig';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Feather } from '@expo/vector-icons';
 import Avatar from '@/components/profile/Avatar';
+import { useMigrateUserRoles } from '@/hooks/useMigrateUserRoles';
 
 // --- Sous-composants pour une meilleure lisibilité ---
 
@@ -89,9 +90,10 @@ const LogoutButton = ({ onPress, isLoading }: { onPress: () => void; isLoading: 
 export default function ProfileScreen() {
   const theme = useAppTheme();
   const navigation = useNavigation();
-  const { userProfile, loading, refreshUserProfile } = useAuth();
+  const { userProfile, loading, refreshUserProfile , logout } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  useMigrateUserRoles();
 
   useFocusEffect(
     useCallback(() => {
@@ -114,29 +116,31 @@ export default function ProfileScreen() {
   }, [refreshUserProfile]);
 
   const handleLogout = () => {
-    Alert.alert(
-      "Déconnexion",
-      "Voulez-vous vraiment vous déconnecter ?",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Se déconnecter",
-          style: "destructive",
-          onPress: async () => {
-            setIsLoggingOut(true);
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error("Erreur de déconnexion:", error);
-              Alert.alert("Erreur", "Impossible de se déconnecter pour le moment.");
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
+  Alert.alert(
+    "Déconnexion",
+    "Voulez-vous vraiment vous déconnecter ?",
+    [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Se déconnecter",
+        style: "destructive",
+        onPress: async () => {
+          setIsLoggingOut(true);
+          try {
+            // On appelle simplement la fonction centrale du contexte
+            await logout();
+          } catch (error) {
+            console.error("Erreur de déconnexion:", error);
+            Alert.alert("Erreur", "Une erreur est survenue lors de la déconnexion.");
+          } finally {
+            // Cet état est surtout pour la réactivité visuelle immédiate
+            setIsLoggingOut(false);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   const formatDate = (dateString?: string) => {
       if (!dateString) return "Non renseignée";
@@ -245,7 +249,7 @@ export default function ProfileScreen() {
         <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <SectionHeader title="Paramètres" />
             <NavButton icon="edit" label="Modifier le profil" onPress={() => navigation.navigate('ModifierProfil' as never)} />
-            <NavButton icon="shield" label="Sécurité" onPress={() => {}} />
+            <NavButton icon="shield" label="Sécurité" onPress={() => navigation.navigate('Security' as never)} />
             <NavButton icon="bell" label="Notifications" onPress={() => {}} />
             <LogoutButton onPress={handleLogout} isLoading={isLoggingOut} />
         </View>
@@ -266,7 +270,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   header: {
     alignItems: 'center',
@@ -364,3 +368,4 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
