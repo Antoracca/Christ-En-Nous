@@ -3,7 +3,7 @@
     "name": " ",
     "slug": "Christ En Nous",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/image1.png",
     "scheme": "christennous",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.christennous"
+      "package": "com.anonymous.christennous",
+      "supportsTablet": true
     },
     "web": {
       "bundler": "metro",

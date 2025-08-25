@@ -4,7 +4,7 @@
  * @author TeamAssist for Chef Adjoint Antoni
  */
 
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Dimensions, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -23,13 +23,11 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Configuration premium recalculée
-const CONFIG = {
-  logo: SCREEN_WIDTH * 0.35, // Légèrement plus grand pour compenser
-  title: SCREEN_WIDTH * 0.082,
-  motto: SCREEN_WIDTH * 0.046,
+// Configuration premium recalculée - sera dynamique avec limites pour tablettes
+const getConfig = (screenWidth: number, isTablet: boolean = false) => ({
+  logo: isTablet ? Math.min(screenWidth * 0.25, 280) : screenWidth * 0.35, 
+  title: isTablet ? Math.min(screenWidth * 0.045, 32) : screenWidth * 0.082,
+  motto: isTablet ? Math.min(screenWidth * 0.028, 18) : Math.max(screenWidth * 0.035, 12), // Min 12px pour éviter le wrap
   duration: {
     logo: 1500,
     title: 1000,
@@ -41,13 +39,113 @@ const CONFIG = {
     pulseIntensity: 0.025,
     shimmerDuration: 2800
   }
-};
+});
 
 interface Props {
   onAnimationEnd: () => void;
 }
 
 const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
+  // État pour les dimensions responsives
+  const [dimensions, setDimensions] = useState(() => Dimensions.get('window'));
+  
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions(window);
+    });
+    
+    return () => subscription?.remove();
+  }, []);
+
+  // Détection tablette
+  const isTablet = Math.min(dimensions.width, dimensions.height) >= 600;
+  const CONFIG = useMemo(() => getConfig(dimensions.width, isTablet), [dimensions.width, isTablet]);
+  
+  // Styles dynamiques basés sur les dimensions actuelles
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    circle: {
+      position: 'absolute',
+      borderWidth: 6,
+      borderRadius: 1000,
+    },
+    circleTop: {
+      width: dimensions.width * 2.4,
+      height: dimensions.width * 2.4,
+      top: -dimensions.width * 1.2,
+      left: -dimensions.width * 0.7,
+    },
+    circleBottom: {
+      width: dimensions.width * 1.9,
+      height: dimensions.width * 1.9,
+      bottom: -dimensions.width * 0.95,
+      right: -dimensions.width * 0.45,
+    },
+    circleCenter: {
+      width: dimensions.width * 1.5,
+      height: dimensions.width * 1.5,
+      top: dimensions.height * 0.05,
+      right: -dimensions.width * 0.8,
+      borderWidth: 1,
+    },
+    logoGlow: {
+      position: 'absolute',
+      width: CONFIG.logo * 1.9,
+      height: CONFIG.logo * 1.9,
+      borderRadius: CONFIG.logo * 1.2,
+      top: dimensions.height * (isTablet ? 0.28 : 0.25), // Plus d'espace sur tablettes
+    },
+    logo: {
+      position: 'absolute',
+      width: CONFIG.logo,
+      height: CONFIG.logo,
+      top: dimensions.height * (isTablet ? 0.28 : 0.25),
+    },
+    centralLine: {
+      position: 'absolute',
+      top: dimensions.height * (isTablet ? 0.535 : 0.52), // Position ajustée
+      height: 1,
+      width: dimensions.width * 0.15,
+      borderRadius: 0.5,
+    },
+    title: {
+      position: 'absolute',
+      top: dimensions.height * (isTablet ? 0.56 : 0.54),
+      fontSize: CONFIG.title,
+      fontFamily: 'Nunito_800ExtraBold', // Police originale restaurée
+      fontWeight: '800',
+      letterSpacing: isTablet ? 2 : 3, // Espacement original
+      textAlign: 'center',
+    },
+    mottoContainer: {
+      position: 'absolute',
+      top: dimensions.height * (isTablet ? 0.64 : 0.625),
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'nowrap', // IMPORTANT : empêche le retour à la ligne
+      justifyContent: 'center',
+      paddingHorizontal: 10, // Padding fixe minimal
+      width: '100%',
+      overflow: 'visible', // S'assure que le contenu peut déborder si nécessaire
+    },
+    mottoWord: {
+      fontSize: CONFIG.motto,
+      fontFamily: 'Nunito_500Medium', // Police originale plus fine
+      fontWeight: '600',
+      letterSpacing: 1.2, // Valeur originale
+      marginHorizontal: isTablet ? 6 : (dimensions.width < 350 ? 4 : 8), // Espacement adaptatif pour petits écrans
+      textAlign: 'center',
+      flexShrink: 0, // Empêche la réduction de taille
+    },
+    floatingDot: {
+      position: 'absolute',
+      borderRadius: 50,
+    },
+  }), [dimensions, CONFIG]);
   const isDark = useColorScheme() === 'dark';
   
   // Palette de couleurs premium avec mode sombre amélioré
@@ -290,7 +388,8 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
     shimmerOpacity,
     glowIntensity,
     topLineWidth,
-    bottomLineWidth
+    bottomLineWidth,
+    CONFIG
   ]);
 
   // Styles animés premium
@@ -328,12 +427,12 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const topLineStyle = useAnimatedStyle(() => ({
-    width: SCREEN_WIDTH * 0.4 * topLineWidth.value,
+    width: dimensions.width * 0.4 * topLineWidth.value,
     opacity: topLineWidth.value,
   }));
 
   const bottomLineStyle = useAnimatedStyle(() => ({
-    width: SCREEN_WIDTH * 0.35 * bottomLineWidth.value,
+    width: dimensions.width * 0.35 * bottomLineWidth.value,
     opacity: bottomLineWidth.value,
   }));
   
@@ -366,7 +465,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
   const mottoStyles = [motto1Style, motto2Style, motto3Style, motto4Style, motto5Style];
 
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
+    <Animated.View style={[dynamicStyles.container, containerStyle]}>
       {/* Gradient premium multicouche optimisé pour le mode sombre */}
       <LinearGradient
         colors={isDark 
@@ -378,7 +477,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
       />
 
       {/* Cercles décoratifs premium repositionnés */}
-      <View style={[styles.circle, styles.circleTop, { 
+      <View style={[dynamicStyles.circle, dynamicStyles.circleTop, { 
         borderColor: colors.accent, 
         opacity: isDark ? 0.18 : 0.12,
         shadowColor: colors.accent,
@@ -386,7 +485,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
         shadowOpacity: isDark ? 0.4 : 0.3,
         shadowRadius: isDark ? 25 : 20,
       }]} />
-      <View style={[styles.circle, styles.circleBottom, { 
+      <View style={[dynamicStyles.circle, dynamicStyles.circleBottom, { 
         borderColor: colors.accentLight, 
         opacity: isDark ? 0.15 : 0.1,
         shadowColor: colors.accent,
@@ -394,7 +493,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
         shadowOpacity: isDark ? 0.3 : 0.2,
         shadowRadius: isDark ? 20 : 15,
       }]} />
-      <View style={[styles.circle, styles.circleCenter, { 
+      <View style={[dynamicStyles.circle, dynamicStyles.circleCenter, { 
         borderColor: colors.accentDark, 
         opacity: isDark ? 0.12 : 0.06,
       }]} />
@@ -404,7 +503,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
 
       {/* Effet de lueur pour le logo repositionné */}
       <Animated.View style={[
-        styles.logoGlow, 
+        dynamicStyles.logoGlow, 
         { backgroundColor: colors.glow }, 
         logoGlowStyle
       ]} />
@@ -412,19 +511,19 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
       {/* Logo repositionné plus haut */}
       <Animated.Image
         source={require('../../assets/images/Splash-Christ.png')}
-        style={[styles.logo, logoStyle]}
+        style={[dynamicStyles.logo, logoStyle]}
         resizeMode="contain"
       />
 
       {/* Ligne décorative centrale plus fine */}
       <Animated.View style={[
-        styles.centralLine, 
+        dynamicStyles.centralLine, 
         { backgroundColor: colors.accent }, 
         titleStyle
       ]} />
 
       {/* Titre repositionné au centre */}
-      <Animated.Text style={[styles.title, { 
+      <Animated.Text style={[dynamicStyles.title, { 
         color: colors.text,
         textShadowColor: isDark ? colors.glowIntense : colors.glow,
         textShadowOffset: { width: 0, height: isDark ? 3 : 2 },
@@ -434,7 +533,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
       </Animated.Text>
 
       {/* Devise repositionnée plus bas avec espacement optimisé */}
-      <View style={styles.mottoContainer}>
+      <View style={dynamicStyles.mottoContainer}>
         {mottoWords.map((word, index) => {
           const isDot = word === '•';
           
@@ -442,8 +541,7 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
             <Animated.Text
               key={index}
               style={[
-                styles.mottoText,
-                isDot && styles.mottoDot,
+                dynamicStyles.mottoWord,
                 { 
                   color: isDot ? colors.accent : colors.subtle,
                   textShadowColor: isDot ? colors.glow : 'transparent',
@@ -468,7 +566,12 @@ const AnimatedSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
       
       {/* Ligne décorative du bas avec animation */}
       <Animated.View style={[
-        styles.bottomLine, 
+        { 
+          position: 'absolute', 
+          bottom: dimensions.height * (isTablet ? 0.15 : 0.18), 
+          height: isTablet ? 1.5 : 2, 
+          borderRadius: 1 
+        }, 
         { backgroundColor: colors.accent }, 
         bottomLineStyle,
         shimmerStyle
@@ -487,6 +590,24 @@ const EnhancedFloatingElements = ({
   glowColor: string; 
   isDark: boolean;
 }) => {
+  // Dimensions responsives pour ce composant
+  const [dimensions, setDimensions] = useState(() => Dimensions.get('window'));
+  
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions(window);
+    });
+    
+    return () => subscription?.remove();
+  }, []);
+
+  // Styles dynamiques pour les particules
+  const dynamicStyles = useMemo(() => StyleSheet.create({
+    floatingDot: {
+      position: 'absolute',
+      borderRadius: 50,
+    },
+  }), []);
   const dot1Y = useSharedValue(0);
   const dot1Opacity = useSharedValue(0);
   const dot2Y = useSharedValue(0);
@@ -502,7 +623,7 @@ const EnhancedFloatingElements = ({
     // Particules repositionnées pour le nouveau layout
     dot1Y.value = withDelay(
       2500,
-      withSpring(-SCREEN_HEIGHT * 0.45, {
+      withSpring(-dimensions.height * 0.45, {
         damping: 4,
         stiffness: 18,
         mass: 2,
@@ -512,7 +633,7 @@ const EnhancedFloatingElements = ({
     
     dot2Y.value = withDelay(
       2700,
-      withSpring(-SCREEN_HEIGHT * 0.4, {
+      withSpring(-dimensions.height * 0.4, {
         damping: 5,
         stiffness: 15,
         mass: 3,
@@ -522,7 +643,7 @@ const EnhancedFloatingElements = ({
     
     dot3Y.value = withDelay(
       2900,
-      withSpring(-SCREEN_HEIGHT * 0.5, {
+      withSpring(-dimensions.height * 0.5, {
         damping: 3,
         stiffness: 20,
         mass: 1.5,
@@ -532,7 +653,7 @@ const EnhancedFloatingElements = ({
     
     dot4Y.value = withDelay(
       3100,
-      withSpring(-SCREEN_HEIGHT * 0.35, {
+      withSpring(-dimensions.height * 0.35, {
         damping: 6,
         stiffness: 12,
         mass: 4,
@@ -542,7 +663,7 @@ const EnhancedFloatingElements = ({
     
     dot5Y.value = withDelay(
       3300,
-      withSpring(-SCREEN_HEIGHT * 0.42, {
+      withSpring(-dimensions.height * 0.42, {
         damping: 4,
         stiffness: 16,
         mass: 2.5,
@@ -578,7 +699,7 @@ const EnhancedFloatingElements = ({
 
   return (
     <>
-      <Animated.View style={[styles.floatingDot, { 
+      <Animated.View style={[dynamicStyles.floatingDot, { 
         backgroundColor: color, 
         left: '12%', 
         bottom: 0,
@@ -587,7 +708,7 @@ const EnhancedFloatingElements = ({
         shadowOpacity: isDark ? 1.2 : 1,
         shadowRadius: isDark ? 10 : 8,
       }, dot1Style]} />
-      <Animated.View style={[styles.floatingDot, { 
+      <Animated.View style={[dynamicStyles.floatingDot, { 
         backgroundColor: color, 
         left: '30%', 
         bottom: 0, 
@@ -598,7 +719,7 @@ const EnhancedFloatingElements = ({
         shadowOpacity: isDark ? 1.2 : 1,
         shadowRadius: isDark ? 8 : 6,
       }, dot2Style]} />
-      <Animated.View style={[styles.floatingDot, { 
+      <Animated.View style={[dynamicStyles.floatingDot, { 
         backgroundColor: color, 
         left: '55%', 
         bottom: 0, 
@@ -609,7 +730,7 @@ const EnhancedFloatingElements = ({
         shadowOpacity: isDark ? 1.2 : 1,
         shadowRadius: isDark ? 12 : 10,
       }, dot3Style]} />
-      <Animated.View style={[styles.floatingDot, { 
+      <Animated.View style={[dynamicStyles.floatingDot, { 
         backgroundColor: color, 
         left: '75%', 
         bottom: 0, 
@@ -620,7 +741,7 @@ const EnhancedFloatingElements = ({
         shadowOpacity: isDark ? 1.2 : 1,
         shadowRadius: isDark ? 6 : 4,
       }, dot4Style]} />
-      <Animated.View style={[styles.floatingDot, { 
+      <Animated.View style={[dynamicStyles.floatingDot, { 
         backgroundColor: color, 
         left: '88%', 
         bottom: 0, 
@@ -635,98 +756,6 @@ const EnhancedFloatingElements = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circle: {
-    position: 'absolute',
-    borderWidth: 6,
-    borderRadius: 1000,
-  },
-  circleTop: {
-    width: SCREEN_WIDTH * 2.4,
-    height: SCREEN_WIDTH * 2.4,
-    top: -SCREEN_WIDTH * 1.2,
-    left: -SCREEN_WIDTH * 0.7,
-  },
-  circleBottom: {
-    width: SCREEN_WIDTH * 1.9,
-    height: SCREEN_WIDTH * 1.9,
-    bottom: -SCREEN_WIDTH * 0.95,
-    right: -SCREEN_WIDTH * 0.45,
-  },
-  circleCenter: {
-    width: SCREEN_WIDTH * 1.5,
-    height: SCREEN_WIDTH * 1.5,
-    top: SCREEN_HEIGHT * 0.05,
-    right: -SCREEN_WIDTH * 0.8,
-    borderWidth: 1,
-  },
-  
-  
-  bottomLine: {
-    position: 'absolute',
-    bottom: SCREEN_HEIGHT * 0.18,
-    height: 2,
-    borderRadius: 1,
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: CONFIG.logo * 1.9,
-    height: CONFIG.logo * 1.9,
-    borderRadius: CONFIG.logo * 1.2,
-    top: SCREEN_HEIGHT * 0.25, // Repositionné plus haut
-  },
-  logo: {
-    position: 'absolute',
-    width: CONFIG.logo,
-    height: CONFIG.logo,
-    top: SCREEN_HEIGHT * 0.25, // Repositionné plus haut
-  },
-  centralLine: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT * 0.48, // Ligne fine au-dessus du titre
-    width: 80,
-    height: 1.5,
-    borderRadius: 0.75,
-  },
-  title: {
-    position: 'absolute',
-    fontSize: CONFIG.title,
-    fontFamily: 'Nunito_700Bold',
-    letterSpacing: 3,
-    top: SCREEN_HEIGHT * 0.5 - 80, // Position centrée selon votre choix
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  mottoContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    top: SCREEN_HEIGHT * 0.65, // Repositionné plus bas pour équilibrer
-    minHeight: 140,
-  },
-  mottoText: {
-    fontSize: CONFIG.motto,
-    fontFamily: 'Nunito_500Medium',
-    marginVertical: 12,
-    letterSpacing: 1.2,
-    lineHeight: CONFIG.motto * 1.4,
-    textAlign: 'center',
-  },
-  mottoDot: {
-    fontSize: CONFIG.motto * 0.85,
-    marginVertical: 8,
-    fontWeight: '600',
-  },
-  floatingDot: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-});
+// Ancien StyleSheet supprimé - maintenant utilise dynamicStyles dans le composant
 
 export default AnimatedSplashScreen;

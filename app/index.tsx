@@ -9,8 +9,10 @@ import * as SplashScreen from 'expo-splash-screen';
 import AppNavigator from '../navigation/AppNavigator';
 import { AuthProvider } from '../app/context/AuthContext';
 import { ThemeProvider } from '../app/context/ThemeContext';
+import { ResponsiveProvider } from '../app/context/ResponsiveContext';
+import { EnhancedBibleProvider } from '../app/context/EnhancedBibleContext';
 import { LightAppTheme, DarkAppTheme } from '../app/constants/theme';
-import AnimatedSplashScreen from '../app/components/AnimatedSplashScreen'; // <-- 1. Importez le nouveau composant
+import UniversalSplashScreen from '../app/components/UniversalSplashScreen'; // Nouveau splash screen universel
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,11 +42,15 @@ export default function App() {
       <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
         {/* 3. Affichez l'animation ou l'application en fonction de l'état */}
         {isSplashAnimationFinished ? (
-          <AuthProvider>
-            <AppNavigator />
-          </AuthProvider>
+          <ResponsiveProvider>
+            <AuthProvider>
+              <EnhancedBibleProvider>
+                <AppNavigator />
+              </EnhancedBibleProvider>
+            </AuthProvider>
+          </ResponsiveProvider>
         ) : (
-          <AnimatedSplashScreen 
+          <UniversalSplashScreen 
             onAnimationEnd={() => setIsSplashAnimationFinished(true)} 
           />
         )}
