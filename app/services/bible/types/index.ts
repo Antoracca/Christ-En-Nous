@@ -64,6 +64,14 @@ export interface BibleReference {
   version?: string;    // Version spécifique
 }
 
+export interface LastReadingPosition {
+  book: string;        // Code OSIS du livre (GEN, MAT, etc.)
+  chapter: number;     // Numéro de chapitre
+  verse: number;       // Dernier verset lu/visualisé
+  timestamp: string;   // Quand cette position a été sauvegardée (ISO string)
+  version?: string;    // Version de Bible utilisée
+}
+
 // Interfaces améliorées pour les fonctionnalités
 export interface BibleBookmark {
   id: string;

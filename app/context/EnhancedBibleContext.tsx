@@ -7,6 +7,7 @@ import { AppState, AppStateStatus } from 'react-native';
 // Services Bible
 import {
   bibleService,
+  bibleStorage,
   initializeBibleServices,
   type BibleChapter,
   type BibleReference,
@@ -196,7 +197,7 @@ function getEstimatedVersesForChapter(bookName: string, chapter: number): number
     'ISA': [31, 22, 26, 6, 30, 13, 25, 22, 21, 34, 16, 6, 22, 32, 9, 14, 14, 7, 25, 6, 17, 25, 18, 23, 12, 21, 13, 29, 24, 33, 9, 20, 24, 17, 10, 22, 38, 22, 8, 31, 29, 25, 28, 28, 25, 13, 15, 22, 26, 11, 23, 15, 12, 17, 13, 12, 21, 14, 21, 22, 11, 12, 19, 12, 25, 24],
     'JER': [19, 37, 25, 31, 31, 30, 34, 22, 26, 25, 23, 17, 27, 22, 21, 21, 27, 23, 15, 18, 14, 30, 40, 10, 38, 24, 22, 17, 32, 24, 40, 44, 26, 22, 19, 32, 21, 28, 18, 16, 18, 22, 13, 30, 5, 28, 7, 47, 39, 46, 64, 34],
     'LAM': [22, 22, 66, 22, 22],
-    'EZE': [28, 10, 27, 17, 17, 14, 27, 18, 11, 22, 25, 28, 23, 23, 8, 63, 24, 32, 14, 49, 32, 31, 49, 27, 17, 21, 36, 26, 21, 26, 18, 32, 33, 31, 15, 38, 28, 23, 29, 49, 26, 20, 27, 31, 25, 24, 23, 35],
+    'EZK': [28, 10, 27, 17, 17, 14, 27, 18, 11, 22, 25, 28, 23, 23, 8, 63, 24, 32, 14, 49, 32, 31, 49, 27, 17, 21, 36, 26, 21, 26, 18, 32, 33, 31, 15, 38, 28, 23, 29, 49, 26, 20, 27, 31, 25, 24, 23, 35],
     'DAN': [21, 49, 30, 37, 31, 28, 28, 27, 27, 21, 45, 13],
     'HOS': [11, 23, 5, 19, 15, 11, 16, 14, 17, 15, 12, 14, 16, 9],
     'JOL': [20, 32, 21],
@@ -204,7 +205,7 @@ function getEstimatedVersesForChapter(bookName: string, chapter: number): number
     'OBA': [21],
     'JON': [17, 10, 10, 11],
     'MIC': [16, 13, 12, 13, 15, 16, 20],
-    'NAH': [15, 13, 19],
+    'NAM': [15, 13, 19],
     'HAB': [17, 20, 19],
     'ZEP': [18, 15, 20],
     'HAG': [15, 23],
@@ -215,7 +216,7 @@ function getEstimatedVersesForChapter(bookName: string, chapter: number): number
     'MAT': [25, 23, 17, 25, 48, 34, 29, 34, 38, 42, 30, 50, 58, 36, 39, 28, 27, 35, 30, 34, 46, 46, 39, 51, 46, 75, 66, 20],
     'MRK': [45, 28, 35, 41, 43, 56, 37, 38, 50, 52, 33, 44, 37, 72, 47, 20],
     'LUK': [80, 52, 38, 44, 39, 49, 50, 56, 62, 42, 54, 59, 35, 35, 32, 31, 37, 43, 48, 47, 38, 71, 56, 53],
-    'JOH': [51, 25, 36, 54, 47, 71, 53, 59, 41, 42, 57, 50, 38, 31, 27, 33, 26, 40, 42, 31, 25],
+    'JHN': [51, 25, 36, 54, 47, 71, 53, 59, 41, 42, 57, 50, 38, 31, 27, 33, 26, 40, 42, 31, 25],
     'ACT': [26, 47, 26, 37, 42, 15, 60, 40, 43, 48, 30, 25, 52, 28, 41, 40, 34, 28, 41, 38, 40, 30, 35, 27, 27, 32, 44, 31],
     'ROM': [32, 29, 31, 25, 21, 23, 25, 39, 33, 21, 36, 21, 14, 23, 33, 27],
     '1CO': [31, 16, 23, 21, 13, 20, 40, 13, 27, 33, 34, 31, 13, 40, 58, 24],
@@ -234,9 +235,9 @@ function getEstimatedVersesForChapter(bookName: string, chapter: number): number
     'JAS': [27, 26, 18, 17, 20],
     '1PE': [25, 25, 22, 19, 14],
     '2PE': [21, 22, 18],
-    '1JO': [10, 29, 24, 21, 21],
-    '2JO': [13],
-    '3JO': [14],
+    '1JN': [10, 29, 24, 21, 21],
+    '2JN': [13],
+    '3JN': [14],
     'JUD': [25],
     'REV': [20, 29, 22, 11, 14, 17, 17, 13, 21, 11, 19, 17, 18, 20, 8, 21, 18, 24, 21, 15, 27, 22]
   };
@@ -249,9 +250,9 @@ function getEstimatedVersesForChapter(bookName: string, chapter: number): number
   console.warn(`⚠️ Données manquantes pour ${bookName} chapitre ${chapter}, utilisation fallback`);
   
   // Fallbacks sécurisés par testament
-  if (['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZE','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'].includes(bookName)) {
+  if (['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL'].includes(bookName)) {
     return 25; // Ancien Testament fallback
-  } else if (['MAT','MRK','LUK','JOH','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JO','2JO','3JO','JUD','REV'].includes(bookName)) {
+  } else if (['MAT','MRK','LUK','JHN','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JN','2JN','3JN','JUD','REV'].includes(bookName)) {
     return 25; // Nouveau Testament fallback
   } else {
     return 25; // Fallback universel
@@ -395,6 +396,8 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
       await refreshHighlights();
       await loadReadingStats();
 
+      // Position de lecture sera restaurée dans un useEffect séparé après l'initialisation
+
       console.log('✅ Initial data loaded');
 
     } catch (e) {
@@ -419,6 +422,80 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [loadInitialData]);
 
   useEffect(() => { initializeServices(); }, [initializeServices]);
+
+  // ===== Navigation & Tracking =====
+  const navigateToChapter = useCallback(async (reference: BibleReference) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const ref = { book: reference.book.toUpperCase(), chapter: reference.chapter, verse: reference.verse };
+      const chapter = await bibleService.getChapter(ref);
+      if (!chapter) throw new Error(`Le chapitre ${ref.book} ${ref.chapter} est introuvable pour cette version.`);
+
+      setCurrentChapter(chapter);
+      setCurrentReference({ book: ref.book, chapter: ref.chapter, verse: ref.verse });
+
+      setUserProgress(prev => ({
+        ...prev,
+        currentBook: ref.book,
+        currentChapter: ref.chapter,
+        currentVerse: ref.verse || 1,
+        lastReadDate: new Date().toISOString(),
+      }));
+
+      // Démarre (ou bascule) le timer sur ce chapitre
+      try { progress.switchTo(ref.book, ref.chapter); } catch {}
+
+      // ✅ NOUVEAU: Sauvegarder la position de lecture actuelle
+      try {
+        await bibleStorage.saveLastReadingPosition({
+          book: ref.book,
+          chapter: ref.chapter,
+          verse: ref.verse || 1,
+          version: currentVersion.id
+        });
+      } catch (err) {
+        console.warn('⚠️ Impossible de sauvegarder la position de lecture:', err);
+      }
+
+      console.log('✅ Navigation:', `${ref.book} ${ref.chapter}${ref.verse ? ':' + ref.verse : ''}`);
+    } catch (e: any) {
+      console.error('Failed to navigate to chapter:', e);
+      setError(e?.message || 'Erreur lors de la navigation');
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, [currentVersion]);
+
+  // ✅ NOUVEAU: Restaurer la dernière position de lecture après l'initialisation
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const restoreLastPosition = async () => {
+      try {
+        const lastPosition = await bibleStorage.getLastReadingPosition();
+        if (lastPosition) {
+          console.log('📍 Restauration de la dernière position:', `${lastPosition.book} ${lastPosition.chapter}:${lastPosition.verse}`);
+          
+          // Naviguer vers la dernière position connue
+          await navigateToChapter({ book: lastPosition.book, chapter: lastPosition.chapter });
+          
+          // TODO: Si besoin, on pourrait aussi scroll vers le verset spécifique
+          // mais pour l'instant on se contente du chapitre
+        } else {
+          // Aucune position sauvée, commencer par Genèse 1
+          console.log('📍 Aucune position sauvée, démarrage à Genèse 1');
+          await navigateToChapter({ book: 'GEN', chapter: 1 });
+        }
+      } catch (err) {
+        console.warn('⚠️ Impossible de charger la dernière position, démarrage à Genèse 1:', err);
+        await navigateToChapter({ book: 'GEN', chapter: 1 });
+      }
+    };
+    
+    restoreLastPosition();
+  }, [isInitialized, navigateToChapter]);
 
   // ===== Versions (compat) =====
   const setCurrentVersion = useCallback(async (version: BibleVersion) => {
@@ -452,39 +529,6 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
   const incrementLearningModule = useCallback(() => {
     setUserProgress(prev => ({ ...prev, learningModulesCompleted: prev.learningModulesCompleted + 1 }));
-  }, []);
-
-  // ===== Navigation & Tracking =====
-  const navigateToChapter = useCallback(async (reference: BibleReference) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const ref = { book: reference.book.toUpperCase(), chapter: reference.chapter, verse: reference.verse };
-      const chapter = await bibleService.getChapter(ref);
-      if (!chapter) throw new Error(`Le chapitre ${ref.book} ${ref.chapter} est introuvable pour cette version.`);
-
-      setCurrentChapter(chapter);
-      setCurrentReference({ book: ref.book, chapter: ref.chapter, verse: ref.verse });
-
-      setUserProgress(prev => ({
-        ...prev,
-        currentBook: ref.book,
-        currentChapter: ref.chapter,
-        currentVerse: ref.verse || 1,
-        lastReadDate: new Date().toISOString(),
-      }));
-
-      // Démarre (ou bascule) le timer sur ce chapitre
-      try { progress.switchTo(ref.book, ref.chapter); } catch {}
-
-      console.log('✅ Navigation:', `${ref.book} ${ref.chapter}${ref.verse ? ':' + ref.verse : ''}`);
-    } catch (e: any) {
-      console.error('Failed to navigate to chapter:', e);
-      setError(e?.message || 'Erreur lors de la navigation');
-      throw e;
-    } finally {
-      setLoading(false);
-    }
   }, []);
 
   const goToNextChapter = useCallback(async () => {
@@ -605,6 +649,21 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
         if (s === 'background' || s === 'inactive') {
           progress.pause();
           await progress.persist?.();
+          
+          // ✅ NOUVEAU: Sauvegarder la position actuelle quand l'app passe en arrière-plan
+          if (currentReference) {
+            try {
+              await bibleStorage.saveLastReadingPosition({
+                book: currentReference.book,
+                chapter: currentReference.chapter,
+                verse: currentReference.verse || 1,
+                version: currentVersion.id
+              });
+              console.log('📱 Position sauvegardée avant passage en arrière-plan:', `${currentReference.book} ${currentReference.chapter}:${currentReference.verse || 1}`);
+            } catch (err) {
+              console.warn('⚠️ Impossible de sauvegarder la position lors du passage en arrière-plan:', err);
+            }
+          }
         } else if (s === 'active') {
           // Reprendre la session active ou celle du contexte
           const activeSession: ActiveSession | null = progress.getActiveSession();

@@ -624,6 +624,121 @@ export class BibleService {
   }
 
   /**
+   * Détermine si une version est française (détection améliorée)
+   */
+  private isFrenchVersion(versionId: string): boolean {
+    // IDs de versions françaises connues
+    const knownFrenchVersions = [
+      'a93a92589195411f-01',  // Bible J.N. Darby
+      'french-lsg-1910',
+      'french-semeur-2000', 
+      'french-tob',
+      'french-jerusalem'
+    ];
+    
+    // Patterns français
+    const frenchPatterns = [
+      'french',
+      'francais', 
+      'français',
+      'fr_',
+      '_fr',
+      'darby',
+      'segond',
+      'semeur',
+      'jerusalem',
+      'tob'
+    ];
+    
+    const versionLower = versionId.toLowerCase();
+    
+    // Vérification directe
+    if (knownFrenchVersions.includes(versionId)) return true;
+    
+    // Vérification par patterns
+    return frenchPatterns.some(pattern => versionLower.includes(pattern.toLowerCase()));
+  }
+
+  /**
+   * Mappe les codes OSIS vers les codes acceptés par l'API Scripture selon la langue
+   */
+  private mapBookCodeToApiFormat(bookCode: string, versionId: string): string {
+    const isFrench = this.isFrenchVersion(versionId);
+    
+    // Mapping spécifique aux versions FRANÇAISES (codes des constants)
+    const frenchMapping: Record<string, string> = {
+      // AT français - utiliser codes des constants
+      'GEN': 'GEN', 'EXO': 'EXO', 'LEV': 'LEV', 'NUM': 'NUM', 'DEU': 'DEU',
+      'JOS': 'JOS', 'JDG': 'JDG', 'RUT': 'RUT', 
+      '1SA': '1SA', '2SA': '2SA', '1KI': '1KI', '2KI': '2KI',
+      '1CH': '1CH', '2CH': '2CH', 'EZR': 'EZR', 'NEH': 'NEH', 'EST': 'EST',
+      'JOB': 'JOB', 'PSA': 'PSA', 'PRO': 'PRO', 'ECC': 'ECC', 'SNG': 'SNG',
+      'ISA': 'ISA', 'JER': 'JER', 'LAM': 'LAM', 'EZK': 'EZK', 'DAN': 'DAN',  // ✅ EZK pas EZE
+      'HOS': 'HOS', 'JOL': 'JOL', 'AMO': 'AMO', 'OBA': 'OBA', 'JON': 'JON',
+      'MIC': 'MIC', 'NAM': 'NAM', 'HAB': 'HAB', 'ZEP': 'ZEP', 'HAG': 'HAG',  // ✅ NAM pas NAH
+      'ZEC': 'ZEC', 'MAL': 'MAL',
+      // NT français - utiliser codes des constants
+      'MAT': 'MAT', 'MRK': 'MRK', 'LUK': 'LUK', 'JHN': 'JHN', 'ACT': 'ACT',  // ✅ JHN pas JOH
+      'ROM': 'ROM', '1CO': '1CO', '2CO': '2CO', 'GAL': 'GAL', 'EPH': 'EPH',
+      'PHP': 'PHP', 'COL': 'COL', '1TH': '1TH', '2TH': '2TH',
+      '1TI': '1TI', '2TI': '2TI', 'TIT': 'TIT', 'PHM': 'PHM',
+      'HEB': 'HEB', 'JAS': 'JAS', '1PE': '1PE', '2PE': '2PE',
+      '1JN': '1JN', '2JN': '2JN', '3JN': '3JN', 'JUD': 'JUD', 'REV': 'REV'
+    };
+    
+    // Mapping spécifique aux versions ANGLAISES (basé sur Scripture API variations)
+    const englishMapping: Record<string, string> = {
+      // AT anglais - Torah/Pentateuque (standards)
+      'GEN': 'GEN', 'EXO': 'EXO', 'LEV': 'LEV', 'NUM': 'NUM', 'DEU': 'DEU',
+      
+      // Livres historiques (standards)
+      'JOS': 'JOS', 'JDG': 'JDG', 'RUT': 'RUT', 
+      '1SA': '1SA', '2SA': '2SA', '1KI': '1KI', '2KI': '2KI',
+      '1CH': '1CH', '2CH': '2CH', 'EZR': 'EZR', 'NEH': 'NEH', 'EST': 'EST',
+      
+      // Livres poétiques (standards)
+      'JOB': 'JOB', 'PSA': 'PSA', 'PRO': 'PRO', 'ECC': 'ECC', 'SNG': 'SNG',
+      
+      // Grands prophètes (avec variations API anglaises)
+      'ISA': 'ISA', 'JER': 'JER', 'LAM': 'LAM', 'EZK': 'EZK', 'DAN': 'DAN',
+      
+      // Petits prophètes (avec variations API courantes)
+      'HOS': 'HOS', 'JOL': 'JOL', 'AMO': 'AMO', 'OBA': 'OBA', 'JON': 'JON',
+      'MIC': 'MIC', 'NAM': 'NAM', 'HAB': 'HAB', 'ZEP': 'ZEP', 'HAG': 'HAG',
+      'ZEC': 'ZEC', 'MAL': 'MAL',
+      
+      // NT anglais - Évangiles
+      'MAT': 'MAT', 'MRK': 'MRK', 'LUK': 'LUK', 'JHN': 'JHN', 'ACT': 'ACT',
+      
+      // Épîtres pauliniennes
+      'ROM': 'ROM', '1CO': '1CO', '2CO': '2CO', 'GAL': 'GAL', 'EPH': 'EPH',
+      'PHP': 'PHP', 'COL': 'COL', 
+      '1TH': '1TH', '2TH': '2TH',  // Garder standard d'abord, fallback ensuite
+      
+      // Épîtres pastorales
+      '1TI': '1TI', '2TI': '2TI', 'TIT': 'TIT', 'PHM': 'PHM',
+      
+      // Épîtres générales
+      'HEB': 'HEB', 'JAS': 'JAS', '1PE': '1PE', '2PE': '2PE',
+      '1JN': '1JN', '2JN': '2JN', '3JN': '3JN', 'JUD': 'JUD',
+      
+      // Apocalypse
+      'REV': 'REV'
+    };
+    
+    const mapping = isFrench ? frenchMapping : englishMapping;
+    const mappedCode = mapping[bookCode];
+    
+    if (!mappedCode) {
+      console.warn(`⚠️ Code livre non mappé (${isFrench ? 'FR' : 'EN'}): ${bookCode} - utilisation directe`);
+      return bookCode;
+    }
+    
+    console.log(`📚 Mapping livre: ${bookCode} -> ${mappedCode} (${isFrench ? 'FR' : 'EN'})`);
+    return mappedCode;
+  }
+
+  /**
    * Récupère un chapitre complet
    */
   async getChapter(reference: BibleReference, version?: string): Promise<BibleChapter | null> {
@@ -640,32 +755,108 @@ export class BibleService {
       ? this.mapToAvailableVersion(versionToUse)
       : versionToUse;
     
-    console.log(`📖 Récupération chapitre ${reference.book} ${reference.chapter} (${versionToUse} -> ${apiVersion})`);
+    // ✅ NOUVEAU: Mapper le code du livre vers le format API selon la langue
+    const apiBookCode = this.mapBookCodeToApiFormat(reference.book, apiVersion);
+    
+    console.log(`📖 Récupération chapitre ${reference.book} -> ${apiBookCode} ${reference.chapter} (${versionToUse} -> ${apiVersion})`);
     
     try {
       const response = await bibleApi.getChapter(
         apiVersion,
-        reference.book,
+        apiBookCode,
         reference.chapter
       );
 
       if (!response.success) {
         console.error('Failed to fetch chapter:', response.error);
+        console.error(`❌ API Error: ${reference.book} -> ${apiBookCode} ${reference.chapter} (Version: ${apiVersion})`);
+        
+        // ✅ FALLBACK INTELLIGENT: Essayer toutes les variations connues
+        const isFrench = this.isFrenchVersion(apiVersion);
+        console.log(`🔄 Tentative fallback pour ${reference.book} (${isFrench ? 'FR' : 'EN'})...`);
+        
+        // Définir toutes les variations possibles par livre
+        const allVariations: Record<string, string[]> = {
+          // Grands prophètes (harmonisation EZK)
+          'EZK': isFrench ? ['EZK'] : ['EZK', 'EZEK', 'EZE'],
+          
+          // Petits prophètes (harmonisation NAM)
+          'NAM': isFrench ? ['NAM'] : ['NAM', 'NAH', 'NAHUM'],
+          'JOL': isFrench ? ['JOL'] : ['JOL', 'JOEL'],
+          'OBA': isFrench ? ['OBA'] : ['OBA', 'OBAD', 'OBADIAH'],
+          'JON': isFrench ? ['JON'] : ['JON', 'JONAH'],
+          'HAB': isFrench ? ['HAB'] : ['HAB', 'HABAKKUK'],
+          'ZEP': isFrench ? ['ZEP'] : ['ZEP', 'ZEPH', 'ZEPHANIAH'],
+          'HAG': isFrench ? ['HAG'] : ['HAG', 'HAGGAI'],
+          'ZEC': isFrench ? ['ZEC'] : ['ZEC', 'ZECH', 'ZECHARIAH'],
+          'MAL': isFrench ? ['MAL'] : ['MAL', 'MALACHI'],
+          
+          // Nouveau Testament (harmonisation JHN)
+          'JHN': isFrench ? ['JHN'] : ['JHN', 'JOH', 'JOHN'],
+          '1TH': isFrench ? ['1TH'] : ['1TH', '1THS', '1THESS', 'THI'],
+          '2TH': isFrench ? ['2TH'] : ['2TH', '2THS', '2THESS'],
+          'PHM': isFrench ? ['PHM'] : ['PHM', 'PHLM', 'PHILEMON'],
+          'JUD': isFrench ? ['JUD'] : ['JUD', 'JUDE'],
+          'REV': isFrench ? ['REV'] : ['REV', 'REVELATION'],
+          
+          // Autres variations possibles
+          '1JN': ['1JN', '1JO'],  // Codes français alternatifs
+          '2JN': ['2JN', '2JO'],
+          '3JN': ['3JN', '3JO'],
+          'SNG': ['SNG', 'SON', 'SOL'],  // Cantique des cantiques
+        };
+        
+        const variations = allVariations[reference.book];
+        if (variations && variations.length > 1) {
+          console.log(`🔄 Codes à tester pour ${reference.book}: [${variations.join(', ')}]`);
+          
+          for (const altCode of variations) {
+            if (altCode === apiBookCode) continue; // Skip déjà testé
+            
+            console.log(`🔄 Essai avec ${altCode}...`);
+            const altResponse = await bibleApi.getChapter(apiVersion, altCode, reference.chapter);
+            if (altResponse.success) {
+              console.log(`✅ SUCCÈS avec code alternatif: ${reference.book} -> ${altCode}`);
+              // Sauvegarder cette découverte pour les prochains appels
+              return altResponse.data;
+            }
+          }
+        }
+        
+        // Dernier recours: essayer quelques codes universels
+        if (!isFrench) {
+          console.log('🔄 Tentative codes universels anglais...');
+          const universalTries = [
+            reference.book.toLowerCase(),
+            reference.book.toUpperCase(),
+            reference.book.charAt(0).toUpperCase() + reference.book.slice(1).toLowerCase()
+          ];
+          
+          for (const tryCode of universalTries) {
+            if (tryCode === apiBookCode) continue;
+            console.log(`🔄 Essai universel: ${tryCode}...`);
+            const altResponse = await bibleApi.getChapter(apiVersion, tryCode, reference.chapter);
+            if (altResponse.success) {
+              console.log(`✅ SUCCÈS universel: ${reference.book} -> ${tryCode}`);
+              return altResponse.data;
+            }
+          }
+        }
+        
         return null;
       }
 
-      // Mettre à jour le progrès de lecture
-      if (response.data) {
-        await this.updateReadingProgress(reference, response.data.verses.length);
+      // if (response.data) {
+      //   await this.updateReadingProgress(reference, response.data.verses.length);
         
-        this.trackEvent('chapter_read', {
-          reference: BibleReferenceUtils.formatReference(reference),
-          version: versionToUse, // Utiliser la version originale pour l'analytics
-          apiVersion: apiVersion, // Ajouter la version API utilisée
-          verseCount: response.data.verseCount,
-          fromCache: response.cached || false
-        });
-      }
+      //   this.trackEvent('chapter_read', {
+      //     reference: BibleReferenceUtils.formatReference(reference),
+      //     version: versionToUse, // Utiliser la version originale pour l'analytics
+      //     apiVersion: apiVersion, // Ajouter la version API utilisée
+      //     verseCount: response.data.verseCount,
+      //     fromCache: response.cached || false
+      //   });
+      // }
 
       return response.data;
       

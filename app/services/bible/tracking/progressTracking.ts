@@ -808,6 +808,12 @@ class ProgressCompatibility {
     await this.tracker?.reset();
   }
 
+  /** Récupérer les données de streak */
+  getStreak() {
+    if (!this.tracker) return { current: 0, best: 0, lastReadDayISO: null };
+    return this.tracker.getStreak();
+  }
+
   /** Nouvelle méthode pressNext pour validation stricte */
   async pressNext(): Promise<{ chapterCompleted: boolean; validatedCount: number }> {
     if (!this.tracker) return { chapterCompleted: false, validatedCount: 0 };

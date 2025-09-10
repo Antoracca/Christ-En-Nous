@@ -7,7 +7,8 @@ import {
   VerseHighlight, 
   BibleSettings, 
   ReadingProgress,
-  SyncStatus 
+  SyncStatus,
+  LastReadingPosition
 } from '../types';
 import { STORAGE_KEYS, DEFAULT_SETTINGS, ERROR_MESSAGES } from '../utils/constants';
 
@@ -301,6 +302,53 @@ export class BibleStorageService {
   }
 
   /**
+   * GESTION DE LA DERNIÈRE POSITION DE LECTURE
+   */
+  async getLastReadingPosition(): Promise<LastReadingPosition | null> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.LAST_READING_POSITION);
+      if (!data) return null;
+      
+      const position = JSON.parse(data);
+      
+      // Validation de base
+      if (!position.book || typeof position.chapter !== 'number' || typeof position.verse !== 'number') {
+        return null;
+      }
+      
+      return position;
+    } catch (error) {
+      console.error('Failed to get last reading position:', error);
+      return null;
+    }
+  }
+
+  async saveLastReadingPosition(position: Omit<LastReadingPosition, 'timestamp'>): Promise<void> {
+    try {
+      const fullPosition: LastReadingPosition = {
+        ...position,
+        timestamp: new Date().toISOString()
+      };
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_READING_POSITION, JSON.stringify(fullPosition));
+      
+      console.log('📍 Position de lecture sauvegardée:', `${position.book} ${position.chapter}:${position.verse}`);
+    } catch (error) {
+      console.error('Failed to save last reading position:', error);
+      throw new Error(ERROR_MESSAGES.STORAGE_ERROR);
+    }
+  }
+
+  async clearLastReadingPosition(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.LAST_READING_POSITION);
+      console.log('📍 Position de lecture effacée');
+    } catch (error) {
+      console.error('Failed to clear last reading position:', error);
+    }
+  }
+
+  /**
    * SYNCHRONISATION ET BACKUP
    */
   private async loadSyncQueue(): Promise<void> {
@@ -468,6 +516,7 @@ export class BibleStorageService {
         AsyncStorage.removeItem(STORAGE_KEYS.HIGHLIGHTS),
         AsyncStorage.removeItem(STORAGE_KEYS.SETTINGS),
         AsyncStorage.removeItem(STORAGE_KEYS.PROGRESS),
+        AsyncStorage.removeItem(STORAGE_KEYS.LAST_READING_POSITION),
         AsyncStorage.removeItem('@bible_sync_queue'),
         AsyncStorage.removeItem('@bible_last_sync'),
       ]);

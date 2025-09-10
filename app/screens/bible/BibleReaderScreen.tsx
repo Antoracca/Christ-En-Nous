@@ -12,6 +12,7 @@ import BibleReader from './BibleReader';
 import BibleNavigation from './BibleNavigation';
 import BibleSearch from './BibleSearch';
 import BibleProgressModal from './BibleProgressModal';
+import AIModalScreen from './AIModalScreen';
 
 export default function BibleReaderScreen() {
   const theme = useAppTheme();
@@ -25,6 +26,7 @@ export default function BibleReaderScreen() {
   const [showNavigation, setShowNavigation] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showProgress, setShowProgress] = useState(false);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [currentTargetVerse, setCurrentTargetVerse] = useState<number | undefined>(verse);
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function BibleReaderScreen() {
   const handleNavigationPress = () => setShowNavigation(true);
   const handleSearchPress = () => setShowSearch(true);
   const handleProgressPress = () => setShowProgress(true);
+  const handleAiPress = () => setShowAiAssistant(true);
 
   const handleNavigateToVerse = useCallback(
     async (reference: { book: string; chapter: number; verse?: number }) => {
@@ -94,6 +97,7 @@ export default function BibleReaderScreen() {
         onSearchPress={handleSearchPress}
         onProgressPress={handleProgressPress}
         onSettingsPress={() => navigation.navigate('BibleReaderSettings' as never)}
+        onAiPress={handleAiPress}
         targetVerse={currentTargetVerse}
       />
 
@@ -106,6 +110,8 @@ export default function BibleReaderScreen() {
       />
 
       <BibleProgressModal visible={showProgress} onClose={() => setShowProgress(false)} />
+      
+      <AIModalScreen visible={showAiAssistant} onClose={() => setShowAiAssistant(false)} />
     </View>
   );
 }

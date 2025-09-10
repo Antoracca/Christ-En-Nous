@@ -21,6 +21,7 @@ interface BibleReaderProps {
   onSearchPress: () => void;
   onProgressPress: () => void;
   onSettingsPress: () => void;
+  onAiPress: () => void;
   targetVerse?: number;
 }
 
@@ -29,6 +30,7 @@ export default function BibleReader({
   onSearchPress,
   onProgressPress,
   onSettingsPress,
+  onAiPress,
   targetVerse,
 }: BibleReaderProps) {
   const theme = useAppTheme();
@@ -47,7 +49,6 @@ export default function BibleReader({
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
-  const [currentVerseInView, setCurrentVerseInView] = useState<number | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const highlightAnimation = useRef(new Animated.Value(0)).current;
@@ -84,11 +85,18 @@ export default function BibleReader({
     }
   }, [currentChapter?.book, currentChapter?.chapter, loading, currentChapter]);
 
-  // Nettoyage des refs à chaque nouveau chapitre
+  // Nettoyage des refs à chaque nouveau chapitre + repositionnement du scroll
   useEffect(() => {
     verseRefs.current.clear();
     versePositionsRef.current.clear();
-  }, [currentChapter?.book, currentChapter?.chapter]);
+    
+    // ✅ NOUVEAU: Repositionner le scroll au début pour chaque nouveau chapitre
+    if (scrollViewRef.current && currentChapter) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      }, 100);
+    }
+  }, [currentChapter?.book, currentChapter?.chapter, currentChapter]);
 
   // Mesure + scroll + highlight
   const measureVerseInScrollView = useCallback(
@@ -181,44 +189,9 @@ export default function BibleReader({
     [goToNextChapter, goToPreviousChapter, swipeX]
   );
 
-  // ✅ NOUVEAU : Suivi du verset en cours (sans validation - uniquement mise à jour maxVerseSeen)
-  const handleVerseInView = useCallback(
-    async (verseNumber: number) => {
-      if (!currentChapter) return;
-      try {
-        // NOUVEAU: Met uniquement à jour maxVerseSeen dans le tracker (pas de validation ici)
-        progress.scrollVerse(verseNumber);
-        console.log('👁️ Verset vu (maxVerseSeen mis à jour):', verseNumber);
-      } catch (err) {
-        console.error('Erreur mise à jour verset vu:', err);
-      }
-      if (currentVerseInView !== verseNumber) {
-        setCurrentVerseInView(verseNumber);
-      }
-    },
-    [currentChapter, currentVerseInView]
-  );
+  // Supprimé: ancien système de suivi automatique des versets
 
-  const onScroll = useCallback(
-    (e: any) => {
-      const y = e.nativeEvent.contentOffset?.y ?? 0;
-      const mid = y + (containerHeight.current || 0) / 2;
-      let bestVerse: number | null = null;
-      let bestDist = Infinity;
-      versePositionsRef.current.forEach((pos, vn) => {
-        const center = pos.y + pos.height / 2;
-        const d = Math.abs(center - mid);
-        if (d < bestDist) {
-          bestDist = d;
-          bestVerse = vn;
-        }
-      });
-      if (bestVerse != null && bestVerse !== currentVerseInView) {
-        handleVerseInView(bestVerse);
-      }
-    },
-    [handleVerseInView, currentVerseInView]
-  );
+  // Supprimé: ancien système onScroll qui trackait automatiquement les versets
 
   if (isInitializing || loading) {
     return (
@@ -231,6 +204,10 @@ export default function BibleReader({
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
               <Feather name="search" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onAiPress} style={[styles.headerButton, styles.aiButton]}>
+              <Feather name="cpu" size={16} color={theme.colors.secondary} />
+              <Text style={[styles.aiButtonText, { color: theme.colors.secondary }]}>ᴬᴵ</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
               <Feather name="trending-up" size={20} color={theme.colors.primary} />
@@ -261,6 +238,10 @@ export default function BibleReader({
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
               <Feather name="search" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onAiPress} style={[styles.headerButton, styles.aiButton]}>
+              <Feather name="cpu" size={16} color={theme.colors.secondary} />
+              <Text style={[styles.aiButtonText, { color: theme.colors.secondary }]}>ᴬᴵ</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
               <Feather name="trending-up" size={20} color={theme.colors.primary} />
@@ -314,6 +295,9 @@ export default function BibleReader({
           <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
             <Feather name="search" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
+          <TouchableOpacity onPress={onAiPress} style={styles.headerButton}>
+            <Text style={[styles.aiButtonText, { color: theme.colors.secondary }]}>AI</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
             <Feather name="trending-up" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
@@ -346,8 +330,7 @@ export default function BibleReader({
             const { height } = event.nativeEvent.layout;
             containerHeight.current = height;
           }}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
+          // Supprimé: onScroll automatique - validation uniquement sur "Suivant"
         >
           {currentChapter && currentChapter.verses ? (
             currentChapter.verses.map(verse => {
@@ -467,6 +450,16 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   headerButton: { padding: 8 },
+  aiButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  aiButtonText: {
+    fontSize: 12,
+    fontFamily: 'Nunito_700Bold',
+    fontWeight: 'bold',
+  },
   headerCenter: { flex: 1, alignItems: 'center', marginHorizontal: 16 },
   headerTitle: { fontSize: 18, fontFamily: 'Nunito_700Bold' },
   headerActions: { flexDirection: 'row' },

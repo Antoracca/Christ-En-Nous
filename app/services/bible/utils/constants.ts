@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
   PROGRESS: '@bible_progress_v2',
   CACHE: '@bible_cache_v2',
   VERSIONS: '@bible_versions_v2',
+  LAST_READING_POSITION: '@bible_last_position_v2',
 } as const;
 
 // Tags de surlignage standardisés

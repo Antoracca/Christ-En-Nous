@@ -8,8 +8,6 @@ import {
   ScrollView,
   StatusBar,
   Alert,
-  UIManager,
-  Platform,
   LayoutAnimation,
   Animated,
 } from 'react-native';
@@ -19,6 +17,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
 import { useResponsiveDesign } from '@/hooks/useResponsiveDesign';
 import { LinearGradient } from 'expo-linear-gradient';
+import { progress } from '@/services/bible/tracking/progressTracking';
 
 // Note: setLayoutAnimationEnabledExperimental est automatiquement activé dans la New Architecture
 // if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -346,14 +345,52 @@ const OuvrirBibleCard = () => {
   const theme = useAppTheme();
   const responsive = useResponsiveDesign();
   const navigation = useNavigation();
-  const { userProgress } = useBible();
 
-  // Données — avec fallback si le contexte ne fournit pas certains champs
-  const booksRead = (userProgress as any)?.booksRead ?? 0;
-  const versesRead = (userProgress as any)?.versesRead ?? 0;
-  const progressPct = Math.round(userProgress.progressPercentage ?? 0);
+  // Utiliser les vraies données de progression depuis le système de tracking
+  const [progressData, setProgressData] = useState({
+    consecutiveDays: 0,
+    booksCompleted: 0,
+    chaptersCompleted: 0,
+    versesRead: 0,
+    progressPct: 0
+  });
 
-  // État de l’accordéon
+  useEffect(() => {
+    const loadProgressData = () => {
+      try {
+        // Données AT + NT combinées
+        const otData = progress.getTestamentPercent('OT');
+        const ntData = progress.getTestamentPercent('NT');
+        const globalData = progress.getGlobalPercent();
+        
+        // Données générales
+        const times = progress.getLiveTimes();
+        
+        // Récupérer les données de streak
+        const streakData = progress.getStreak();
+        
+        setProgressData({
+          consecutiveDays: streakData.current,
+          booksCompleted: otData.booksCompleted + ntData.booksCompleted,
+          chaptersCompleted: otData.chapters.completed + ntData.chapters.completed,
+          versesRead: otData.verses.read + ntData.verses.read,
+          progressPct: Math.round(globalData.percent)
+        });
+      } catch (error) {
+        console.error('Erreur lors du chargement des données de progression:', error);
+        // Garder les valeurs par défaut en cas d'erreur
+      }
+    };
+
+    loadProgressData();
+    
+    // Mettre à jour les données toutes les 5 secondes pour avoir les données en temps réel
+    const interval = setInterval(loadProgressData, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // État de l'accordéon
   const [expanded, setExpanded] = useState(false);
   const chevron = useRef(new Animated.Value(0)).current;
 
@@ -375,17 +412,16 @@ const OuvrirBibleCard = () => {
     setExpanded((v) => !v);
   };
 
-  // Palette élégante par métrique
+  // Palette élégante par métrique avec les vraies données
   const palette = {
-    progress: { c: theme.colors.primary, bg: theme.colors.surface, icon: 'trending-up' as const, label: 'Progression', v: `${progressPct}%` },
-    days:     { c: '#10B981', bg: '#10B9811A', icon: 'calendar' as const,       label: 'Jours consécutifs', v: String(userProgress.consecutiveDays ?? 0) },
-    books:    { c: '#F59E0B', bg: '#F59E0B1A', icon: 'book-open' as const,      label: 'Livres lus',        v: String(booksRead) },
-    chapters: { c: '#3B82F6', bg: '#3B82F61A', icon: 'book' as const,           label: 'Chapitres lus',     v: String(userProgress.chaptersRead ?? 0) },
-    verses:   { c: '#8B5CF6', bg: '#8B5CF61A', icon: 'type' as const,           label: 'Versets lus',       v: String(versesRead) },
+    days:     { c: '#10B981', bg: '#10B9811A', icon: 'calendar' as const,       label: 'Jours consécutifs', v: String(progressData.consecutiveDays) },
+    books:    { c: '#F59E0B', bg: '#F59E0B1A', icon: 'book-open' as const,      label: 'Livres lus',        v: String(progressData.booksCompleted) },
+    chapters: { c: '#3B82F6', bg: '#3B82F61A', icon: 'book' as const,           label: 'Chapitres lus',     v: String(progressData.chaptersCompleted) },
+    verses:   { c: '#8B5CF6', bg: '#8B5CF61A', icon: 'type' as const,           label: 'Versets lus',       v: String(progressData.versesRead) },
   };
 
-  // Ordre décroissant (progression devant, puis le reste empilé derrière)
-  const metricsOrder = ['progress', 'days', 'books', 'chapters', 'verses'] as const;
+  // Ordre des métriques (jours consécutifs en premier, puis le reste)
+  const metricsOrder = ['days', 'books', 'chapters', 'verses'] as const;
 
   // Couleurs pour l'effet de pile (actuellement non utilisées mais gardées pour évolution future)
   // const peekCardBg = theme.dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
@@ -468,7 +504,7 @@ return (
 
       {/* PART 2: Accordéon Progression */}
       <View style={{ paddingHorizontal: responsive.spacing.md, paddingBottom: responsive.spacing.md, paddingTop: responsive.spacing.xs }}>
-        <View style={{ minHeight: expanded ? 350 : 72 }}>
+        <View style={{ minHeight: expanded ? 300 : 72 }}>
           {/* Conteneur de la pile */}
           <View style={{ position: 'relative', width: '100%', height: 60 }}>
             {/* Cartes qui dépassent par le HAUT */}
@@ -498,7 +534,7 @@ return (
             {/* Carte principale cliquable */}
             <View style={{ position: 'absolute', top: 12, left: 0, width: '100%', zIndex: 100 }}>
               <TouchableOpacity onPress={toggleExpand} activeOpacity={0.9}>
-                <MetricCard mKey="progress" />
+                <MetricCard mKey="days" />
                 <Animated.View
                   style={{
                     position: 'absolute',
@@ -509,7 +545,7 @@ return (
                     transform: [{ rotate }],
                   }}
                 >
-                  <Feather name="chevron-down" size={24} color={palette.progress.c} />
+                  <Feather name="chevron-down" size={24} color={palette.days.c} />
                 </Animated.View>
               </TouchableOpacity>
             </View>
@@ -709,7 +745,6 @@ const MeditationProgressCard = () => {
 /* --------------------------- MÉDITATION -------------------------- */
 const MeditationSection = () => {
   const theme = useAppTheme();
-  const responsive = useResponsiveDesign();
 
   return (
     <View style={{ marginBottom: 28 }}>
@@ -896,7 +931,6 @@ const LearningProgressCard = () => {
 /* --------------------------- APPRENTISSAGE -------------------------- */
 const LearningSection = () => {
   const theme = useAppTheme();
-  const responsive = useResponsiveDesign();
 
   return (
     <View style={{ marginBottom: 28 }}>
