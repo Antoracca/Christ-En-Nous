@@ -1,6 +1,8 @@
 // app/screens/bible/BibleScreen.tsx
 import React from 'react';
+import { TouchableOpacity, Text } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useAppTheme } from '@/hooks/useAppTheme';
 // BibleProvider is now global, imported from the main app
 
 // Écrans principaux
@@ -26,11 +28,21 @@ import BibleVersionSelectorScreen from './BibleVersionSelectorScreen';
 const Stack = createNativeStackNavigator();
 
 function BibleNavigator() {
+  const theme = useAppTheme();
+  
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
         animation: 'slide_from_right',
+        headerStyle: {
+          backgroundColor: theme.colors.background,
+        },
+        headerTitleStyle: {
+          color: theme.custom.colors.text,
+          fontFamily: 'Nunito_700Bold',
+        },
+        headerTintColor: theme.colors.primary,
       }}
     >
       {/* Accueil Bible - ÉCRAN PRINCIPAL */}
@@ -44,14 +56,20 @@ function BibleNavigator() {
       <Stack.Screen 
         name="BibleReader" 
         component={BibleReaderScreen}
-        options={{ title: 'Lecture de la Bible' }}
+        options={{ 
+          title: 'Lecture de la Bible',
+          headerBackTitle: 'Retour'
+        }}
       />
 
       {/* Recherche */}
       <Stack.Screen 
         name="BibleRecherche" 
         component={BibleRechercheScreen}
-        options={{ title: 'Recherche Biblique' }}
+        options={{ 
+          title: 'Recherche Biblique',
+          headerBackTitle: 'Retour'
+        }}
       />
       
       {/* Sélection de versions */}
@@ -60,53 +78,63 @@ function BibleNavigator() {
         component={BibleVersionSelectorScreen}
         options={{ 
           title: 'Choisir votre version',
-          headerShown: true,
-          headerBackTitle: 'Retour',
-          headerTintColor: undefined, // Utilise la couleur du thème
-          headerStyle: {
-            backgroundColor: undefined, // Utilise la couleur du thème
-          },
-          headerTitleStyle: {
-            fontFamily: 'Nunito_700Bold',
-          },
+          headerBackTitle: 'Retour'
         }}
       />
       
       <Stack.Screen 
         name="BibleReaderSettings" 
         component={BibleReaderSettingsScreen}
-        options={{ title: 'Paramètres Lecture' }}
+        options={{ 
+          title: 'Paramètres Lecture',
+          headerBackTitle: 'Retour'
+        }}
       />
 
       {/* Méditation & apprentissage */}
       <Stack.Screen 
         name="BibleMeditation" 
         component={BibleMeditationScreen}
-        options={{ title: 'Méditation' }}
+        options={{ 
+          title: 'Méditation',
+          headerBackTitle: 'Retour'
+        }}
       />
       <Stack.Screen 
         name="BibleMeditationSettings" 
         component={BibleMeditationSettingsScreen}
-        options={{ title: 'Paramètres Méditation' }}
+        options={{ 
+          title: 'Paramètres Méditation',
+          headerBackTitle: 'Retour'
+        }}
       />
       <Stack.Screen 
         name="BibleLearning" 
         component={BibleLearningScreen}
-        options={{ title: 'Apprentissage' }}
+        options={{ 
+          title: 'Apprentissage',
+          headerBackTitle: 'Retour'
+        }}
       />
 
       {/* Plan & progression */}
       <Stack.Screen 
         name="BiblePlan" 
         component={BiblePlanScreen}
-        options={{ title: 'Plan de lecture' }}
+        options={{ 
+          title: 'Plan de lecture',
+          headerBackTitle: 'Retour'
+        }}
       />
 
       {/* Paramètres globaux */}
       <Stack.Screen 
         name="BibleSettings" 
         component={BibleSettingsScreen}
-        options={{ title: 'Paramètres' }}
+        options={{ 
+          title: 'Paramètres',
+          headerBackTitle: 'Retour'
+        }}
       />
     </Stack.Navigator>
   );

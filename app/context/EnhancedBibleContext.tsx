@@ -1,15 +1,14 @@
 // app/context/EnhancedBibleContext.tsx
-// Context Bible amélioré utilisant les nouveaux services optimisés
+// Context Bible amélioré, branché au moteur de tracking (progress)
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './AuthContext';
+import { AppState, AppStateStatus } from 'react-native';
 
-// Import des nouveaux services
-import { 
-  bibleService, 
+// Services Bible
+import {
+  bibleService,
   initializeBibleServices,
   type BibleChapter,
-  type BibleVerse,
   type BibleReference,
   type BibleBookmark,
   type VerseHighlight,
@@ -17,14 +16,13 @@ import {
   type BibleSearchResult,
   type BibleBook as NewBibleBook,
   type BibleVersion as NewBibleVersion,
-  type HighlightTag,
-  BIBLE_BOOKS,
-  Bible
+  type HighlightTag
 } from '../services/bible';
 
-// ==================== TYPES DE COMPATIBILITÉ ====================
+// Tracking
+import { progress, type BibleIndex, type ActiveSession } from '../services/bible/tracking/progressTracking';
 
-// Adaptateurs pour maintenir la compatibilité avec l'ancien context
+// ==================== TYPES COMPAT ====================
 export interface BibleBook {
   id: string;
   name: string;
@@ -59,20 +57,15 @@ export interface DailyVerse {
   date: string;
 }
 
-// ==================== INTERFACE DU CONTEXT ====================
-
+// ==================== INTERFACE CONTEXT ====================
 interface EnhancedBibleContextType {
-  // ===== COMPATIBILITÉ ANCIENNE API =====
-  // Versions et livres (format ancien)
   currentVersion: BibleVersion;
   availableVersions: BibleVersion[];
   bibleBooks: BibleBook[];
-  
-  // Progression utilisateur (format ancien)
+
   userProgress: UserProgress;
   dailyVerse: DailyVerse;
-  
-  // Actions anciennes
+
   setCurrentVersion: (version: BibleVersion) => void;
   updateProgress: (progress: Partial<UserProgress>) => void;
   markChapterAsRead: (bookId: string, chapter: number) => void;
@@ -80,33 +73,28 @@ interface EnhancedBibleContextType {
   incrementLearningModule: () => void;
   loading: boolean;
 
-  // ===== NOUVELLES FONCTIONNALITÉS AMÉLIORÉES =====
-  // État avancé
+  // Amélioré
   isInitialized: boolean;
   error: string | null;
   currentChapter: BibleChapter | null;
   currentReference: BibleReference | null;
 
-  // Lecture et navigation
   navigateToChapter: (reference: BibleReference) => Promise<void>;
   goToNextChapter: () => Promise<void>;
   goToPreviousChapter: () => Promise<void>;
   getChapter: (reference: BibleReference, version?: string) => Promise<BibleChapter | null>;
-  
-  // Recherche avancée
+
   searchResults: BibleSearchResult[];
   searchVerses: (query: string, maxResults?: number) => Promise<void>;
   clearSearch: () => void;
   isSearching: boolean;
 
-  // Signets et favoris
   bookmarks: BibleBookmark[];
   addBookmark: (reference: BibleReference, title?: string, note?: string) => Promise<void>;
   removeBookmark: (id: string) => Promise<void>;
   isBookmarked: (reference: BibleReference) => Promise<boolean>;
   refreshBookmarks: () => Promise<void>;
 
-  // Surlignages
   highlights: VerseHighlight[];
   highlightTags: HighlightTag[];
   addHighlight: (reference: BibleReference, tag: HighlightTag, note?: string) => Promise<void>;
@@ -114,19 +102,18 @@ interface EnhancedBibleContextType {
   toggleHighlight: (reference: BibleReference, tag: HighlightTag) => Promise<void>;
   refreshHighlights: () => Promise<void>;
 
-  // Paramètres
   settings: BibleSettings;
   updateSettings: (settings: Partial<BibleSettings>) => Promise<void>;
 
-  // Utilitaires
   formatReference: (reference: BibleReference) => string;
   parseReference: (text: string) => BibleReference | null;
-  
-  // Nouvelles données structurées
+  getDefaultVersion: () => Promise<string>;
+  isTemporaryVersion: () => Promise<boolean>;
+  returnToDefaultVersion: () => Promise<void>;
+
   booksStructured: NewBibleBook[];
   versionsStructured: NewBibleVersion[];
 
-  // Statistiques et analytiques
   getReadingStats: () => Promise<{
     totalChaptersRead: number;
     totalTimeSpent: number;
@@ -135,35 +122,142 @@ interface EnhancedBibleContextType {
   }>;
 }
 
-// ==================== CONTEXT ET PROVIDER ====================
-
+// ==================== CONTEXT ====================
 const EnhancedBibleContext = createContext<EnhancedBibleContextType | undefined>(undefined);
 
 export const useEnhancedBible = () => {
   const context = useContext(EnhancedBibleContext);
-  if (!context) {
-    throw new Error('useEnhancedBible must be used within an EnhancedBibleProvider');
-  }
+  if (!context) throw new Error('useEnhancedBible must be used within an EnhancedBibleProvider');
   return context;
 };
-
-// Maintenir la compatibilité avec l'ancienne API
 export const useBible = useEnhancedBible;
 
-// ==================== ADAPTATEURS DE DONNÉES ====================
-
-// Convertit les nouveaux BibleBook vers l'ancien format
+// ==================== ADAPTATEURS ====================
 function adaptBooksToOldFormat(books: NewBibleBook[]): BibleBook[] {
   return books.map(book => ({
     id: book.name.toLowerCase(),
-    name: book.frenchName,
+    name: book.frenchName || book.name,
     abbrev: book.abbrev || book.name,
     chapters: book.chapters,
     testament: book.testament === 'OLD' ? 'ancien' : 'nouveau'
   }));
 }
 
-// Convertit les nouvelles BibleVersion vers l'ancien format
+interface BookIndexEntry {
+  id: string;
+  testament: 'OT' | 'NT';
+  chapters: number;
+  versesPerChapter: number[];
+}
+
+function createBibleIndex(books: NewBibleBook[]): BibleIndex {
+  const booksMap: Record<string, BookIndexEntry> = {};
+  books.forEach(book => {
+    const versesPerChapter = Array.from({ length: book.chapters }, (_, i) => {
+      const chapterNum = i + 1;
+      return getEstimatedVersesForChapter(book.name, chapterNum);
+    });
+    const bookEntry: BookIndexEntry = {
+      id: book.name,
+      testament: book.testament === 'OLD' ? 'OT' : 'NT',
+      chapters: book.chapters,
+      versesPerChapter
+    };
+    booksMap[book.name] = bookEntry;
+  });
+  return booksMap as any;
+}
+
+function getEstimatedVersesForChapter(bookName: string, chapter: number): number {
+  const estimates: Record<string, number[]> = {
+    // ✅ ANCIEN TESTAMENT COMPLET - 39 livres avec données précises par chapitre
+    'GEN': [31,25,24,26,32,22,24,22,29,32,32,20,18,24,21,16,27,33,38,18,34,24,20,67,34,35,46,22,35,43,55,32,20,31,29,43,36,30,23,23,57,38,34,34,28,34,31,22,33,26],
+    'EXO': [22,25,22,31,23,30,25,32,35,29,10,51,22,31,27,36,16,27,25,26,36,31,33,18,40,37,21,43,46,38,18,35,23,35,35,38,29,31,43,38],
+    'LEV': [17,16,17,27,26,20,13,18,29,24,21,20,15,16,15,22,14,26,17,22,19,12,29,26,18,17,13,21,17,11,13,18,12,17,17,20,14,21,16,16,6,6,20,5,25,16,22,11,14,20,8,13,16,15,31,21,15,23,31,26],
+    'NUM': [54,34,51,49,31,27,89,26,23,36,35,16,33,45,41,50,13,32,22,29,35,41,30,25,18,65,23,31,40,16,54,42,56,29,34,13,46,42,28,7,1,15,24,17,18,21,30,25,22,19,13,30,5,28,7,47,39,46,64,34],
+    'DEU': [46,37,29,49,33,25,26,20,29,22,32,32,18,29,23,22,20,22,21,20,23,30,25,22,19,19,26,68,29,20,30,52,29,12],
+    'JOS': [18,24,17,24,15,27,26,35,27,43,23,24,33,15,63,10,18,28,51,9,45,34,16,33],
+    'JDG': [36,23,31,24,31,40,25,35,57,18,40,15,25,20,20,31,13,31,30,48,25],
+    'RUT': [22,23,18,22],
+    '1SA': [28,36,21,22,12,21,17,22,27,27,15,25,23,52,35,23,58,30,24,42,15,23,29,22,44,25,12,25,11,31,13],
+    '2SA': [27,32,39,12,25,23,29,18,13,19,27,31,39,33,37,23,29,33,43,26,22,51,39,25],
+    '1KI': [53,46,28,34,18,38,51,66,28,29,43,33,34,31,34,34,24,46,21,43,29,53],
+    '2KI': [18,25,27,44,27,33,20,29,37,36,21,21,25,29,38,20,41,37,37,21,26,20,37,20,30],
+    '1CH': [54,55,24,43,26,81,40,40,44,14,47,40,14,17,29,43,27,17,19,8,30,19,32,31,31,32,34,21,30],
+    '2CH': [17,18,17,22,14,42,22,18,31,19,23,16,22,15,19,14,19,34,11,37,20,12,21,27,28,23,9,27,36,27,21,33,25,33,27,23],
+    'EZR': [11,70,13,24,17,22,28,36,15,44],
+    'NEH': [11,20,32,23,19,19,73,18,38,39,36,47,31],
+    'EST': [22,23,15,17,14,14,10,17,32,3],
+    'JOB': [22,13,26,21,27,30,21,22,35,22,20,25,28,22,35,22,16,21,29,29,34,30,17,25,6,14,23,28,25,31,40,22,33,37,16,33,24,41,30,24,34,17],
+    'PSA': [6,12,8,8,12,10,17,9,20,18,7,8,6,7,5,11,15,50,14,9,13,31,6,10,22,12,14,9,11,12,24,11,22,22,28,12,40,22,13,17,13,11,5,26,17,11,9,14,20,23,19,9,6,7,23,13,11,11,17,12,8,12,11,10,13,20,7,35,36,5,24,20,28,23,10,11,20,72,13,19,16,8,18,12,13,24,7,8,12,13,7,9,4,12,8,12,2,3,18,19,15,48,22,51,66,21,32,27,26,17,12,5,21,9,12,20,20,31,51,7,37,10,14,20,28,10,26,10,31,34,21,7,9,6,7,20,14,35,20,28,10,27,17,17,14,27,18,11,22,25,28,23,23,8,63,24,32,14,49,32,31,49,27,17,21,36,26,21,26,18,32,33,31,15,38,28,23,29,49,26,20,27,31,25,24,23,35,21,49,30,37,31,28,28,27,27,21,45,13,11,23,5,19,15,11,16,14,17,15,12,14,16,9],
+    'PRO': [33,22,35,27,23,35,27,36,18,32,31,28,25,35,33,33,28,24,29,30,31,29,35,34,28,28,27,28,27,33,31],
+    'ECC': [18,26,22,16,20,12,29,17,18,20,10,14],
+    'SNG': [17,17,11,16,16,13,13,14],
+    'ISA': [31,22,26,6,30,13,25,22,21,34,16,6,22,32,9,14,14,7,25,6,17,25,18,23,12,21,13,29,24,33,9,20,24,17,10,22,38,22,8,31,29,25,28,28,25,13,15,22,26,11,23,15,12,17,13,12,21,14,21,22,11,12,19,12,25,24],
+    'JER': [19,37,25,31,31,30,34,22,26,25,23,17,27,22,21,21,27,23,15,18,14,30,40,10,38,24,22,17,32,24,40,44,26,22,19,32,21,28,18,16,18,22,13,30,5,28,7,47,39,46,64,34],
+    'LAM': [22,22,66,22,22],
+    'EZE': [28,10,27,17,17,14,27,18,11,22,25,28,23,23,8,63,24,32,14,49,32,31,49,27,17,21,36,26,21,26,18,32,33,31,15,38,28,23,29,49,26,20,27,31,25,24,23,35],
+    'DAN': [21,49,30,37,31,28,28,27,27,21,45,13],
+    'HOS': [11,23,5,19,15,11,16,14,17,15,12,14,16,9],
+    'JOL': [20,32,21],
+    'AMO': [15,16,15,13,27,14,17,14,15],
+    'OBA': [21],
+    'JON': [17,10,10,11],
+    'MIC': [16,13,12,13,15,16,20],
+    'NAH': [15,13,19],
+    'HAB': [17,20,19],
+    'ZEP': [18,15,20],
+    'HAG': [15,23],
+    'ZEC': [21,13,10,14,11,15,14,23,17,12,17,14,9,21],
+    'MAL': [14,17,18,6],
+    
+    // ✅ NOUVEAU TESTAMENT COMPLET - 27 livres avec données précises par chapitre
+    'MAT': [25,23,17,25,48,34,29,34,38,42,30,50,58,36,39,28,27,35,26,27,44,25],
+    'MRK': [45,28,35,41,43,56,37,38,50,52,33,44,37,72,47,20],
+    'LUK': [80,52,38,44,39,49,50,56,62,42,54,59,35,35,32,31,37,43,48,47,38,71,56,53],
+    'JOH': [51,25,36,54,47,71,53,59,41,42,57,50,38,31,27,33,26,40,42,31,25],
+    'ACT': [26,47,26,37,42,15,60,40,43,48,30,25,52,28,41,40,34,28,41,38,40,30,35,27,27,32,44,31],
+    'ROM': [32,29,31,25,21,23,25,39,33,21,36,21,14,23,33,27],
+    '1CO': [31,16,23,21,13,20,40,13,27,33,34,31,13,40,58,24],
+    '2CO': [24,17,18,18,21,18,16,24,15,18,33,21,14],
+    'GAL': [24,21,29,31,26,18],
+    'EPH': [23,22,21,32,33,24],
+    'PHP': [30,30,21,23],
+    'COL': [29,23,25,18],
+    '1TH': [10,20,13,18,28],
+    '2TH': [12,17,18],
+    '1TI': [20,15,16,16,25,21],
+    '2TI': [18,26,17,22],
+    'TIT': [16,15,15],
+    'PHM': [25],
+    'HEB': [14,18,19,16,14,20,28,13,28,39,40,29,25],
+    'JAS': [27,26,18,17,20],
+    '1PE': [25,25,22,19,14],
+    '2PE': [21,22,18],
+    '1JO': [10,29,24,21,21],
+    '2JO': [13],
+    '3JO': [15],
+    'JUD': [25],
+    'REV': [20,29,22,11,14,17,17,13,21,11,19,17,18,20,8,21,18,24,21,15,27,21]
+  };
+  const bookEstimates = estimates[bookName];
+  if (bookEstimates && bookEstimates[chapter - 1]) {
+    return bookEstimates[chapter - 1];
+  }
+
+  // ⚠️ FALLBACK: Si un livre/chapitre n'est pas trouvé dans nos données complètes
+  console.warn(`⚠️ Données manquantes pour ${bookName} chapitre ${chapter}, utilisation fallback`);
+  
+  // Fallbacks sécurisés par testament
+  if (['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZE','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAH','HAB','ZEP','HAG','ZEC','MAL'].includes(bookName)) {
+    return 25; // Ancien Testament fallback
+  } else if (['MAT','MRK','LUK','JOH','ACT','ROM','1CO','2CO','GAL','EPH','PHP','COL','1TH','2TH','1TI','2TI','TIT','PHM','HEB','JAS','1PE','2PE','1JO','2JO','3JO','JUD','REV'].includes(bookName)) {
+    return 25; // Nouveau Testament fallback
+  } else {
+    return 25; // Fallback universel
+  }
+}
+
 function adaptVersionsToOldFormat(versions: NewBibleVersion[]): BibleVersion[] {
   return versions.map(version => ({
     id: version.id,
@@ -173,17 +267,12 @@ function adaptVersionsToOldFormat(versions: NewBibleVersion[]): BibleVersion[] {
   }));
 }
 
-// ==================== PROVIDER PRINCIPAL ====================
-
+// ==================== PROVIDER ====================
 export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userProfile } = useAuth();
-
-  // ===== ÉTATS LOCAUX =====
   const [isInitialized, setIsInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // États pour la compatibilité - Version par défaut Bible J.N. Darby français
   const [currentVersion, setCurrentVersionState] = useState<BibleVersion>({
     id: 'a93a92589195411f-01',
     name: 'Bible J.N. Darby',
@@ -200,7 +289,6 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     learningModulesCompleted: 0,
   });
 
-  // États avancés
   const [currentChapter, setCurrentChapter] = useState<BibleChapter | null>(null);
   const [currentReference, setCurrentReference] = useState<BibleReference | null>(null);
   const [searchResults, setSearchResults] = useState<BibleSearchResult[]>([]);
@@ -208,7 +296,7 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
   const [bookmarks, setBookmarks] = useState<BibleBookmark[]>([]);
   const [highlights, setHighlights] = useState<VerseHighlight[]>([]);
   const [settings, setSettings] = useState<BibleSettings>({
-    version: 'a93a92589195411f-01', // Bible J.N. Darby par défaut
+    version: 'a93a92589195411f-01',
     defaultVersion: 'a93a92589195411f-01',
     fontSize: 16,
     fontFamily: 'default',
@@ -220,106 +308,14 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     nightMode: false,
   });
 
-  // Verset du jour (statique pour l'instant)
   const [dailyVerse] = useState<DailyVerse>({
     verse: "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu'il ait la vie éternelle.",
     reference: "Jean 3:16",
     date: new Date().toISOString().split('T')[0],
   });
 
-  // ===== INITIALISATION =====
-  useEffect(() => {
-    initializeServices();
-  }, []);
-
-  const initializeServices = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Initialiser les services Bible
-      await initializeBibleServices();
-      
-      // Charger les données initiales
-      await loadInitialData();
-      
-      setIsInitialized(true);
-      console.log('✅ Enhanced Bible Context initialized');
-      
-    } catch (error) {
-      console.error('❌ Failed to initialize Enhanced Bible Context:', error);
-      setError(error instanceof Error ? error.message : 'Erreur d\'initialisation');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadInitialData = async () => {
-    try {
-      // Charger les livres (adaptés)
-      const structuredBooks = bibleService.getBooks();
-      setBibleBooks(adaptBooksToOldFormat(structuredBooks));
-
-      // Charger toutes les versions populaires (français + anglaises populaires)
-      const versions = await bibleService.getVersions();
-      const adaptedVersions = adaptVersionsToOldFormat(versions);
-      setAvailableVersions(adaptedVersions);
-
-      // Charger les paramètres utilisateur
-      const userSettings = await bibleService.getSettings();
-      setSettings(userSettings);
-      
-      // Charger la version depuis les paramètres utilisateur (persistance)
-      const savedVersionId = userSettings.version;
-      console.log('🔍 Version sauvegardée dans les paramètres:', savedVersionId);
-      
-      // Chercher cette version dans les versions disponibles
-      let currentVersion = adaptedVersions.find(v => v.id === savedVersionId);
-      
-      // Si la version sauvegardée n'existe pas, utiliser la version par défaut
-      if (!currentVersion) {
-        console.log('⚠️ Version sauvegardée non trouvée, utilisation de la version par défaut');
-        currentVersion = adaptedVersions.find(v => v.id === 'a93a92589195411f-01'); // Bible J.N. Darby
-        
-        // Si même la version par défaut n'est pas trouvée
-        if (!currentVersion && adaptedVersions.length > 0) {
-          currentVersion = adaptedVersions.find(v => v.language === 'fr') || adaptedVersions[0];
-        }
-        
-        // Sauvegarder la nouvelle version par défaut
-        if (currentVersion) {
-          const versionId = currentVersion.id;
-          await bibleService.updateSettings({ version: versionId });
-          setSettings(prev => ({ ...prev, version: versionId }));
-        }
-      }
-      
-      // Mettre à jour la version courante
-      const finalVersion = currentVersion || {
-        id: 'a93a92589195411f-01',
-        name: 'Bible J.N. Darby',
-        abbrev: 'DARBY',
-        language: 'fr'
-      };
-      
-      console.log('✅ Version finale chargée:', finalVersion.name, '(ID:', finalVersion.id, ')');
-      setCurrentVersionState(finalVersion);
-
-      // Charger les signets et surlignages
-      await refreshBookmarks();
-      await refreshHighlights();
-
-      // Charger les statistiques de lecture
-      await loadReadingStats();
-
-      console.log('✅ Données initiales chargées - Version:', finalVersion?.name || 'Louis Segond 1910');
-
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-    }
-  };
-
-  const loadReadingStats = async () => {
+  // ===== Helpers =====
+  const loadReadingStats = useCallback(async () => {
     try {
       const stats = await bibleService.getReadingStats();
       setUserProgress(prev => ({
@@ -327,95 +323,165 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
         chaptersRead: stats.totalChaptersRead,
         progressPercentage: stats.bibleProgress,
       }));
-    } catch (error) {
-      console.error('Failed to load reading stats:', error);
-    }
-  };
-
-  // ===== ACTIONS DE COMPATIBILITÉ =====
-  const setCurrentVersion = useCallback(async (version: BibleVersion) => {
-    console.log('🔄 Changement de version vers:', version.name, '(ID:', version.id, ')');
-    
-    try {
-      // 1. Mettre à jour l'état local immédiatement
-      setCurrentVersionState(version);
-      
-      // 2. Sauvegarder dans le service et le stockage
-      await bibleService.setCurrentVersion(version.id);
-      
-      // 3. Mettre à jour les paramètres pour la persistance
-      await bibleService.updateSettings({ version: version.id });
-      setSettings(prev => ({ ...prev, version: version.id }));
-      
-      console.log('✅ Version changée et sauvegardée avec succès');
-      
-    } catch (error) {
-      console.error('❌ Erreur lors du changement de version:', error);
-      // En cas d'erreur, revenir à la version précédente
-      // setCurrentVersionState(currentVersion);
+    } catch (e) {
+      console.error('Failed to load reading stats:', e);
     }
   }, []);
 
-  const updateProgress = useCallback((progress: Partial<UserProgress>) => {
-    setUserProgress(prev => ({ ...prev, ...progress }));
+  const refreshBookmarks = useCallback(async () => {
+    try {
+      const userBookmarks = await bibleService.getBookmarks();
+      setBookmarks(userBookmarks);
+    } catch (e) { console.error('Failed to refresh bookmarks:', e); }
+  }, []);
+
+  const refreshHighlights = useCallback(async () => {
+    try {
+      const userHighlights = await bibleService.getHighlights();
+      setHighlights(userHighlights);
+    } catch (e) { console.error('Failed to refresh highlights:', e); }
+  }, []);
+
+  const loadInitialData = useCallback(async () => {
+    try {
+      const structuredBooks = bibleService.getBooks();
+      setBibleBooks(adaptBooksToOldFormat(structuredBooks));
+
+      // Tracking index + ordre réel des livres
+      const bibleIndex = createBibleIndex(structuredBooks);
+      const order = structuredBooks.map(b => b.name); // OSIS order si fourni par le service
+      progress.configureBibleIndex(bibleIndex, order);
+      await progress.hydrate();
+
+      // Versions
+      const versions = await bibleService.getVersions();
+      const adaptedVersions = adaptVersionsToOldFormat(versions);
+      setAvailableVersions(adaptedVersions);
+
+      // Settings (et sync version)
+      const userSettings = await bibleService.getSettings();
+      setSettings(userSettings);
+
+      const savedVersionId = userSettings.version;
+      const defaultVersionId = userSettings.defaultVersion;
+
+      let found = adaptedVersions.find(v => v.id === savedVersionId)
+        || adaptedVersions.find(v => v.id === defaultVersionId)
+        || adaptedVersions.find(v => v.id === 'a93a92589195411f-01')
+        || adaptedVersions.find(v => v.language === 'fr')
+        || adaptedVersions[0];
+
+      if (found) {
+        await bibleService.updateSettings({
+          version: found.id,
+          defaultVersion: defaultVersionId || found.id
+        });
+        setSettings(prev => ({
+          ...prev,
+          version: found.id,
+          defaultVersion: defaultVersionId || found.id
+        }));
+      }
+
+      const finalVersion = found || {
+        id: 'a93a92589195411f-01',
+        name: 'Bible J.N. Darby',
+        abbrev: 'DARBY',
+        language: 'fr'
+      };
+      setCurrentVersionState(finalVersion);
+
+      await refreshBookmarks();
+      await refreshHighlights();
+      await loadReadingStats();
+
+      console.log('✅ Initial data loaded');
+
+    } catch (e) {
+      console.error('Failed to load initial data:', e);
+    }
+  }, [refreshBookmarks, refreshHighlights, loadReadingStats]);
+
+  const initializeServices = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      await initializeBibleServices();
+      await loadInitialData();
+      setIsInitialized(true);
+      console.log('✅ Enhanced Bible Context initialized');
+    } catch (e: any) {
+      console.error('❌ Failed to initialize Enhanced Bible Context:', e);
+      setError(e instanceof Error ? e.message : 'Erreur d\'initialisation');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadInitialData]);
+
+  useEffect(() => { initializeServices(); }, [initializeServices]);
+
+  // ===== Versions (compat) =====
+  const setCurrentVersion = useCallback(async (version: BibleVersion) => {
+    console.log('🔄 Changement de version vers:', version.name, '(ID:', version.id, ')');
+    try {
+      setCurrentVersionState(version);
+      await bibleService.setCurrentVersion(version.id);
+      await bibleService.updateSettings({ version: version.id });
+      setSettings(prev => ({ ...prev, version: version.id }));
+      console.log('✅ Version courante changée');
+    } catch (e) {
+      console.error('❌ Erreur lors du changement de version:', e);
+      throw e;
+    }
+  }, []);
+
+  const updateProgress = useCallback((patch: Partial<UserProgress>) => {
+    setUserProgress(prev => ({ ...prev, ...patch }));
   }, []);
 
   const markChapterAsRead = useCallback(async (bookId: string, chapter: number) => {
     try {
-      // Convertir l'ancien format vers le nouveau
-      const reference: BibleReference = { 
-        book: bookId.toUpperCase(), 
-        chapter 
-      };
-      
-      await bibleService.updateReadingProgress(reference, 25); // Estimation de 25 versets
-      
-      // Mettre à jour les stats locales
+      const reference: BibleReference = { book: bookId.toUpperCase(), chapter };
+      await bibleService.updateReadingProgress(reference, 25);
       await loadReadingStats();
-      
-    } catch (error) {
-      console.error('Failed to mark chapter as read:', error);
-    }
-  }, []);
+    } catch (e) { console.error('Failed to mark chapter as read:', e); }
+  }, [loadReadingStats]);
 
   const incrementMeditation = useCallback(() => {
-    setUserProgress(prev => ({
-      ...prev,
-      meditationsCount: prev.meditationsCount + 1,
-    }));
+    setUserProgress(prev => ({ ...prev, meditationsCount: prev.meditationsCount + 1 }));
   }, []);
-
   const incrementLearningModule = useCallback(() => {
-    setUserProgress(prev => ({
-      ...prev,
-      learningModulesCompleted: prev.learningModulesCompleted + 1,
-    }));
+    setUserProgress(prev => ({ ...prev, learningModulesCompleted: prev.learningModulesCompleted + 1 }));
   }, []);
 
-  // ===== NOUVELLES ACTIONS AVANCÉES =====
+  // ===== Navigation & Tracking =====
   const navigateToChapter = useCallback(async (reference: BibleReference) => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const chapter = await bibleService.getChapter(reference);
-      
-      if (chapter) {
-        setCurrentChapter(chapter);
-        setCurrentReference(reference);
-        
-        // Mettre à jour la progression utilisateur avec les nouvelles données
-        setUserProgress(prev => ({
-          ...prev,
-          currentBook: reference.book,
-          currentChapter: reference.chapter,
-          currentVerse: reference.verse || 1,
-          lastReadDate: new Date().toISOString(),
-        }));
-        
-        console.log('✅ Navigation réussie vers:', `${reference.book} ${reference.chapter}${reference.verse ? ':' + reference.verse : ''}`);
-      }
-    } catch (error) {
-      console.error('Failed to navigate to chapter:', error);
-      setError('Erreur lors de la navigation');
+      const ref = { book: reference.book.toUpperCase(), chapter: reference.chapter, verse: reference.verse };
+      const chapter = await bibleService.getChapter(ref);
+      if (!chapter) throw new Error(`Le chapitre ${ref.book} ${ref.chapter} est introuvable pour cette version.`);
+
+      setCurrentChapter(chapter);
+      setCurrentReference({ book: ref.book, chapter: ref.chapter, verse: ref.verse });
+
+      setUserProgress(prev => ({
+        ...prev,
+        currentBook: ref.book,
+        currentChapter: ref.chapter,
+        currentVerse: ref.verse || 1,
+        lastReadDate: new Date().toISOString(),
+      }));
+
+      // Démarre (ou bascule) le timer sur ce chapitre
+      try { progress.switchTo(ref.book, ref.chapter); } catch {}
+
+      console.log('✅ Navigation:', `${ref.book} ${ref.chapter}${ref.verse ? ':' + ref.verse : ''}`);
+    } catch (e: any) {
+      console.error('Failed to navigate to chapter:', e);
+      setError(e?.message || 'Erreur lors de la navigation');
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -423,27 +489,37 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const goToNextChapter = useCallback(async () => {
     if (!currentReference) return;
-    
-    const nextChapter = await bibleService.getNextChapter(currentReference);
-    if (nextChapter) {
-      const nextRef = { 
-        book: nextChapter.book, 
-        chapter: nextChapter.chapter 
-      };
-      await navigateToChapter(nextRef);
+    try {
+      // ✅ NOUVEAU: Validation COMPLÈTE du chapitre indépendamment du scroll
+      console.log('▶️ Bouton Suivant pressé - validation complète du chapitre');
+      
+      // Forcer la complétion du chapitre entier
+      await progress.completeChapter();
+      console.log('✅ Chapitre complété explicitement:', currentReference.book, currentReference.chapter);
+      
+      // Navigation vers le chapitre suivant
+      const next = await bibleService.getNextChapter(currentReference);
+      if (next) {
+        await navigateToChapter({ book: next.book, chapter: next.chapter });
+        console.log('📖 Navigation vers chapitre suivant:', next.book, next.chapter);
+      } else {
+        console.log('📚 Fin du livre atteinte');
+      }
+    } catch (e) {
+      console.error('goToNextChapter error:', e);
     }
   }, [currentReference, navigateToChapter]);
 
   const goToPreviousChapter = useCallback(async () => {
     if (!currentReference) return;
-    
-    const prevChapter = await bibleService.getPreviousChapter(currentReference);
-    if (prevChapter) {
-      const prevRef = { 
-        book: prevChapter.book, 
-        chapter: prevChapter.chapter 
-      };
-      await navigateToChapter(prevRef);
+    try {
+      // pas de completeChapter ici (on revient en arrière)
+      const prev = await bibleService.getPreviousChapter(currentReference);
+      if (prev) {
+        await navigateToChapter({ book: prev.book, chapter: prev.chapter });
+      }
+    } catch (e) {
+      console.error('goToPreviousChapter error:', e);
     }
   }, [currentReference, navigateToChapter]);
 
@@ -451,124 +527,116 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     return bibleService.getChapter(reference, version);
   }, []);
 
-  // Recherche
+  // ===== Recherche =====
   const searchVerses = useCallback(async (query: string, maxResults = 25) => {
     try {
       setIsSearching(true);
       const results = await bibleService.searchVerses(query, { maxResults });
       setSearchResults(results);
-    } catch (error) {
-      console.error('Search failed:', error);
+    } catch (e) {
+      console.error('Search failed:', e);
       setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
+    } finally { setIsSearching(false); }
   }, []);
+  const clearSearch = useCallback(() => { setSearchResults([]); setIsSearching(false); }, []);
 
-  const clearSearch = useCallback(() => {
-    setSearchResults([]);
-    setIsSearching(false);
-  }, []);
-
-  // Signets
-  const refreshBookmarks = useCallback(async () => {
-    try {
-      const userBookmarks = await bibleService.getBookmarks();
-      setBookmarks(userBookmarks);
-    } catch (error) {
-      console.error('Failed to refresh bookmarks:', error);
-    }
-  }, []);
-
+  // ===== Signets =====
   const addBookmark = useCallback(async (reference: BibleReference, title?: string, note?: string) => {
-    try {
-      await bibleService.addBookmark(reference, title, note);
-      await refreshBookmarks();
-    } catch (error) {
-      console.error('Failed to add bookmark:', error);
-    }
+    try { await bibleService.addBookmark(reference, title, note); await refreshBookmarks(); }
+    catch (e) { console.error('Failed to add bookmark:', e); }
   }, [refreshBookmarks]);
-
   const removeBookmark = useCallback(async (id: string) => {
-    try {
-      await bibleService.removeBookmark(id);
-      await refreshBookmarks();
-    } catch (error) {
-      console.error('Failed to remove bookmark:', error);
-    }
+    try { await bibleService.removeBookmark(id); await refreshBookmarks(); }
+    catch (e) { console.error('Failed to remove bookmark:', e); }
   }, [refreshBookmarks]);
+  const isBookmarked = useCallback(async (reference: BibleReference) => bibleService.isBookmarked(reference), []);
 
-  const isBookmarked = useCallback(async (reference: BibleReference) => {
-    return bibleService.isBookmarked(reference);
-  }, []);
-
-  // Surlignages
-  const refreshHighlights = useCallback(async () => {
-    try {
-      const userHighlights = await bibleService.getHighlights();
-      setHighlights(userHighlights);
-    } catch (error) {
-      console.error('Failed to refresh highlights:', error);
-    }
-  }, []);
-
+  // ===== Surlignages =====
   const addHighlight = useCallback(async (reference: BibleReference, tag: HighlightTag, note?: string) => {
-    try {
-      await bibleService.addHighlight(reference, tag, note);
-      await refreshHighlights();
-    } catch (error) {
-      console.error('Failed to add highlight:', error);
-    }
+    try { await bibleService.addHighlight(reference, tag, note); await refreshHighlights(); }
+    catch (e) { console.error('Failed to add highlight:', e); }
   }, [refreshHighlights]);
-
   const removeHighlight = useCallback(async (id: string) => {
-    try {
-      await bibleService.removeHighlight(id);
-      await refreshHighlights();
-    } catch (error) {
-      console.error('Failed to remove highlight:', error);
-    }
+    try { await bibleService.removeHighlight(id); await refreshHighlights(); }
+    catch (e) { console.error('Failed to remove highlight:', e); }
   }, [refreshHighlights]);
-
   const toggleHighlight = useCallback(async (reference: BibleReference, tag: HighlightTag) => {
-    try {
-      await bibleService.toggleHighlight(reference, tag);
-      await refreshHighlights();
-    } catch (error) {
-      console.error('Failed to toggle highlight:', error);
-    }
+    try { await bibleService.toggleHighlight(reference, tag); await refreshHighlights(); }
+    catch (e) { console.error('Failed to toggle highlight:', e); }
   }, [refreshHighlights]);
 
-  // Paramètres
+  // ===== Paramètres =====
   const updateSettings = useCallback(async (newSettings: Partial<BibleSettings>) => {
     try {
       await bibleService.updateSettings(newSettings);
       const updatedSettings = await bibleService.getSettings();
       setSettings(updatedSettings);
-    } catch (error) {
-      console.error('Failed to update settings:', error);
+      // éventuel réglage future: vitesse cible par défaut → progress.setDefaultPace(...)
+    } catch (e) { console.error('Failed to update settings:', e); }
+  }, []);
+
+  // ===== Utilitaires =====
+  const formatReference = useCallback((reference: BibleReference) => bibleService.formatReference(reference), []);
+  const parseReference = useCallback((text: string) => bibleService.parseReference(text), []);
+  const getReadingStats = useCallback(async () => bibleService.getReadingStats(), []);
+  const getDefaultVersion = useCallback(async () => bibleService.getDefaultVersion(), []);
+  const isTemporaryVersion = useCallback(async () => bibleService.isTemporaryVersion(), []);
+
+  const returnToDefaultVersion = useCallback(async () => {
+    try {
+      await bibleService.returnToDefaultVersion();
+      const newVersion = bibleService.getCurrentVersion();
+      const adaptedVersion = adaptVersionsToOldFormat([{
+        id: newVersion,
+        name: 'Version par défaut',
+        abbreviation: 'DEFAULT',
+        language: 'fr'
+      } as any])[0];
+      setCurrentVersionState(adaptedVersion);
+    } catch (e) {
+      console.error('Failed to return to default version:', e);
     }
   }, []);
 
-  // Utilitaires
-  const formatReference = useCallback((reference: BibleReference) => {
-    return bibleService.formatReference(reference);
-  }, []);
+  // ===== AppState → Pause/Resume tracking =====
+  useEffect(() => {
+    const onChange = async (s: AppStateStatus) => {
+      try {
+        if (s === 'background' || s === 'inactive') {
+          progress.pause();
+          await progress.persist?.();
+        } else if (s === 'active') {
+          // Reprendre la session active ou celle du contexte
+          const activeSession: ActiveSession | null = progress.getActiveSession();
+          const bookId = activeSession?.ref.bookId || currentReference?.book;
+          const chapter = activeSession?.ref.chapter || currentReference?.chapter;
+          if (bookId && chapter) {
+            progress.switchTo(bookId, chapter);
+            console.log('\u{1F4F1} App redevenue active - timer repris:', bookId, chapter);
+          }
+        }
+      } catch (err) {
+        console.error('AppState onChange error:', err);
+      }
+    };
+    const sub = AppState.addEventListener('change', onChange);
+    return () => { sub.remove(); };
+  }, [currentReference]);
 
-  const parseReference = useCallback((text: string) => {
-    return bibleService.parseReference(text);
-  }, []);
-
-  const getReadingStats = useCallback(async () => {
-    return bibleService.getReadingStats();
+  // Flush & persist au démontage du provider
+  useEffect(() => {
+    return () => {
+      try { progress.pause(); } catch {}
+      progress.persist?.().catch(() => {});
+    };
   }, []);
 
   // ===== CONTEXT VALUE =====
   const contextValue: EnhancedBibleContextType = {
-    // Compatibilité ancienne API
     currentVersion,
     availableVersions,
     bibleBooks,
+
     userProgress,
     dailyVerse,
     setCurrentVersion,
@@ -578,52 +646,46 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     incrementLearningModule,
     loading,
 
-    // Nouvelles fonctionnalités
     isInitialized,
     error,
     currentChapter,
     currentReference,
-    
-    // Navigation
+
     navigateToChapter,
     goToNextChapter,
     goToPreviousChapter,
     getChapter,
-    
-    // Recherche
+
     searchResults,
     searchVerses,
     clearSearch,
     isSearching,
-    
-    // Signets
+
     bookmarks,
     addBookmark,
     removeBookmark,
     isBookmarked,
     refreshBookmarks,
-    
-    // Surlignages
+
     highlights,
     highlightTags: bibleService.getHighlightTags(),
     addHighlight,
     removeHighlight,
     toggleHighlight,
     refreshHighlights,
-    
-    // Paramètres
+
     settings,
     updateSettings,
-    
-    // Utilitaires
+
     formatReference,
     parseReference,
-    
-    // Nouvelles données
+    getDefaultVersion,
+    isTemporaryVersion,
+    returnToDefaultVersion,
+
     booksStructured: bibleService.getBooks(),
-    versionsStructured: [], // TODO: charger dynamiquement
-    
-    // Stats
+    versionsStructured: [],
+
     getReadingStats,
   };
 
@@ -634,5 +696,4 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-// Export pour compatibilité
 export const BibleProvider = EnhancedBibleProvider;

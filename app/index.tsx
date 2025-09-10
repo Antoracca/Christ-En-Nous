@@ -11,6 +11,7 @@ import { AuthProvider } from '../app/context/AuthContext';
 import { ThemeProvider } from '../app/context/ThemeContext';
 import { ResponsiveProvider } from '../app/context/ResponsiveContext';
 import { EnhancedBibleProvider } from '../app/context/EnhancedBibleContext';
+import { ReadingSettingsProvider } from '../app/context/ReadingSettingsContext';
 import { LightAppTheme, DarkAppTheme } from '../app/constants/theme';
 import UniversalSplashScreen from '../app/components/UniversalSplashScreen'; // Nouveau splash screen universel
 
@@ -45,7 +46,9 @@ export default function App() {
           <ResponsiveProvider>
             <AuthProvider>
               <EnhancedBibleProvider>
-                <AppNavigator />
+                <ReadingSettingsProvider>
+                  <AppNavigator />
+                </ReadingSettingsProvider>
               </EnhancedBibleProvider>
             </AuthProvider>
           </ResponsiveProvider>

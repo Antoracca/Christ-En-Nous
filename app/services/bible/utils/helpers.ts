@@ -279,27 +279,43 @@ export class BibleSearchUtils {
     
     let score = 0;
     
-    // Correspondance exacte de phrase (score maximum)
-    if (normalizedText.includes(normalizedQuery)) {
-      score += 100;
-    }
-    
-    // Correspondance de tous les mots
-    const queryWords = normalizedQuery.split(' ').filter(w => w.length > 2);
+    // Correspondance exacte du mot complet (score maximum)
+    const queryWords = normalizedQuery.split(' ').filter(w => w.length > 1);
     const textWords = normalizedText.split(' ');
     
-    let matchingWords = 0;
+    let exactMatches = 0;
+    let partialMatches = 0;
+    
     for (const queryWord of queryWords) {
-      if (textWords.some(textWord => textWord.includes(queryWord))) {
-        matchingWords++;
-        score += 10;
+      // Correspondance exacte du mot
+      if (textWords.some(textWord => textWord === queryWord)) {
+        exactMatches++;
+        score += 50; // Score élevé pour correspondance exacte
+      }
+      // Correspondance partielle (le mot contient la recherche ou vice versa)
+      else if (textWords.some(textWord => 
+        textWord.includes(queryWord) || queryWord.includes(textWord)
+      )) {
+        partialMatches++;
+        score += 25; // Score moyen pour correspondance partielle
       }
     }
     
-    // Bonus pour un pourcentage élevé de mots correspondants
+    // Bonus si tous les mots sont trouvés
+    if (exactMatches === queryWords.length) {
+      score += 25; // Bonus pour correspondance complète
+    }
+    
+    // Bonus proportionnel au nombre de mots trouvés
+    const totalMatches = exactMatches + partialMatches;
     if (queryWords.length > 0) {
-      const matchPercentage = matchingWords / queryWords.length;
-      score += Math.round(matchPercentage * 20);
+      const matchPercentage = totalMatches / queryWords.length;
+      score += Math.round(matchPercentage * 15);
+    }
+    
+    // S'assurer qu'il y a au moins une correspondance pour avoir un score > 0
+    if (totalMatches === 0) {
+      score = 0;
     }
     
     return Math.min(score, 100);
@@ -307,19 +323,12 @@ export class BibleSearchUtils {
 
   /**
    * Met en évidence les termes de recherche dans un texte
+   * Pour React Native, on retourne juste le texte nettoyé sans balises HTML
    */
   static highlightSearchTerms(text: string, query: string): string {
-    const normalizedQuery = this.normalizeText(query);
-    const words = normalizedQuery.split(' ').filter(w => w.length > 2);
-    
-    let highlightedText = text;
-    
-    for (const word of words) {
-      const regex = new RegExp(`(${word})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark>$1</mark>');
-    }
-    
-    return highlightedText;
+    // Pour React Native, on retourne le texte original sans balises HTML
+    // Le surlignage sera fait dans le composant React Native
+    return text.replace(/<\/?mark>/g, ''); // Nettoyer les balises existantes
   }
 }
 
@@ -339,7 +348,15 @@ export class BibleStorageUtils {
    */
   static getSearchCacheKey(query: string, version: string): string {
     const normalizedQuery = BibleSearchUtils.normalizeText(query);
-    return `search_${version}_${Buffer.from(normalizedQuery).toString('base64')}`;
+    // Créer un hash simple compatible React Native
+    const hash = normalizedQuery
+      .split('')
+      .reduce((acc, char) => {
+        const code = char.charCodeAt(0);
+        acc = ((acc << 5) - acc) + code;
+        return acc & acc; // Force 32bit integer
+      }, 0);
+    return `search_${version}_${Math.abs(hash)}_${normalizedQuery.length}`;
   }
 
   /**
@@ -416,7 +433,7 @@ export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
+  let timeout: ReturnType<typeof setTimeout>;
   
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);

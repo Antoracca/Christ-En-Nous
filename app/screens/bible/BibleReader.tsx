@@ -1,5 +1,5 @@
 // app/screens/bible/BibleReader.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,57 +7,219 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
+import { PanGestureHandler, State, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Feather } from '@expo/vector-icons';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
+import { progress } from '@/services/bible/tracking/progressTracking';
 
 interface BibleReaderProps {
   onNavigationPress: () => void;
   onSearchPress: () => void;
+  onProgressPress: () => void;
   onSettingsPress: () => void;
+  targetVerse?: number;
 }
 
-export default function BibleReader({ 
-  onNavigationPress, 
-  onSearchPress, 
-  onSettingsPress 
+export default function BibleReader({
+  onNavigationPress,
+  onSearchPress,
+  onProgressPress,
+  onSettingsPress,
+  targetVerse,
 }: BibleReaderProps) {
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
-  const { 
-    bibleBooks, 
-    currentVersion, 
+  const {
+    bibleBooks,
+    currentVersion,
     userProgress,
     currentChapter,
     navigateToChapter,
+    goToNextChapter,
+    goToPreviousChapter,
     loading,
-    error 
+    error,
   } = useBible();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
+  const [currentVerseInView, setCurrentVerseInView] = useState<number | null>(null);
 
-  // Charger automatiquement Genèse 1 au démarrage
+  const scrollViewRef = useRef<ScrollView>(null);
+  const highlightAnimation = useRef(new Animated.Value(0)).current;
+  const containerHeight = useRef(0);
+  const verseRefs = useRef<Map<number, any>>(new Map());
+  const versePositionsRef = useRef<Map<number, { y: number; height: number }>>(new Map());
+  const swipeX = useRef(new Animated.Value(0)).current;
+
+  // Boot minimal: si rien n'est chargé, on commence à Gen 1 (le Provider démarre le tracking)
   useEffect(() => {
-    const loadDefaultChapter = async () => {
+    const init = async () => {
       try {
-        // Si aucun chapitre n'est chargé, charger Genèse 1
         if (!currentChapter && !userProgress.currentBook) {
-          console.log('Navigation vers: Genèse 1:1');
           await navigateToChapter({ book: 'GEN', chapter: 1 });
         }
       } catch (err) {
-        console.error('Erreur lors du chargement du chapitre par défaut:', err);
+        console.error('Init BibleReader:', err);
       } finally {
         setIsInitializing(false);
       }
     };
-
-    loadDefaultChapter();
+    init();
   }, [currentChapter, userProgress.currentBook, navigateToChapter]);
 
-  // Affichage du loading pendant l'initialisation
+  // Timer automatique : démarre le tracking dès qu'un chapitre est chargé
+  useEffect(() => {
+    if (currentChapter && !loading) {
+      try {
+        progress.switchTo(currentChapter.book, currentChapter.chapter);
+        console.log('🔄 Timer automatique démarré pour:', currentChapter.book, currentChapter.chapter);
+      } catch (err) {
+        console.error('Erreur démarrage timer:', err);
+      }
+    }
+  }, [currentChapter?.book, currentChapter?.chapter, loading, currentChapter]);
+
+  // Nettoyage des refs à chaque nouveau chapitre
+  useEffect(() => {
+    verseRefs.current.clear();
+    versePositionsRef.current.clear();
+  }, [currentChapter?.book, currentChapter?.chapter]);
+
+  // Mesure + scroll + highlight
+  const measureVerseInScrollView = useCallback(
+    (verseNumber: number, callback: (scrollPosition: number) => void) => {
+      if (!currentChapter || !scrollViewRef.current) {
+        callback(0);
+        return;
+      }
+      const verseRef = verseRefs.current.get(verseNumber);
+      if (!verseRef) {
+        callback(0);
+        return;
+      }
+      try {
+        verseRef.measureLayout(
+          scrollViewRef.current as any,
+          (x: number, y: number, width: number, height: number) => {
+            const screenHeight = containerHeight.current || 600;
+            const optimalPosition = Math.max(0, y + height / 2 - screenHeight / 2);
+            callback(optimalPosition);
+          },
+          () => {
+            const idx = currentChapter.verses.findIndex(v => v.verse === verseNumber);
+            callback(Math.max(0, idx * 100));
+          }
+        );
+      } catch {
+        const idx = currentChapter.verses.findIndex(v => v.verse === verseNumber);
+        callback(Math.max(0, idx * 100));
+      }
+    },
+    [currentChapter]
+  );
+
+  const scrollToVerseAndHighlight = useCallback(
+    (verseNumber: number) => {
+      if (!currentChapter || !currentChapter.verses.find(v => v.verse === verseNumber)) return;
+      setHighlightedVerse(null);
+      highlightAnimation.stopAnimation();
+      highlightAnimation.setValue(0);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          measureVerseInScrollView(verseNumber, scrollPosition => {
+            scrollViewRef.current?.scrollTo({ y: scrollPosition, animated: true });
+            setTimeout(() => {
+              setHighlightedVerse(verseNumber);
+              Animated.sequence([
+                Animated.timing(highlightAnimation, { toValue: 1, duration: 600, useNativeDriver: false }),
+                Animated.timing(highlightAnimation, { toValue: 0.1, duration: 500, useNativeDriver: false }),
+                Animated.timing(highlightAnimation, { toValue: 1, duration: 600, useNativeDriver: false }),
+                Animated.timing(highlightAnimation, { toValue: 0.1, duration: 500, useNativeDriver: false }),
+                Animated.timing(highlightAnimation, { toValue: 1, duration: 600, useNativeDriver: false }),
+                Animated.timing(highlightAnimation, { toValue: 0, duration: 800, useNativeDriver: false }),
+              ]).start(() => setHighlightedVerse(null));
+            }, 800);
+          });
+        }, 100);
+      });
+    },
+    [currentChapter, highlightAnimation, measureVerseInScrollView]
+  );
+
+  useEffect(() => {
+    if (targetVerse && currentChapter && !loading && currentChapter.verses.length > 0) {
+      setTimeout(() => {
+        scrollToVerseAndHighlight(targetVerse);
+      }, 200);
+    }
+  }, [targetVerse, currentChapter?.id, loading, scrollToVerseAndHighlight, currentChapter]);
+
+  // Gestures: on laisse le Provider gérer la complétion du chapitre au "Suivant"
+  const handleSwipe = Animated.event([{ nativeEvent: { translationX: swipeX } }], { useNativeDriver: false });
+
+  const handleSwipeStateChange = useCallback(
+    async (event: any) => {
+      if (event.nativeEvent.state === State.END) {
+        const { translationX, velocityX } = event.nativeEvent;
+        if (Math.abs(translationX) > 100 || Math.abs(velocityX) > 500) {
+          if (translationX > 0) {
+            // ← vers chapitre précédent (pas de completeChapter ici)
+            goToPreviousChapter();
+          } else {
+            // → vers chapitre suivant (le Provider fera completeChapter)
+            goToNextChapter();
+          }
+        }
+        Animated.spring(swipeX, { toValue: 0, useNativeDriver: false }).start();
+      }
+    },
+    [goToNextChapter, goToPreviousChapter, swipeX]
+  );
+
+  // ✅ NOUVEAU : Suivi du verset en cours (sans validation - uniquement mise à jour maxVerseSeen)
+  const handleVerseInView = useCallback(
+    async (verseNumber: number) => {
+      if (!currentChapter) return;
+      try {
+        // NOUVEAU: Met uniquement à jour maxVerseSeen dans le tracker (pas de validation ici)
+        progress.scrollVerse(verseNumber);
+        console.log('👁️ Verset vu (maxVerseSeen mis à jour):', verseNumber);
+      } catch (err) {
+        console.error('Erreur mise à jour verset vu:', err);
+      }
+      if (currentVerseInView !== verseNumber) {
+        setCurrentVerseInView(verseNumber);
+      }
+    },
+    [currentChapter, currentVerseInView]
+  );
+
+  const onScroll = useCallback(
+    (e: any) => {
+      const y = e.nativeEvent.contentOffset?.y ?? 0;
+      const mid = y + (containerHeight.current || 0) / 2;
+      let bestVerse: number | null = null;
+      let bestDist = Infinity;
+      versePositionsRef.current.forEach((pos, vn) => {
+        const center = pos.y + pos.height / 2;
+        const d = Math.abs(center - mid);
+        if (d < bestDist) {
+          bestDist = d;
+          bestVerse = vn;
+        }
+      });
+      if (bestVerse != null && bestVerse !== currentVerseInView) {
+        handleVerseInView(bestVerse);
+      }
+    },
+    [handleVerseInView, currentVerseInView]
+  );
+
   if (isInitializing || loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -65,21 +227,19 @@ export default function BibleReader({
           <TouchableOpacity onPress={onNavigationPress} style={styles.headerButton}>
             <Feather name="book-open" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
-          
-          <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>
-            Bible
-          </Text>
-          
+          <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>Bible</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
               <Feather name="search" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
+              <Feather name="trending-up" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={onSettingsPress} style={styles.headerButton}>
               <Feather name="settings" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
-        
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.emptyText, { color: theme.custom.colors.placeholder, marginTop: 16 }]}>
@@ -90,7 +250,6 @@ export default function BibleReader({
     );
   }
 
-  // Affichage d'erreur
   if (error) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -98,68 +257,65 @@ export default function BibleReader({
           <TouchableOpacity onPress={onNavigationPress} style={styles.headerButton}>
             <Feather name="book-open" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
-          
-          <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>
-            Bible
-          </Text>
-          
+          <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>Bible</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
               <Feather name="search" size={20} color={theme.colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
+              <Feather name="trending-up" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={onSettingsPress} style={styles.headerButton}>
               <Feather name="settings" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
-        
         <View style={styles.centerContent}>
           <Feather name="alert-circle" size={48} color={theme.colors.error} />
-          <Text style={[styles.emptyText, { color: theme.colors.error, marginTop: 16 }]}>
-            {error}
-          </Text>
-          <TouchableOpacity 
+          <Text style={[styles.emptyText, { color: theme.colors.error, marginTop: 16 }]}>{error}</Text>
+          <TouchableOpacity
             onPress={() => navigateToChapter({ book: 'GEN', chapter: 1 })}
             style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
           >
-            <Text style={[styles.retryButtonText, { color: 'white' }]}>
-              Réessayer
-            </Text>
+            <Text style={[styles.retryButtonText, { color: 'white' }]}>Réessayer</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // Obtenir le nom français du livre
   const getBookName = (osisCode: string) => {
     const book = bibleBooks.find(b => b.id === osisCode.toLowerCase());
     return book?.name || osisCode;
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header avec navigation */}
-      <View style={[styles.header, { 
-        backgroundColor: theme.colors.surface,
-        paddingHorizontal: responsive.isTablet ? responsive.spacing.md : responsive.spacing.sm
-      }]}>
+    <GestureHandlerRootView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.colors.surface,
+            paddingHorizontal: responsive.isTablet ? responsive.spacing.md : responsive.spacing.sm,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={onNavigationPress} style={styles.headerButton}>
           <Feather name="book-open" size={20} color={theme.colors.primary} />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>
-            {currentChapter ? 
-              `${getBookName(currentChapter.book)} ${currentChapter.chapter}` : 
-              'Bible'
-            }
+            {currentChapter ? `${getBookName(currentChapter.book)} ${currentChapter.chapter}` : 'Bible'}
           </Text>
         </View>
-        
+
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onSearchPress} style={styles.headerButton}>
             <Feather name="search" size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onProgressPress} style={styles.headerButton}>
+            <Feather name="trending-up" size={20} color={theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={onSettingsPress} style={styles.headerButton}>
             <Feather name="settings" size={20} color={theme.colors.primary} />
@@ -167,47 +323,136 @@ export default function BibleReader({
         </View>
       </View>
 
-      {/* Contenu des versets */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, {
-          paddingHorizontal: responsive.isTablet ? responsive.spacing.lg : responsive.spacing.md
-        }]}
+      <PanGestureHandler
+        onGestureEvent={handleSwipe}
+        onHandlerStateChange={handleSwipeStateChange}
+        simultaneousHandlers={scrollViewRef}
+        shouldCancelWhenOutside={true}
+        minPointers={1}
+        maxPointers={1}
+        avgTouches={true}
+        activeOffsetX={[-30, 30]}
+        failOffsetY={[-20, 20]}
       >
-        {currentChapter && currentChapter.verses ? (
-          currentChapter.verses.map((verse) => (
-            <View key={`${verse.book}-${verse.chapter}-${verse.verse}`} 
-                  style={[styles.verseContainer, { 
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.custom?.colors?.border + '20' || 'rgba(0,0,0,0.1)'
-                  }]}>
-              <Text style={[styles.verseNumber, { color: theme.colors.primary }]}>
-                {verse.verse}
-              </Text>
-              <Text style={[styles.verseText, { color: theme.custom.colors.text }]}>
-                {verse.text}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingHorizontal: responsive.isTablet ? responsive.spacing.lg : responsive.spacing.md },
+          ]}
+          showsVerticalScrollIndicator={true}
+          onLayout={event => {
+            const { height } = event.nativeEvent.layout;
+            containerHeight.current = height;
+          }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+        >
+          {currentChapter && currentChapter.verses ? (
+            currentChapter.verses.map(verse => {
+              const isHighlighted = highlightedVerse === verse.verse;
+              const animatedBackgroundColor = isHighlighted
+                ? highlightAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [theme.colors.surface, theme.colors.primary + '30'],
+                  })
+                : theme.colors.surface;
+
+              return (
+                <Animated.View
+                  key={`${verse.book}-${verse.chapter}-${verse.verse}`}
+                  ref={ref => {
+                    verseRefs.current.set(verse.verse, ref);
+                  }}
+                  style={[
+                    styles.verseContainer,
+                    {
+                      backgroundColor: animatedBackgroundColor as any,
+                      borderColor:
+                        isHighlighted
+                          ? theme.colors.primary + '50'
+                          : theme.custom?.colors?.border + '20' || 'rgba(0,0,0,0.1)',
+                      borderWidth: isHighlighted ? 2 : 1,
+                    },
+                  ]}
+                  onLayout={() => {
+                    const ref = verseRefs.current.get(verse.verse);
+                    if (ref && scrollViewRef.current) {
+                      try {
+                        ref.measureLayout(
+                          scrollViewRef.current as any,
+                          (x: number, y: number, w: number, h: number) => {
+                            versePositionsRef.current.set(verse.verse, { y, height: h });
+                          },
+                          () => {}
+                        );
+                      } catch {}
+                    }
+                  }}
+                >
+                  <Text style={[styles.verseNumber, { color: theme.colors.primary }]}>{verse.verse}</Text>
+                  <Text
+                    style={[
+                      styles.verseText,
+                      { color: theme.custom.colors.text, fontWeight: isHighlighted ? '600' : 'normal' },
+                    ]}
+                  >
+                    {verse.text}
+                  </Text>
+                </Animated.View>
+              );
+            })
+          ) : (
+            <View style={styles.placeholderContainer}>
+              <Text style={[styles.placeholderText, { color: theme.custom.colors.placeholder }]}>Aucun verset disponible</Text>
+              <Text style={[styles.placeholderSubText, { color: theme.custom.colors.placeholder }]}>
+                Version: {currentVersion.name}
               </Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={[styles.placeholderText, { color: theme.custom.colors.placeholder }]}>
-              Aucun verset disponible
-            </Text>
-            <Text style={[styles.placeholderSubText, { color: theme.custom.colors.placeholder }]}>
-              Version: {currentVersion.name}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+          )}
+
+          {currentChapter && (
+            <View style={[styles.chapterNavigation, { backgroundColor: theme.colors.surface }]}>
+              <TouchableOpacity
+                style={[styles.navButton, styles.prevButton]}
+                onPress={() => {
+                  // Précédent (aucune complétion ici)
+                  goToPreviousChapter();
+                }}
+                activeOpacity={0.7}
+              >
+                <Feather name="chevron-left" size={20} color={theme.colors.primary} />
+                <Text style={[styles.navButtonText, { color: theme.colors.primary }]}>Précédent</Text>
+              </TouchableOpacity>
+
+              <View style={styles.navCenter}>
+                <Text style={[styles.chapterInfo, { color: theme.custom.colors.placeholder }]}>
+                  {getBookName(currentChapter.book)} {currentChapter.chapter}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.navButton, styles.nextButton]}
+                onPress={() => {
+                  // ✅ NOUVEAU: Déléguer la validation complète au Provider
+                  goToNextChapter();
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.navButtonText, { color: theme.colors.primary }]}>Suivant</Text>
+                <Feather name="chevron-right" size={20} color={theme.colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </PanGestureHandler>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,39 +466,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  headerButton: {
-    padding: 8,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Nunito_700Bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontFamily: 'Nunito_400Regular',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-  },
+  headerButton: { padding: 8 },
+  headerCenter: { flex: 1, alignItems: 'center', marginHorizontal: 16 },
+  headerTitle: { fontSize: 18, fontFamily: 'Nunito_700Bold' },
+  headerActions: { flexDirection: 'row' },
+  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  emptyText: { fontSize: 16, fontFamily: 'Nunito_400Regular', textAlign: 'center', lineHeight: 24 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16 },
   verseContainer: {
     flexDirection: 'row',
     marginBottom: 12,
@@ -273,39 +493,25 @@ const styles = StyleSheet.create({
     minWidth: 22,
     textAlign: 'right',
   },
-  verseText: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: 'Nunito_400Regular',
-    lineHeight: 24,
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  verseText: { flex: 1, fontSize: 16, fontFamily: 'Nunito_400Regular', lineHeight: 24 },
+  placeholderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  placeholderText: { fontSize: 18, fontFamily: 'Nunito_700Bold', textAlign: 'center', marginBottom: 8 },
+  placeholderSubText: { fontSize: 14, fontFamily: 'Nunito_400Regular', textAlign: 'center', marginBottom: 4 },
+  retryButton: { marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  retryButtonText: { fontSize: 16, fontFamily: 'Nunito_700Bold', textAlign: 'center' },
+  chapterNavigation: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 32,
-  },
-  placeholderText: {
-    fontSize: 18,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  placeholderSubText: {
-    fontSize: 14,
-    fontFamily: 'Nunito_400Regular',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  retryButton: {
-    marginTop: 20,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+    marginTop: 16,
   },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'center',
-  },
+  navButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  prevButton: { flex: 1, justifyContent: 'flex-start' },
+  nextButton: { flex: 1, justifyContent: 'flex-end' },
+  navButtonText: { fontSize: 14, fontFamily: 'Nunito_600SemiBold', marginHorizontal: 4 },
+  navCenter: { flex: 1, alignItems: 'center' },
+  chapterInfo: { fontSize: 12, fontFamily: 'Nunito_500Medium' },
 });

@@ -15,12 +15,12 @@ import { STORAGE_KEYS, DEFAULT_SETTINGS, ERROR_MESSAGES } from '../utils/constan
  * Service de stockage local avec fonctionnalités avancées
  */
 export class BibleStorageService {
-  private syncQueue: Array<{
+  private syncQueue: {
     type: 'bookmark' | 'highlight' | 'progress' | 'settings';
     action: 'create' | 'update' | 'delete';
     data: any;
     timestamp: string;
-  }> = [];
+  }[] = [];
 
   /**
    * Initialise le stockage et vérifie l'intégrité des données

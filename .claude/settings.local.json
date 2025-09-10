@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(powershell:*)",
+      "Bash($content = $content -replace 'âš¡', '⚡')",
+      "Bash($content = $content -replace 'ðŸ\"\"„', '🔄')",
+      "Bash($content = $content -replace 'â€¢', '•')",
+      "Bash($content = $content -replace 'â†'', '→'\n$content = $content -replace 'â‰¥', '≥'\n$content = $content -replace 'ðŸ§', '🧠'\n$content = $content -replace 'Ã·', '÷'\n$content = $content -replace 'ðŸ§¹', '🧹'\n$content = $content -replace 'Ã‰CHOUÃ‰E', 'ÉCHOUÉE'\n$content = $content -replace 'DÃ‰SACTIVÃ‰', 'DÉSACTIVÉ'\n$content = $content -replace 'TERMINÃ‰', 'TERMINÉ'\n$content = $content -replace 'RÃ‰EL', 'RÉEL'\n$content = $content -replace 'PROBLÃˆME', 'PROBLÈME'\n$content = $content -replace 'DÃ‰TECTÃ‰', 'DÉTECTÉ'\n$content = $content -replace 'RÃ‰SULTATS', 'RÉSULTATS'\n$content = $content -replace 'MÃ‰THODE', 'MÉTHODE'\n$content = $content -replace 'MÃ‰THODES', 'MÉTHODES'\n$content = $content -replace 'DONNÃ‰ES', 'DONNÉES'\n$content = $content -replace 'PRÃ‰CISE', 'PRÉCISE'\n$content = $content -replace 'GRANULAIRE ULTRA-PRÃ‰CISE', 'GRANULAIRE ULTRA-PRÉCISE'\n$content = $content -replace 'PRIORITÃ‰', 'PRIORITÉ'\nSet-Content -Path 'app/services/bible/tracking/progressTracking.ts ' -Value $content -Encoding UTF8)",
+      "Bash(\")",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash($content = Get-Content 'app/services/bible/tracking/progressTracking.ts' -Encoding UTF8)",
+      "Bash($content = $content -replace 'ðŸ\"\"', '🔍')",
+      "Bash($content = $content -replace 'ðŸ\"\"š', '📚')",
+      "Bash($content = $content -replace 'ðŸ§¹', '🧹')",
+      "Bash(Set-Content -Path 'app/services/bible/tracking/progressTracking.ts' -Value $content -Encoding UTF8)",
+      "WebFetch(domain:chatgpt.com)",
+      "Bash(npx tsc:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

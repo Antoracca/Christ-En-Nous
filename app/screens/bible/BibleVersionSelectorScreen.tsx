@@ -33,14 +33,13 @@ export default function BibleVersionSelectorScreen() {
     currentVersion, 
     setCurrentVersion, 
     navigateToChapter,
-    userProgress
+    userProgress,
+    updateSettings
   } = useBible();
 
-  // Gérer le bouton retour personnalisé
+  // Configurer le style du header
   React.useEffect(() => {
     navigation.setOptions({
-      title: 'Choisir votre version',
-      headerBackTitle: 'Retour',
       headerTintColor: theme.colors.primary,
       headerStyle: {
         backgroundColor: theme.colors.background,
@@ -49,31 +48,6 @@ export default function BibleVersionSelectorScreen() {
         fontFamily: 'Nunito_700Bold',
         color: theme.custom.colors.text,
       },
-      headerLeft: () => (
-        <TouchableOpacity
-          onPress={() => {
-            // Retourner à l'écran précédent (normalement BibleNavigation)
-            navigation.goBack();
-          }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            marginLeft: -25, // Décaler à gauche
-          }}
-        >
-          <Feather name="chevron-left" size={22} color={theme.colors.primary} />
-          <Text style={{
-            color: theme.colors.primary,
-            fontSize: 16,
-            fontFamily: 'Nunito_600SemiBold',
-            marginLeft: 1,
-          }}>
-            Retour
-          </Text>
-        </TouchableOpacity>
-      ),
     });
   }, [navigation, theme]);
 
@@ -100,28 +74,43 @@ export default function BibleVersionSelectorScreen() {
       setDefaultVersionId(defaultId);
       console.log('📌 Version par défaut identifiée:', defaultId);
 
-      // Charger versions françaises et anglaises séparément
-      const [frenchVersions, englishVersions] = await Promise.all([
+      // Charger toutes les versions séparément et marquer la version par défaut
+      const [frenchVersions, englishVersions, africanVersions] = await Promise.all([
         loadFrenchVersions(),
-        loadEnglishVersions()
+        loadEnglishVersions(),
+        loadAfricanVersions()
       ]);
+      
+      // Marquer la version par défaut dans chaque groupe
+      const markDefaultInVersions = (versions: any[]) => 
+        versions.map(v => ({ ...v, isDefault: v.id === defaultId }));
+      
+      const frenchWithDefault = markDefaultInVersions(frenchVersions);
+      const englishWithDefault = markDefaultInVersions(englishVersions);
+      const africanWithDefault = markDefaultInVersions(africanVersions);
 
       setVersionGroups([
         {
           title: 'Versions Françaises',
-          versions: frenchVersions.slice(0, 10),
+          versions: frenchWithDefault.slice(0, 10),
           icon: 'book-open',
           flag: '🇫🇷'
         },
         {
           title: 'Versions Anglaises',
-          versions: englishVersions.slice(0, 10),
+          versions: englishWithDefault.slice(0, 10),
           icon: 'book-open',
           flag: '🇺🇸'
+        },
+        {
+          title: 'Langue Nationale',
+          versions: africanWithDefault,
+          icon: 'book-open',
+          flag: '🇨🇫'
         }
       ]);
 
-      console.log(`✅ ${frenchVersions.length} versions françaises et ${englishVersions.length} versions anglaises chargées`);
+      console.log(`✅ ${frenchWithDefault.length} versions françaises et ${englishWithDefault.length} versions anglaises chargées avec marquage défaut`);
 
     } catch (err) {
       console.error('❌ Erreur lors du chargement des versions:', err);
@@ -207,8 +196,46 @@ export default function BibleVersionSelectorScreen() {
     }
   };
 
+  const loadAfricanVersions = async () => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 700)); // Délai pour éviter rate limiting
+      
+      // Récupérer les versions Sango depuis l'API
+      const sangoVersions = await bibleService.getVersions('sag');
+      console.log('🇨🇫 Versions Sango récupérées:', sangoVersions);
+      
+      // Retourner uniquement les versions Sango (langue nationale de Centrafrique)
+      const africanVersions = [...sangoVersions];
+      
+      console.log(`🇨🇫 ${africanVersions.length} version(s) Sango chargée(s)`);
+      return africanVersions;
+      
+    } catch (error) {
+      console.warn('❌ Erreur versions africaines:', error);
+      // Fallback en cas d'erreur - uniquement le Sango
+      return [
+        {
+          id: 'sango-fallback',
+          name: 'Mbeti ti Nzapa - Sängö',
+          abbreviation: 'MNF2010',
+          language: 'Sango',
+          description: 'Bible en Sango - Société Biblique de Centrafrique (2010)',
+          isAvailable: false,
+          comingSoon: true
+        }
+      ];
+    }
+  };
+
   const handleVersionChange = useCallback(async (version: any) => {
     try {
+      // 🚫 Empêcher la sélection de la même version
+      if (version.id === currentVersion.id) {
+        console.log('⚡ Version déjà sélectionnée, aucune action nécessaire');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return; // Sortir directement sans rien faire
+      }
+
       setChangingVersion(version.id);
       console.log('🔄 CHANGEMENT DE VERSION:');
       console.log('  - Ancienne version:', currentVersion.name, '(ID:', currentVersion.id, ')');
@@ -238,8 +265,13 @@ export default function BibleVersionSelectorScreen() {
       // Feedback haptique
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Message de succès avec options
-      showSuccessMessage(version);
+      // Recharger la version par défaut actuelle pour s'assurer de la synchronisation
+      const currentDefaultId = await bibleService.getDefaultVersion();
+      setDefaultVersionId(currentDefaultId);
+      console.log('🔄 Version par défaut rechargée:', currentDefaultId);
+      
+      // Message de succès avec options (avec defaultVersionId mis à jour)
+      showSuccessMessage(version, currentDefaultId);
 
     } catch (error) {
       console.error('❌ Erreur lors du changement de version:', error);
@@ -283,74 +315,98 @@ export default function BibleVersionSelectorScreen() {
   const handleComingSoonVersion = useCallback((version: any) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     
-    Alert.alert(
-      '🕰️ Version à venir',
-      `"${version.name}" sera bientôt disponible !\n\n🚧 En cours de développement\n🚀 Disponible dans les prochaines mises à jour\n\n📝 Pour l'instant, vous pouvez utiliser la Bible J.N. Darby en français ou les versions anglaises disponibles.`,
-      [
-        {
-          text: 'OK',
-          style: 'default'
-        },
-        {
-          text: 'Voir disponibles',
-          onPress: () => {
-            // Scroll vers les versions disponibles
-            console.log('🔍 Affichage des versions disponibles');
+    // Message spécial pour les versions Sango
+    if (version.language === 'Sango') {
+      Alert.alert(
+        '🇨🇫 Bible en Sango',
+        `"${version.name}" existe mais n'est pas encore disponible dans API.Bible.\n\n📱 Vous pouvez l'utiliser dès maintenant sur :\n• YouVersion Bible App\n• Bible.is (Faith Comes By Hearing)\n\n🔄 Nous travaillons sur l'intégration avec d'autres sources bibliques.\n\n📝 En attendant, utilisez la Bible J.N. Darby en français.`,
+        [
+          {
+            text: 'Plus tard',
+            style: 'cancel'
+          },
+          {
+            text: 'Télécharger YouVersion',
+            onPress: () => {
+              console.log('Redirection vers YouVersion pour Sango');
+              // TODO: Ouvrir le store ou l'app YouVersion
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } else {
+      // Message standard pour les autres langues
+      Alert.alert(
+        '🕰️ Version à venir',
+        `"${version.name}" sera bientôt disponible !\n\n🚧 En cours de développement\n🚀 Disponible dans les prochaines mises à jour\n\n📝 Pour l'instant, vous pouvez utiliser la Bible J.N. Darby en français ou les versions anglaises disponibles.`,
+        [
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      );
+    }
   }, []);
 
-  const showSuccessMessage = (version: any) => {
-    const isCurrentDefault = version.id === defaultVersionId;
+
+  const showSuccessMessage = (version: any, actualDefaultId?: string) => {
+    // 🔍 Utiliser la version par défaut passée en paramètre ou celle stockée
+    const currentDefaultId = actualDefaultId || defaultVersionId;
+    const isSelectingDefaultVersion = version.id === currentDefaultId;
     
-    if (isCurrentDefault) {
-      // Si c'est déjà la version par défaut, simplement confirmer
+    console.log('🔍 Analyse du changement de version:');
+    console.log('  - Version sélectionnée:', version.name, '(ID:', version.id, ')');
+    console.log('  - Version courante précédente:', currentVersion.name, '(ID:', currentVersion.id, ')');
+    console.log('  - Version par défaut actuelle:', currentDefaultId);
+    console.log('  - Sélectionne la version par défaut?', isSelectingDefaultVersion);
+    
+    if (isSelectingDefaultVersion) {
+      // ✅ Retour ou activation de la version par défaut - pas de question
       Alert.alert(
-        '✅ Version changée',
-        `La Bible "${version.name}" est maintenant active.`,
-        [{
-          text: 'OK',
-          onPress: () => navigation.goBack()
-        }]
+        '✅ Version par défaut activée',
+        `La Bible "${version.name}" est maintenant active.\n\n📌 Cette version est votre version par défaut configurée.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
       return;
     }
     
-    // Si ce n'est pas la version par défaut, proposer de la définir comme telle
-    const message = `La Bible "${version.name}" est maintenant active.\n\nDéfinir comme version par défaut ?`;
+    const message = `La Bible "${version.name}" est maintenant active.\n\n🔄 Voulez-vous également la définir comme votre version par défaut ?\n\n(Cela remplacera "${currentVersion.name}" comme version par défaut)`;
     
     Alert.alert(
       '✅ Version changée',
       message,
       [
         {
-          text: 'Non merci',
+          text: 'Non, garder l\'ancienne par défaut',
           style: 'cancel',
           onPress: () => {
-            console.log('❌ Utilisateur a refusé de changer la version par défaut');
-            // La version courante reste mais pas la version par défaut
+            console.log('❌ Utilisateur a gardé l\'ancienne version par défaut');
+            // On reste sur la nouvelle version courante mais l'ancienne reste par défaut
+            navigation.goBack();
           }
         },
         {
-          text: 'Oui',
+          text: 'Oui, définir par défaut',
           onPress: async () => {
             try {
               console.log('📝 Changement version par défaut vers:', version.name, '(ID:', version.id, ')');
-              await bibleService.setDefaultVersion(version.id);
-              setDefaultVersionId(version.id);
               
-              // Recharger les versions pour mettre à jour les badges
-              await loadVersions();
+              // Mettre à jour dans les paramètres ET définir comme version par défaut
+              await bibleService.setDefaultVersion(version.id);
+              await updateSettings({ defaultVersion: version.id, version: version.id });
+              setDefaultVersionId(version.id);
               
               console.log('✅ Version par défaut changée avec succès');
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               
+              // Recharger les versions pour mettre à jour les badges
+              await loadVersions();
+              
               // Message de confirmation
               setTimeout(() => {
                 Alert.alert(
-                  '🎉 Version par défaut mise à jour',
+                  '✅ Version par défaut mise à jour',
                   `"${version.name}" est maintenant votre Bible par défaut.`,
                   [{ text: 'OK', onPress: () => navigation.goBack() }]
                 );
@@ -395,9 +451,19 @@ export default function BibleVersionSelectorScreen() {
                 borderColor: isSelected ? theme.colors.primary : theme.colors.outline + '30',
                 opacity: isChanging ? 0.7 : (version.comingSoon ? 0.5 : 1)
               }]}
-              onPress={() => version.comingSoon ? handleComingSoonVersion(version) : handleVersionChange(version)}
-              disabled={isChanging}
-              activeOpacity={version.comingSoon ? 0.3 : 0.7}
+              onPress={() => {
+                if (version.comingSoon) {
+                  handleComingSoonVersion(version);
+                } else if (version.id === currentVersion.id) {
+                  // 🚫 Version déjà sélectionnée - feedback haptique uniquement
+                  console.log('⚡ Version déjà active, aucune action');
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                } else {
+                  handleVersionChange(version);
+                }
+              }}
+              disabled={isChanging || (version.id === currentVersion.id && !version.comingSoon)}
+              activeOpacity={version.comingSoon ? 0.3 : (version.id === currentVersion.id ? 0.5 : 0.7)}
             >
               <View style={styles.versionItemContent}>
                 <View style={styles.versionNameRow}>
@@ -417,11 +483,20 @@ export default function BibleVersionSelectorScreen() {
                       <Text style={styles.comingSoonBadgeText}>À VENIR</Text>
                     </View>
                   )}
+                  {(version.isAvailable || version.language === 'Sango') && !version.comingSoon && (
+                    <View style={[styles.availableBadge, { backgroundColor: '#4CAF50' }]}>
+                      <Text style={styles.availableBadgeText}>DISPONIBLE</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={[styles.versionDetails, { 
                   color: version.comingSoon ? theme.custom.colors.placeholder : theme.custom.colors.placeholder 
                 }]}>
-                  {version.abbreviation} • {version.language === 'French' || version.language === 'fr' ? 'Français' : 'English'}
+                  {version.abbreviation} • {
+                    version.language === 'French' || version.language === 'fr' ? 'Français' : 
+                    version.language === 'Sango' ? '🇨🇫 Sängö' : 
+                    'English'
+                  }
                   {version.description && version.description !== version.name && (
                     <Text style={{ opacity: version.comingSoon ? 0.6 : 0.8 }}> • {version.description}</Text>
                   )}
@@ -455,12 +530,15 @@ export default function BibleVersionSelectorScreen() {
           }]}>
             Chargement des versions...
           </Text>
-          <Text style={[styles.loadingSubText, { 
-            color: theme.custom.colors.placeholder,
-            marginTop: 8 
-          }]}>
-            Récupération depuis l&apos;API Scripture
-          </Text>
+         <Text
+  style={[
+    styles.loadingSubText,
+    { color: theme.custom.colors.placeholder, marginTop: 8 },
+  ]}
+>
+  Récupération depuis l&apos;API Scripture
+</Text>
+
         </View>
       </SafeAreaView>
     );
@@ -512,7 +590,7 @@ export default function BibleVersionSelectorScreen() {
                   </Text>
                   <View style={styles.versionMeta}>
                     <Text style={[styles.currentVersionDetails, { color: theme.custom.colors.placeholder }]}>
-                      {currentVersion.abbrev} • {currentVersion.language === 'fr' ? '🇫🇷 Français' : '🇺🇸 English'}
+                      {currentVersion.abbrev} • {currentVersion.language === 'fr' ? '🇫🇷 Traduction française' : '🇺🇸 English Translation'}
                     </Text>
                     {currentVersion.id === defaultVersionId && (
                       <View style={[styles.defaultBadge, { backgroundColor: theme.colors.primary }]}>
@@ -528,22 +606,36 @@ export default function BibleVersionSelectorScreen() {
           {/* Statistiques rapides */}
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: theme.colors.surface }]}>
-              <Text style={[styles.statNumber, { color: theme.colors.primary }]}>
-                {versionGroups.reduce((total, group) => total + group.versions.length, 0)}
-              </Text>
+              <View style={styles.statNumberContainer}>
+                <Text style={[styles.statNumber, { color: theme.colors.primary }]}>
+                  {versionGroups.reduce((total, group) => total + group.versions.length, 0)}
+                </Text>
+              </View>
               <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Versions</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: theme.colors.surface, marginLeft: 12 }]}>
-              <Text style={[styles.statNumber, { color: theme.colors.secondary }]}>
-                {versionGroups.find(g => g.title.includes('Françaises'))?.versions.length || 0}
-              </Text>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.surface, marginLeft: 8 }]}>
+              <View style={styles.statNumberContainer}>
+                <Text style={[styles.statNumber, { color: theme.colors.secondary }]}>
+                  {versionGroups.find(g => g.title.includes('Françaises'))?.versions.length || 0}
+                </Text>
+              </View>
               <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Françaises</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: theme.colors.surface, marginLeft: 12 }]}>
-              <Text style={[styles.statNumber, { color: theme.colors.tertiary }]}>
-                {versionGroups.find(g => g.title.includes('Anglaises'))?.versions.length || 0}
-              </Text>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.surface, marginLeft: 8 }]}>
+              <View style={styles.statNumberContainer}>
+                <Text style={[styles.statNumber, { color: theme.colors.tertiary }]}>
+                  {versionGroups.find(g => g.title.includes('Anglaises'))?.versions.length || 0}
+                </Text>
+              </View>
               <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Anglaises</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.surface, marginLeft: 8 }]}>
+              <View style={styles.statNumberContainer}>
+                <Text style={[styles.statNumber, { color: '#FF6B6B' }]}>
+                  {versionGroups.find(g => g.title.includes('Nationale'))?.versions.length || 0}
+                </Text>
+              </View>
+              <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Sango</Text>
             </View>
           </View>
         </View>
@@ -697,30 +789,33 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     padding: 1,
-
-    borderRadius: 20,
+    borderRadius: 16,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 9 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    minHeight: 100,
+    shadowRadius: 3,
+    minHeight: 70,
     justifyContent: 'center',
   },
+  statNumberContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
   statNumber: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: 'Nunito_800ExtraBold',
-    lineHeight: 32,
+    lineHeight: 24,
   },
   statLabel: {
     fontSize: 9,
     fontFamily: 'Nunito_600SemiBold',
-    marginTop: 6,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
-  // Styles statNumber et statLabel maintenant dans statCard
 
   // Groupes de versions
   versionGroup: {
@@ -804,6 +899,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   comingSoonBadgeText: {
+    fontSize: 8,
+    fontFamily: 'Nunito_700Bold',
+    color: 'white',
+    letterSpacing: 0.5,
+  },
+  availableBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginLeft: 8,
+  },
+  availableBadgeText: {
     fontSize: 8,
     fontFamily: 'Nunito_700Bold',
     color: 'white',

@@ -27,7 +27,8 @@ import {
   POPULAR_BOOKS, 
   DEFAULT_SETTINGS,
   API_CONFIG,
-  ERROR_MESSAGES 
+  ERROR_MESSAGES,
+  OSIS_TO_FRENCH
 } from './utils/constants';
 
 import {
@@ -288,11 +289,25 @@ export class BibleService {
       if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
         console.log('✅ Versions anglaises récupérées depuis l\'API:', apiResponse.data.length);
         
-        // Filtrer pour exclure "American Standard Version (Byzantine Text) with Apocrypha"
-        const filteredVersions = apiResponse.data.filter(version => 
-          !version.name.toLowerCase().includes('byzantine text') &&
-          !version.name.toLowerCase().includes('apocrypha')
-        );
+        // Filtrer pour exclure les versions indésirables
+        const versionsToExclude = [
+          'byzantine text',
+          'apocrypha',
+          'english majority text version',
+          'emtv' // Acronyme pour English Majority Text Version
+        ];
+
+        const filteredVersions = apiResponse.data.filter(version => {
+          const versionName = version.name.toLowerCase();
+          const versionId = version.id.toLowerCase();
+          const versionAbbr = version.abbreviation.toLowerCase();
+
+          return !versionsToExclude.some(excludeTerm => 
+            versionName.includes(excludeTerm) ||
+            versionId.includes(excludeTerm) ||
+            versionAbbr.includes(excludeTerm)
+          );
+        });
         
         // Prendre les 8 premières versions filtrées de l'API
         const realVersions = filteredVersions.slice(0, 8).map(version => ({
@@ -395,6 +410,71 @@ export class BibleService {
   }
 
   /**
+   * Récupère les versions Sango (République Centrafricaine)
+   */
+  private async getSangoVersions(): Promise<BibleVersion[]> {
+    try {
+      console.log('🇨🇫 Récupération des versions Sango...');
+      
+      // Récupérer les Bibles Sango depuis l'API avec le code langue ISO
+      const apiResponse = await bibleApi.getBiblesByLanguage('sag');
+      
+      if (apiResponse.success && apiResponse.data && apiResponse.data.length > 0) {
+        console.log(`✅ ${apiResponse.data.length} version(s) Sango trouvée(s) dans l'API`);
+        
+        // Convertir les données API en format BibleVersion
+        const sangoVersions: BibleVersion[] = apiResponse.data.map((bible, index) => ({
+          id: bible.id,
+          name: bible.name,
+          abbreviation: bible.abbreviation || 'SANGO',
+          language: 'Sango',
+          description: `${bible.description || 'Bible en Sango'} - République Centrafricaine`,
+          isAvailable: true,
+          comingSoon: false,
+          isDefault: false,
+          copyright: `© ${bible.description || 'Société Biblique de Centrafrique'}`
+        }));
+        
+        console.log('📖 Versions Sango récupérées:', sangoVersions.map(v => `${v.name} (${v.id})`));
+        return sangoVersions;
+        
+      } else {
+        console.warn('⚠️ Aucune version Sango trouvée dans l\'API Scripture');
+        console.info('💡 Le Sango n\'est pas encore disponible dans API.Bible avec cette clé');
+        
+        // Retourner une version "À venir" au lieu d'une fausse version disponible
+        return [{
+          id: 'sango-not-available',
+          name: 'Mbeti ti Nzapa - Sängö',
+          abbreviation: 'MNF2010',
+          language: 'Sango',
+          description: 'Bible en Sango - Société Biblique de Centrafrique (non disponible dans API.Bible)',
+          isAvailable: false,
+          comingSoon: true,
+          isDefault: false,
+          copyright: '© Société Biblique de Centrafrique 2010'
+        }];
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des versions Sango:', error);
+      
+      // En cas d'erreur, retourner une version "À venir"
+      return [{
+        id: 'sango-error',
+        name: 'Mbeti ti Nzapa - Sängö',
+        abbreviation: 'MNF2010',
+        language: 'Sango',
+        description: 'Bible en Sango (erreur de connexion à l\'API)',
+        isAvailable: false,
+        comingSoon: true,
+        isDefault: false,
+        copyright: '© Société Biblique de Centrafrique'
+      }];
+    }
+  }
+
+  /**
    * Récupère toutes les versions disponibles
    */
   async getVersions(language?: string): Promise<BibleVersion[]> {
@@ -403,16 +483,20 @@ export class BibleService {
     try {
       const frenchVersions = await this.getFrenchVersions();
       const englishVersions = await this.getEnglishVersions();
+      const sangoVersions = await this.getSangoVersions();
       
       if (language === 'fra') {
         return frenchVersions;
       } else if (language === 'eng') {
         return englishVersions;
+      } else if (language === 'sag') {
+        return sangoVersions;
       }
       
       // Retourner toutes les versions (réelles + à venir)
-      const allVersions = [...frenchVersions, ...englishVersions];
+      const allVersions = [...frenchVersions, ...englishVersions, ...sangoVersions];
       console.log(`📚 Versions chargées: ${allVersions.filter(v => v.isAvailable).length} disponibles + ${allVersions.filter(v => v.comingSoon).length} à venir`);
+      console.log(`🇨🇫 Versions Sango: ${sangoVersions.length}`);
       
       return allVersions;
       
@@ -482,6 +566,27 @@ export class BibleService {
     this.ensureInitialized();
     const settings = await this.getSettings();
     return settings.defaultVersion;
+  }
+
+  /**
+   * Vérifie si la version courante est temporaire (différente de la version par défaut)
+   */
+  async isTemporaryVersion(): Promise<boolean> {
+    this.ensureInitialized();
+    const defaultVersion = await this.getDefaultVersion();
+    return this.currentVersion !== defaultVersion;
+  }
+
+  /**
+   * Retourne à la version par défaut
+   */
+  async returnToDefaultVersion(): Promise<void> {
+    this.ensureInitialized();
+    const defaultVersion = await this.getDefaultVersion();
+    if (this.currentVersion !== defaultVersion) {
+      await this.setCurrentVersion(defaultVersion);
+      console.log(`🔄 Retour à la version par défaut: ${defaultVersion}`);
+    }
   }
 
   // ==================== LECTURE DE CHAPITRES ====================
@@ -589,6 +694,48 @@ export class BibleService {
   // ==================== RECHERCHE ====================
 
   /**
+   * Détecte si une requête est une recherche de référence biblique
+   */
+  private isReferenceQuery(query: string, verse: BibleVerse): boolean {
+    // Patterns de références : "Jean 1:2", "Matthieu 5:3-7", "Genèse 1"
+    const referencePatterns = [
+      /^(.+?)\s+(\d+):(\d+)(-\d+)?$/,  // "Jean 1:2" ou "Jean 1:2-5"
+      /^(.+?)\s+(\d+)$/,               // "Jean 1"
+    ];
+
+    for (const pattern of referencePatterns) {
+      const match = query.trim().match(pattern);
+      if (match) {
+        const bookName = match[1].toLowerCase();
+        const chapter = parseInt(match[2], 10);
+        const verseNum = match[3] ? parseInt(match[3], 10) : undefined;
+
+        // Vérifier si ça correspond au verset trouvé
+        const frenchBookName = OSIS_TO_FRENCH.get(verse.book)?.toLowerCase();
+        const bookMatches = frenchBookName === bookName || verse.book.toLowerCase() === bookName;
+        const chapterMatches = verse.chapter === chapter;
+        const verseMatches = !verseNum || verse.verse === verseNum;
+
+        console.log('🔍 Vérification référence:', {
+          query,
+          bookName,
+          chapter,
+          verseNum,
+          verseBook: verse.book,
+          frenchBookName,
+          bookMatches,
+          chapterMatches,
+          verseMatches
+        });
+
+        return bookMatches && chapterMatches && verseMatches;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Recherche des versets (avec debounce)
    */
   async searchVerses(
@@ -600,9 +747,119 @@ export class BibleService {
     
     if (!query.trim()) return [];
     
+    // Essayer différentes variantes pour les termes problématiques
+    const alternativeQueries = this.getAlternativeQueries(query);
+    console.log('🔍 Requêtes alternatives générées:', alternativeQueries);
+    
     return new Promise((resolve) => {
       this.debouncedSearch(query, filters, version || this.currentVersion, resolve);
     });
+  }
+
+  /**
+   * Génère des variantes alternatives pour des termes de recherche problématiques
+   */
+  private getAlternativeQueries(query: string): string[] {
+    const alternatives: string[] = [query];
+    
+    const commonAlternatives: Record<string, string[]> = {
+      // Pour Jésus : chercher les formes composées car il n'apparaît jamais seul
+      'jésus': ['jesus', 'JESUS', 'christ', 'jésus christ', 'christ jésus'],
+      'jesus': ['jésus', 'JESUS', 'christ', 'jésus christ', 'christ jésus'],
+       'Jésus': ['jesus', 'JESUS', 'christ', 'jésus christ', 'christ jésus'],
+      'JESUS': ['jesus', 'jésus', 'christ', 'jésus christ', 'christ jésus'],
+       'JESUS-CHRIST': ['jesus-christ', 'JESUS-CHRIST', 'christ jésus', 'jésus christ', 'christ jesus'],
+       'JESUS-CHRIST-EN': ['jesus-christ-en', 'JESUS-CHRIST-EN', 'christ jésus en', 'jésus christ en', 'christ jesus en'],
+       
+       // Marie peut avoir différentes variantes
+      'marie': ['marie', 'Marie', 'MARIE'],
+      
+      // Dieu peut avoir différentes formes  
+      'dieu': ['dieu', 'Dieu', 'DIEU'],
+      
+      // Références bibliques avec chiffres - chercher directement le verset spécifique
+      '1 pierre 2:5': ['pierre pierre', 'Pierre Pierre', 'pierre pierre fondement'],
+      '1 pierre': ['pierre pierre', 'Pierre Pierre'],
+      '2 pierre': ['pierre pierre', 'Pierre Pierre'],  
+      '1 jean': ['jean jean', 'Jean Jean'],
+      '2 jean': ['jean jean', 'Jean Jean'],
+      '3 jean': ['jean jean', 'Jean Jean'],
+      '1 corinthiens': ['corinthiens', 'Corinthiens'],
+      '2 corinthiens': ['corinthiens', 'Corinthiens'],
+      '1 samuel': ['samuel', 'Samuel'],
+      '2 samuel': ['samuel', 'Samuel'],
+      '1 rois': ['rois', 'Rois'],
+      '2 rois': ['rois', 'Rois'],
+      '1 chroniques': ['chroniques', 'Chroniques'],
+      '2 chroniques': ['chroniques', 'Chroniques'],
+      '1 thessaloniciens': ['thessaloniciens', 'Thessaloniciens'],
+      '2 thessaloniciens': ['thessaloniciens', 'Thessaloniciens'],
+      '1 timothée': ['timothée', 'Timothée'],
+      '2 timothée': ['timothée', 'Timothée'],
+      
+      // Autres termes composés courants
+      'jésus christ': ['jesus christ', 'christ jésus', 'christ'],
+      'jesus christ': ['jésus christ', 'christ jésus', 'christ'],
+      'christ jésus': ['christ jesus', 'jésus christ', 'christ'],
+      'christ jesus': ['christ jésus', 'jésus christ', 'christ'],
+    };
+    
+    const normalizedQuery = query.toLowerCase();
+    
+    // Chercher les alternatives exactes
+    if (commonAlternatives[normalizedQuery]) {
+      alternatives.push(...commonAlternatives[normalizedQuery]);
+    }
+    
+    // Détecter les patterns de références bibliques avec chiffres
+    const referencePatterns = [
+      /^(1|2|3)\s+(pierre|jean|corinthiens|samuel|rois|chroniques|thessaloniciens|timothée)(\s+\d+:\d+)?$/,
+    ];
+    
+    for (const pattern of referencePatterns) {
+      const match = normalizedQuery.match(pattern);
+      if (match) {
+        const number = match[1];
+        const bookName = match[2];
+        const reference = match[3] || '';
+        
+        console.log(`🔍 Référence détectée: ${number} ${bookName}${reference}`);
+        
+        // Ajouter des alternatives spécifiques pour les livres avec chiffres
+        switch (bookName) {
+          case 'pierre':
+            alternatives.push('pierre pierre', 'Pierre Pierre', 'pierre');
+            if (reference === ' 2:5') {
+              alternatives.push('pierre pierre fondement', 'pierre vive', 'pierre angulaire');
+            }
+            break;
+          case 'jean':
+            alternatives.push('jean jean', 'Jean Jean', 'jean');
+            break;
+          case 'corinthiens':
+            alternatives.push('corinthiens', 'Corinthiens');
+            break;
+          case 'samuel':
+            alternatives.push('samuel', 'Samuel');
+            break;
+          case 'rois':
+            alternatives.push('rois', 'Rois');
+            break;
+          case 'chroniques':
+            alternatives.push('chroniques', 'Chroniques');
+            break;
+          case 'thessaloniciens':
+            alternatives.push('thessaloniciens', 'Thessaloniciens');
+            break;
+          case 'timothée':
+            alternatives.push('timothée', 'Timothée');
+            break;
+        }
+        break;
+      }
+    }
+    
+    return [...new Set(alternatives)]; // Supprimer les doublons
   }
 
   /**
@@ -622,10 +879,32 @@ export class BibleService {
       
       console.log(`🔍 Recherche "${query}" dans ${version} (API: ${apiVersion})`);
       
-      const response = await bibleApi.searchVerses(apiVersion, query, {
+      // Essayer d'abord la requête originale
+      let response = await bibleApi.searchVerses(apiVersion, query, {
         limit: filters.maxResults || 50,
         sort: 'relevance'
       });
+
+      // Si pas de résultats, essayer les variantes
+      if (!response.success || !response.data || response.data.length === 0) {
+        console.log('🔄 Aucun résultat avec la requête originale, test des variantes...');
+        
+        const alternatives = this.getAlternativeQueries(query);
+        for (const altQuery of alternatives.slice(1)) { // Skip la première qui est l'originale
+          console.log(`🔍 Test variante: "${altQuery}"`);
+          
+          const altResponse = await bibleApi.searchVerses(apiVersion, altQuery, {
+            limit: filters.maxResults || 50,
+            sort: 'relevance'
+          });
+
+          if (altResponse.success && altResponse.data && altResponse.data.length > 0) {
+            console.log(`✅ Résultats trouvés avec la variante: "${altQuery}"`);
+            response = altResponse;
+            break;
+          }
+        }
+      }
 
       if (!response.success) {
         console.error('Search failed:', response.error);
@@ -634,10 +913,14 @@ export class BibleService {
       }
 
       // Traiter et enrichir les résultats
+      console.log('🔄 Traitement de', response.data?.length || 0, 'versets trouvés');
+      
       const results = (response.data || [])
         .map(verse => this.enrichSearchResult(verse, query, filters))
-        .filter(result => result.relevance > 0)
+        .filter(result => result.relevance > 0) // Remettre le filtre avec le nouvel algorithme
         .sort((a, b) => b.relevance - a.relevance);
+
+      console.log('✅ Résultats finaux:', results.length, 'après traitement');
 
       // Analytics
       this.trackEvent('search_performed', {
@@ -664,28 +947,73 @@ export class BibleService {
     query: string, 
     filters: BibleSearchFilters
   ): BibleSearchResult {
-    const relevance = BibleSearchUtils.calculateRelevance(query, verse);
+    console.log('🔍 Enrichissement résultat:', {
+      query,
+      verseText: verse.text,
+      verseBook: verse.book,
+      verseRef: `${verse.chapter}:${verse.verse}`
+    });
+
+    // Détecter si c'est une recherche de référence biblique
+    const isReferenceSearch = this.isReferenceQuery(query, verse);
+    
+    let relevance: number;
+    if (isReferenceSearch) {
+      // Pour les recherches de références, donner un score élevé
+      relevance = 100;
+      console.log('📍 Détection de recherche de référence → score maximal');
+    } else {
+      // Pour les recherches de texte, utiliser l'algorithme normal
+      relevance = BibleSearchUtils.calculateRelevance(query, verse);
+    }
+    
     const highlightedText = BibleSearchUtils.highlightSearchTerms(verse.text, query);
     
-    // Déterminer le type de correspondance
+    console.log('📊 Pertinence calculée:', relevance);
+    
+    // Déterminer le type de correspondance de manière plus précise
     const normalizedQuery = BibleSearchUtils.normalizeText(query);
     const normalizedText = BibleSearchUtils.normalizeText(verse.text);
+    const queryWords = normalizedQuery.split(' ').filter(w => w.length > 1);
+    const textWords = normalizedText.split(' ');
     
     let matchType: 'exact' | 'partial' | 'fuzzy' = 'fuzzy';
     
-    if (normalizedText.includes(normalizedQuery)) {
+    // Correspondance exacte : tous les mots de la requête sont trouvés exactement
+    const exactMatches = queryWords.filter(queryWord => 
+      textWords.some(textWord => textWord === queryWord)
+    ).length;
+    
+    // Correspondance partielle : au moins un mot est trouvé (exactement ou partiellement)
+    const partialMatches = queryWords.filter(queryWord => 
+      textWords.some(textWord => 
+        textWord.includes(queryWord) || queryWord.includes(textWord)
+      )
+    ).length;
+    
+    if (isReferenceSearch) {
+      matchType = 'exact'; // Les recherches de références sont toujours exactes
+    } else if (exactMatches === queryWords.length && queryWords.length > 0) {
       matchType = 'exact';
-    } else if (normalizedQuery.split(' ').some(word => normalizedText.includes(word))) {
+    } else if (partialMatches > 0) {
       matchType = 'partial';
     }
 
-    return {
+    const result = {
       verse,
       relevance,
       highlightedText,
       matchType,
       context: filters.includeContext ? this.generateContext(verse) : undefined
     };
+
+    console.log('✅ Résultat enrichi:', {
+      relevance: result.relevance,
+      matchType: result.matchType,
+      hasHighlight: !!result.highlightedText
+    });
+
+    return result;
   }
 
   /**
@@ -954,9 +1282,13 @@ export class BibleService {
 
   /**
    * Enregistre un événement d'analytics
+   *
+   * Accept both the strongly-typed BibleAnalyticsEventType and plain string literals
+   * to allow flexible event names (casted when creating the event).
    */
-  private trackEvent(type: BibleAnalyticsEventType, data: Record<string, any>): void {
-    const event = BibleAnalyticsUtils.createEvent(type, data);
+  private trackEvent(type: BibleAnalyticsEventType | string, data: Record<string, any>): void {
+    // Cast to the expected type for the analytics utility (safe since utility handles unknowns)
+    const event = BibleAnalyticsUtils.createEvent(type as BibleAnalyticsEventType, data);
     this.analyticsQueue.push(event);
     
     // Déclencher le flush avec debounce

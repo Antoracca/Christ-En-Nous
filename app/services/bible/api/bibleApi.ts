@@ -61,6 +61,18 @@ interface ScriptureApiSearchResult {
     chapterId: string;
     text: string;
     reference: string;
+    content?: string;
+    book?: string;
+  }[];
+  passages?: {
+    id: string;
+    bibleId: string;
+    bookId: string;
+    chapterId: string;
+    text: string;
+    reference: string;
+    content?: string;
+    book?: string;
   }[];
 }
 
@@ -429,34 +441,92 @@ export class BibleApi {
         ...(options.range && { range: options.range }),
       });
 
-      const response = await this.makeRequest<ScriptureApiSearchResult>(
-        `/bibles/${bibleId}/search?${params}`
-      );
+      const searchUrl = `/bibles/${bibleId}/search?${params}`;
+      console.log('🔗 URL de recherche complète:', `${this.config.baseUrl}${searchUrl}`);
+      
+      const response = await this.makeRequest<ScriptureApiSearchResult>(searchUrl);
 
-      if (!response.success || !response.data) {
+      console.log('🔍 Réponse de l\'API de recherche:', {
+        success: response.success,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        error: response.error
+      });
+
+      if (!response.success) {
+        console.error('❌ Échec de la requête de recherche:', response.error);
         return {
           data: [],
           success: false,
-          error: response.error,
+          error: response.error || 'Erreur de recherche inconnue',
+          timestamp: response.timestamp
+        } as ApiResponse<BibleVerse[]>;
+      }
+
+      if (!response.data) {
+        console.warn('⚠️ Pas de données dans la réponse de recherche');
+        return {
+          data: [],
+          success: true, // La requête a réussi mais sans résultats
+          error: undefined,
+          timestamp: response.timestamp
+        } as ApiResponse<BibleVerse[]>;
+      }
+
+      // Vérifier la structure des données et transformer les résultats
+      console.log('📝 Structure de response.data:', JSON.stringify(response.data, null, 2));
+      
+      // Gérer différentes structures de réponse de l'API
+      // L'API peut retourner soit 'verses' soit 'passages'
+      const versesArray = response.data.verses || (response.data as any).passages || [];
+      
+      if (!Array.isArray(versesArray)) {
+        console.warn('⚠️ API response.data n\'est pas un tableau:', versesArray);
+        console.warn('Structure complète:', response.data);
+        return {
+          data: [],
+          success: false,
+          error: 'Format de réponse invalide de l\'API',
           timestamp: response.timestamp
         } as ApiResponse<BibleVerse[]>;
       }
 
       // Transformer les résultats
-      const verses: BibleVerse[] = response.data.verses.map(verse => {
-        // Parser la référence pour extraire le chapitre et le verset
-        const refMatch = verse.reference.match(/(\w+)\s+(\d+):(\d+)/);
-        const chapter = refMatch ? parseInt(refMatch[2], 10) : 1;
-        const verseNum = refMatch ? parseInt(refMatch[3], 10) : 1;
+      const verses: BibleVerse[] = versesArray.map((item, index) => {
+        console.log(`🔍 Traitement item ${index}:`, {
+          id: item.id,
+          bookId: item.bookId,
+          reference: item.reference,
+          hasContent: !!item.content,
+          hasText: !!item.text
+        });
 
-        return {
-          book: verse.bookId,
+        // Parser la référence pour extraire le chapitre et le verset
+        const refMatch = item.reference?.match(/(\w+)\s+(\d+):(\d+)/) || [];
+        const chapter = refMatch.length > 2 ? parseInt(refMatch[2], 10) : 1;
+        const verseNum = refMatch.length > 3 ? parseInt(refMatch[3], 10) : index + 1;
+
+        // Nettoyer le contenu HTML si c'est un passage
+        let text = item.text || '';
+        if (!text && (item as any).content) {
+          // Extraire le texte du HTML pour les passages
+          text = (item as any).content
+            .replace(/<[^>]*>/g, '') // Supprimer toutes les balises HTML
+            .replace(/\s+/g, ' ')    // Normaliser les espaces
+            .trim();
+        }
+
+        const result = {
+          book: item.bookId || (item as any).book || 'UNKNOWN',
           chapter,
           verse: verseNum,
-          text: verse.text,
+          text: text || 'Texte non disponible',
           version: bibleId,
-          id: verse.id,
+          id: item.id || `${bibleId}_search_${index}`,
         };
+
+        console.log(`✅ Verset transformé:`, result);
+        return result;
       });
 
       return {
@@ -489,6 +559,45 @@ export class BibleApi {
       maxSize: this.config.cacheConfig.maxSize,
       hitRate: 0, // Placeholder
     };
+  }
+
+  /**
+   * Récupère les Bibles disponibles par langue
+   */
+  async getBiblesByLanguage(languageCode: string): Promise<ApiResponse<ScriptureApiBible[]>> {
+    const cacheKey = `bibles_language_${languageCode}`;
+    
+    return this.getCachedOrFetch(cacheKey, async () => {
+      const params = new URLSearchParams({
+        'language': languageCode,
+        'include-full-details': 'false'
+      });
+
+      const response = await this.makeRequest<{ data: ScriptureApiBible[] }>(
+        `/bibles?${params}`
+      );
+
+      if (!response.success || !response.data) {
+        return {
+          data: [],
+          success: false,
+          error: response.error || `Aucune Bible trouvée pour la langue: ${languageCode}`,
+          timestamp: response.timestamp
+        } as ApiResponse<ScriptureApiBible[]>;
+      }
+
+      // L'API retourne { data: ScriptureApiBible[] }
+      const bibles = response.data.data || response.data;
+      
+      console.log(`📖 ${bibles.length} Bible(s) trouvée(s) pour la langue ${languageCode}`);
+      
+      return {
+        data: bibles,
+        success: true,
+        timestamp: response.timestamp,
+        cached: false
+      } as ApiResponse<ScriptureApiBible[]>;
+    });
   }
 
   /**

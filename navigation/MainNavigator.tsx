@@ -132,6 +132,7 @@ const CustomTabBar = ({ state, navigation }: any) => {
   ];
   const homeRouteIndex = state.routes.findIndex((r: any) => r.name === 'HomeTab');
 
+
   return (
     <View style={styles.tabBarWrapper}>
       <LinearGradient
@@ -199,7 +200,7 @@ export default function MainNavigator() {
       <Tab.Screen 
         name="BibleTab" 
         component={BibleScreen} 
-        options={{ title: 'Sainte Bible' }}
+        options={{ title: 'Sainte Bible', headerShown: false }}
       />
       <Tab.Screen 
         name="CoursesTab" 

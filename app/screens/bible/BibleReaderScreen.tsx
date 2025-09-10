@@ -1,94 +1,115 @@
 // app/screens/bible/BibleReaderScreen.tsx
-import React, { useState, useCallback } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  StatusBar, 
-  Platform 
-} from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, StyleSheet, StatusBar } from 'react-native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
+import { progress } from '@/services/bible/tracking/progressTracking';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
-// Composants Bible dans le même dossier
 import BibleReader from './BibleReader';
 import BibleNavigation from './BibleNavigation';
 import BibleSearch from './BibleSearch';
+import BibleProgressModal from './BibleProgressModal';
 
-// Composant principal de l'écran de lecture de Bible
 export default function BibleReaderScreen() {
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
   const navigation = useNavigation();
-  const { bibleBooks } = useBible();
-  
-  // États locaux
+  const route = useRoute();
+  const { navigateToChapter } = useBible();
+  const tabBarHeight = useBottomTabBarHeight();
+
+  const { verse } = (route.params as any) || {};
   const [showNavigation, setShowNavigation] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [currentTargetVerse, setCurrentTargetVerse] = useState<number | undefined>(verse);
 
-  // Focus sur l'écran
+  useEffect(() => {
+    if (currentTargetVerse) {
+      const t = setTimeout(() => setCurrentTargetVerse(undefined), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [currentTargetVerse]);
+
+  // Focus/Unfocus : reprendre le timer au focus, arrêter au blur
   useFocusEffect(
     useCallback(() => {
-      // Mettre à jour la barre de statut quand l'écran est focus
-      StatusBar.setBarStyle(
-        theme.dark ? 'light-content' : 'dark-content'
-      );
-      // TODO: Réinitialiser les résultats de recherche
-      console.log('Focus sur BibleReaderScreen');
+      StatusBar.setBarStyle(theme.dark ? 'light-content' : 'dark-content');
+      // Reprendre automatiquement le timer si une session existe déjà
+      const activeSession = progress.getActiveSession();
+      if (activeSession) {
+        try { 
+          progress.switchTo(activeSession.ref.bookId, activeSession.ref.chapter);
+          console.log('\u{1F503} Focus BibleReader - timer repris:', activeSession.ref.bookId, activeSession.ref.chapter);
+        } catch (err) {
+          console.error('Erreur reprise timer au focus:', err);
+        }
+      }
+      return () => {
+        try { progress.pause(); } catch {}
+        progress.persist?.().catch(() => {});
+      };
     }, [theme.dark])
   );
 
-  // Handlers avec responsivité
-  const handleNavigationPress = () => {
-    setShowNavigation(true);
-  };
+  const handleNavigationPress = () => setShowNavigation(true);
+  const handleSearchPress = () => setShowSearch(true);
+  const handleProgressPress = () => setShowProgress(true);
 
-  const handleSearchPress = () => {
-    setShowSearch(true);
-  };
-
-  const handleSettingsPress = () => {
-    // Navigation vers l'écran de paramètres
-    navigation.navigate('BibleReaderSettings' as never);
-  };
+  const handleNavigateToVerse = useCallback(
+    async (reference: { book: string; chapter: number; verse?: number }) => {
+      try {
+        setShowSearch(false);
+        setCurrentTargetVerse(undefined);
+        await navigateToChapter({ book: reference.book, chapter: reference.chapter });
+        if (reference.verse) setTimeout(() => setCurrentTargetVerse(reference.verse), 100);
+      } catch (error) {
+        console.error('Navigation vers verset — erreur:', error);
+      }
+    },
+    [navigateToChapter]
+  );
 
   return (
-    <View style={[
-      styles.container, 
-      { 
-        backgroundColor: theme.colors.background,
-        // Responsive padding pour tablettes
-        paddingHorizontal: responsive.isTablet ? responsive.spacing.md : 0,
-      }
-    ]}>
-      <StatusBar 
-        barStyle={theme.dark ? 'light-content' : 'dark-content'} 
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.background,
+          paddingHorizontal: responsive.isTablet ? responsive.spacing.md : 0,
+          paddingBottom: tabBarHeight + 38,
+        },
+      ]}
+    >
+      <StatusBar
+        barStyle={theme.dark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.colors.background}
-        translucent={false}
       />
-      
+
       <BibleReader
         onNavigationPress={handleNavigationPress}
         onSearchPress={handleSearchPress}
-        onSettingsPress={handleSettingsPress}
+        onProgressPress={handleProgressPress}
+        onSettingsPress={() => navigation.navigate('BibleReaderSettings' as never)}
+        targetVerse={currentTargetVerse}
       />
 
-      <BibleNavigation
-        visible={showNavigation}
-        onClose={() => setShowNavigation(false)}
-      />
+      <BibleNavigation visible={showNavigation} onClose={() => setShowNavigation(false)} />
 
       <BibleSearch
         visible={showSearch}
         onClose={() => setShowSearch(false)}
+        onNavigateToVerse={handleNavigateToVerse}
       />
+
+      <BibleProgressModal visible={showProgress} onClose={() => setShowProgress(false)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
 });

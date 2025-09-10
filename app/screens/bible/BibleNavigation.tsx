@@ -314,7 +314,15 @@ export default function BibleNavigation({ visible, onClose }: BibleNavigationPro
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
   const navigation = useNavigation();
-  const { bibleBooks, userProgress, navigateToChapter, availableVersions, currentVersion, setCurrentVersion } = useBible();
+  const { 
+    bibleBooks, 
+    userProgress, 
+    navigateToChapter, 
+    availableVersions, 
+    currentVersion, 
+    setCurrentVersion, 
+    settings 
+  } = useBible();
 
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
@@ -580,7 +588,7 @@ export default function BibleNavigation({ visible, onClose }: BibleNavigationPro
                     }]} numberOfLines={2}>
                       {currentVersion.name || currentVersion.abbrev}
                     </Text>
-                    {currentVersion.id === 'a93a92589195411f-01' && (
+                    {currentVersion.id === settings.defaultVersion && (
                       <View style={[styles.defaultIndicator, { backgroundColor: theme.colors.primary }]}>
                         <Text style={styles.defaultIndicatorText}>DÉFAUT</Text>
                       </View>

@@ -16,14 +16,14 @@ import {
   Alert,
   ScrollView,
   Vibration
-} from 'react-native';
+, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { Easing } from 'react-native';
+
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/context/AuthContext';

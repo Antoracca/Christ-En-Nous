@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
-import { View, StyleSheet, Text, StatusBar } from 'react-native';
+import { View, StyleSheet, Text, StatusBar , useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -19,7 +19,7 @@ import Animated, {
   runOnJS,
   interpolate,
 } from 'react-native-reanimated';
-import { useColorScheme } from 'react-native';
+
 
 interface Props {
   onAnimationEnd: () => void;
