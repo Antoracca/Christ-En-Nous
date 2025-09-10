@@ -618,6 +618,35 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
                   />
                 </View>
 
+                <View style={[styles.metricsGrid, { marginTop: 16 }]}>
+                  <View style={[styles.metricCard, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={[styles.metricNumber, { color: theme.colors.primary }]}>
+                      {atAgg.booksCompleted + ntAgg.booksCompleted}/
+                      {atAgg.booksTotal + ntAgg.booksTotal}
+                    </Text>
+                    <Text style={[styles.testamentMetricLabel, { color: theme.custom.colors.text, opacity: 0.8 }]}>
+                      Livres
+                    </Text>
+                  </View>
+                  <View style={[styles.metricCard, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={[styles.metricNumber, { color: theme.colors.secondary }]}>
+                      {atAgg.chaptersCompleted + ntAgg.chaptersCompleted}/
+                      {atAgg.chaptersTotal + ntAgg.chaptersTotal}
+                    </Text>
+                    <Text style={[styles.testamentMetricLabel, { color: theme.custom.colors.text, opacity: 0.8 }]}>
+                      Chapitres
+                    </Text>
+                  </View>
+                  <View style={[styles.metricCard, { backgroundColor: theme.colors.surface }]}>
+                    <Text style={[styles.metricNumber, { color: theme.colors.tertiary }]}>
+                      {atAgg.versesRead + ntAgg.versesRead}/{atAgg.versesTotal + ntAgg.versesTotal}
+                    </Text>
+                    <Text style={[styles.testamentMetricLabel, { color: theme.custom.colors.text, opacity: 0.8 }]}>
+                      Versets
+                    </Text>
+                  </View>
+                </View>
+
                 <View style={{ marginTop: 16, gap: 8 }}>
                   {/* Métriques alignées verticalement */}
                   <View style={{ gap: 6 }}>
