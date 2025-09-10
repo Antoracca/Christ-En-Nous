@@ -258,7 +258,8 @@ export default function BibleVersionSelectorScreen() {
         await navigateToChapter({
           book: userProgress.currentBook,
           chapter: userProgress.currentChapter,
-          verse: userProgress.currentVerse
+          verse: userProgress.currentVerse,
+          end: undefined
         });
       }
 

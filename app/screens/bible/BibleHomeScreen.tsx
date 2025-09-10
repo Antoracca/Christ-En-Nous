@@ -363,10 +363,7 @@ const OuvrirBibleCard = () => {
         const ntData = progress.getTestamentPercent('NT');
         const globalData = progress.getGlobalPercent();
         
-        // Données générales
-        const times = progress.getLiveTimes();
-        
-        // Récupérer les données de streak
+  // Récupérer les données de streak
         const streakData = progress.getStreak();
         
         setProgressData({
@@ -504,37 +501,19 @@ return (
 
       {/* PART 2: Accordéon Progression */}
       <View style={{ paddingHorizontal: responsive.spacing.md, paddingBottom: responsive.spacing.md, paddingTop: responsive.spacing.xs }}>
-        <View style={{ minHeight: expanded ? 300 : 72 }}>
-          {/* Conteneur de la pile */}
-          <View style={{ position: 'relative', width: '100%', height: 60 }}>
-            {/* Cartes qui dépassent par le HAUT */}
-            {!expanded && metricsOrder.slice(1, 4).reverse().map((key, revIndex) => {
-              const index = 3 - revIndex;
-              return (
-                <View
-                  key={key}
-                  style={{
-                    position: 'absolute',
-                    top: (2 - index) * 5,
-                    left: index * 4,
-                    right: index * 4,
-                    height: 60,
-                    borderRadius: 14,
-                    backgroundColor: theme.colors.surface,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 5 },
-                    shadowOpacity: 0.27,
-                    shadowRadius: 4.75,
-                    elevation: 6,
-                  }}
-                />
-              );
-            })}
-
+  <View style={{ minHeight: expanded ? 320 : (responsive.isPhone ? 90 : responsive.isTablet ? 130 : 150) }}>
+          {/* Conteneur (plus d'effet empilé — aperçu minimal seulement) */}
+          <View style={{ position: 'relative', width: '100%', height: responsive.isPhone ? 110 : responsive.isTablet ? 130 : 150 }}>
             {/* Carte principale cliquable */}
             <View style={{ position: 'absolute', top: 12, left: 0, width: '100%', zIndex: 100 }}>
               <TouchableOpacity onPress={toggleExpand} activeOpacity={0.9}>
-                <MetricCard mKey="days" />
+                {/* Aperçu minimal — icône + titre "Progression" (hauteur augmentée) */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: responsive.spacing.sm, paddingVertical: responsive.spacing.md, minHeight: responsive.isPhone ? 54 : responsive.isTablet ? 96 : 108, borderRadius: responsive.components.borderRadius.md, backgroundColor: theme.colors.surface }}>
+                  <View style={{ width: responsive.components.iconSize.lg, height: responsive.components.iconSize.lg, borderRadius: responsive.components.borderRadius.sm, backgroundColor: palette.days.c, alignItems: 'center', justifyContent: 'center', marginRight: 18 }}>
+                    <Feather name="trending-up" size={responsive.components.iconSize.md} color="#FFF" />
+                  </View>
+                  <Text style={{ fontFamily: 'Nunito_700Bold', fontSize: responsive.fontSize.base, color: theme.custom.colors.text }}>Progression</Text>
+                </View>
                 <Animated.View
                   style={{
                     position: 'absolute',
@@ -554,7 +533,7 @@ return (
           {/* Liste dépliée */}
           {expanded && (
             <View style={{ marginTop: 8 }}>
-              {metricsOrder.slice(1).map(key => (
+              {metricsOrder.map(key => (
                 <View key={key} style={{ marginTop: 8 }}>
                   <MetricCard mKey={key} />
                 </View>

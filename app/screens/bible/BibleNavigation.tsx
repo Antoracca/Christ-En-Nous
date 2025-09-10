@@ -205,7 +205,10 @@ const VerseGrid = ({ book, chapter, selectedVerse, onVerseSelect, theme, respons
         setLoading(true);
         // Convertir le nom français vers le code OSIS
         const osisCode = book.id?.toUpperCase() || 'GEN';
-        const chapterData = await getChapter({ book: osisCode, chapter });
+        const chapterData = await getChapter({
+          book: osisCode, chapter,
+          end: undefined
+        });
         
         if (chapterData && chapterData.verses) {
           setVerseCount(chapterData.verses.length);
@@ -396,7 +399,10 @@ export default function BibleNavigation({ visible, onClose }: BibleNavigationPro
 
     try {
       const osisCode = selectedBook.id?.toUpperCase() || 'GEN';
-      await navigateToChapter({ book: osisCode, chapter });
+      await navigateToChapter({
+        book: osisCode, chapter,
+        end: undefined
+      });
       
       console.log(`Navigation directe vers: ${selectedBook.name} ${chapter}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -415,10 +421,11 @@ export default function BibleNavigation({ visible, onClose }: BibleNavigationPro
       try {
         // Convertir vers le format OSIS et naviguer réellement
         const osisCode = selectedBook.id?.toUpperCase() || 'GEN';
-        await navigateToChapter({ 
-          book: osisCode, 
-          chapter: selectedChapter, 
-          verse 
+        await navigateToChapter({
+          book: osisCode,
+          chapter: selectedChapter,
+          verse,
+          end: undefined
         });
         
         console.log(`Navigation réelle vers: ${selectedBook.name} ${selectedChapter}:${verse}`);

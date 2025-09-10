@@ -15,6 +15,7 @@ export interface ResponsiveConfig {
 export interface ResponsiveSizes {
   // Tailles de police adaptatives
   fontSize: {
+    md: number | undefined;
     xs: number;      // 10-12px
     sm: number;      // 12-14px  
     base: number;    // 14-16px

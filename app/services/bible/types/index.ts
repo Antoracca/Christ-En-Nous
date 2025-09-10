@@ -57,6 +57,7 @@ export interface BibleVersion {
 }
 
 export interface BibleReference {
+  end: any;
   book: string;        // Code OSIS
   chapter: number;
   verse?: number;

@@ -1215,7 +1215,8 @@ export class BibleService {
     return `Contexte pour ${BibleReferenceUtils.formatReference({
       book: verse.book,
       chapter: verse.chapter,
-      verse: verse.verse
+      verse: verse.verse,
+      end: undefined
     })}`;
   }
 

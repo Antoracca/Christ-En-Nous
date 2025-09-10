@@ -67,7 +67,10 @@ export default function BibleReaderScreen() {
       try {
         setShowSearch(false);
         setCurrentTargetVerse(undefined);
-        await navigateToChapter({ book: reference.book, chapter: reference.chapter });
+        await navigateToChapter({
+          book: reference.book, chapter: reference.chapter,
+          end: undefined
+        });
         if (reference.verse) setTimeout(() => setCurrentTargetVerse(reference.verse), 100);
       } catch (error) {
         console.error('Navigation vers verset — erreur:', error);

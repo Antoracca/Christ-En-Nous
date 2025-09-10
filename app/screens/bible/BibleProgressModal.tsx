@@ -627,7 +627,10 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
       } else {
         // REPRENDRE = livre différent → navigation complète
         console.log('🔄 Reprendre la lecture (livre différent) - navigation complète');
-        await navigateToChapter({ book: ref.book, chapter: ref.chapter });
+        await navigateToChapter({
+          book: ref.book, chapter: ref.chapter,
+          end: undefined
+        });
         onClose();
       }
     } catch (err) {
@@ -640,7 +643,10 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
     try {
       // ALLER AU CHAPITRE SUIVANT = toujours navigation complète
       console.log('➡️ Aller au chapitre suivant - navigation complète vers:', `${ref.book} ${ref.chapter}`);
-      await navigateToChapter({ book: ref.book, chapter: ref.chapter });
+      await navigateToChapter({
+        book: ref.book, chapter: ref.chapter,
+        end: undefined
+      });
       onClose();
     } catch (err) {
       console.error('Erreur lors de la navigation vers chapitre suivant:', err);

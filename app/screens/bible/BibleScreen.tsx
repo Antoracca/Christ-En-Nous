@@ -20,7 +20,7 @@ import BibleLearningScreen from './BibleLearningScreen';
 import BiblePlanScreen from './BiblePlanScreen';
 
 // Recherche
-import BibleRechercheScreen from './BibleRechercheScreen';
+import BibleRechercheScreen from './BibleSmartSearchScreen';
 
 // Sélection de versions
 import BibleVersionSelectorScreen from './BibleVersionSelectorScreen';

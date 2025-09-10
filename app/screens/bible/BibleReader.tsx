@@ -62,7 +62,10 @@ export default function BibleReader({
     const init = async () => {
       try {
         if (!currentChapter && !userProgress.currentBook) {
-          await navigateToChapter({ book: 'GEN', chapter: 1 });
+          await navigateToChapter({
+            book: 'GEN', chapter: 1,
+            end: undefined
+          });
         }
       } catch (err) {
         console.error('Init BibleReader:', err);
@@ -255,7 +258,10 @@ export default function BibleReader({
           <Feather name="alert-circle" size={48} color={theme.colors.error} />
           <Text style={[styles.emptyText, { color: theme.colors.error, marginTop: 16 }]}>{error}</Text>
           <TouchableOpacity
-            onPress={() => navigateToChapter({ book: 'GEN', chapter: 1 })}
+            onPress={() => navigateToChapter({
+              book: 'GEN', chapter: 1,
+              end: undefined
+            })}
             style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
           >
             <Text style={[styles.retryButtonText, { color: 'white' }]}>Réessayer</Text>

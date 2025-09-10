@@ -370,7 +370,8 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
       await navigateToChapter({
         book: reference.book,
         chapter: reference.chapter,
-        verse: reference.verse
+        verse: reference.verse,
+        end: undefined
       });
       
       onClose();
@@ -508,7 +509,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
             ) : searchResults && searchResults.length > 0 ? (
               <>
                 <Text style={[styles.resultsCount, { color: theme.custom.colors.text }]}>
-                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} pour "{searchQuery}"
+                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} pour &quot;{searchQuery}&quot;
                 </Text>
                 {searchResults.map((result, index) => (
                   <TouchableOpacity
@@ -535,10 +536,10 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
               <View style={styles.emptyState}>
                 <Feather name="search" size={48} color={theme.custom.colors.placeholder} />
                 <Text style={[styles.emptyText, { color: theme.custom.colors.placeholder }]}>
-                  Aucun résultat trouvé pour "{searchQuery}"
+                  Aucun résultat trouvé pour &quot;{searchQuery}&quot;
                 </Text>
                 <Text style={[styles.emptySubText, { color: theme.custom.colors.placeholder }]}>
-                  Essayez avec d'autres mots-clés
+                  Essayez avec d&apos;autres mots-clés
                 </Text>
               </View>
             ) : !searchQuery ? (
@@ -548,7 +549,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
                   Saisissez un mot ou une phrase pour rechercher
                 </Text>
                 <Text style={[styles.emptySubText, { color: theme.custom.colors.placeholder }]}>
-                  Par exemple : "amour", "paix", "Jean 3:16"
+                  Par exemple : &quot;amour&quot;, &quot;paix&quot;, &quot;Jean 3:16&quot;
                 </Text>
               </View>
             ) : null}

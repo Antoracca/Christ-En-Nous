@@ -428,12 +428,12 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     setError(null);
     try {
-      const ref = { book: reference.book.toUpperCase(), chapter: reference.chapter, verse: reference.verse };
+      const ref = { book: reference.book.toUpperCase(), chapter: reference.chapter, verse: reference.verse, end: reference.verse || 1 };
       const chapter = await bibleService.getChapter(ref);
       if (!chapter) throw new Error(`Le chapitre ${ref.book} ${ref.chapter} est introuvable pour cette version.`);
 
       setCurrentChapter(chapter);
-      setCurrentReference({ book: ref.book, chapter: ref.chapter, verse: ref.verse });
+      setCurrentReference({ book: ref.book, chapter: ref.chapter, verse: ref.verse, end: ref.verse || 1 });
 
       setUserProgress(prev => ({
         ...prev,
@@ -479,18 +479,27 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
           console.log('📍 Restauration de la dernière position:', `${lastPosition.book} ${lastPosition.chapter}:${lastPosition.verse}`);
           
           // Naviguer vers la dernière position connue
-          await navigateToChapter({ book: lastPosition.book, chapter: lastPosition.chapter });
+          await navigateToChapter({
+            book: lastPosition.book, chapter: lastPosition.chapter,
+            end: undefined
+          });
           
           // TODO: Si besoin, on pourrait aussi scroll vers le verset spécifique
           // mais pour l'instant on se contente du chapitre
         } else {
           // Aucune position sauvée, commencer par Genèse 1
           console.log('📍 Aucune position sauvée, démarrage à Genèse 1');
-          await navigateToChapter({ book: 'GEN', chapter: 1 });
+          await navigateToChapter({
+            book: 'GEN', chapter: 1,
+            end: undefined
+          });
         }
       } catch (err) {
         console.warn('⚠️ Impossible de charger la dernière position, démarrage à Genèse 1:', err);
-        await navigateToChapter({ book: 'GEN', chapter: 1 });
+        await navigateToChapter({
+          book: 'GEN', chapter: 1,
+          end: undefined
+        });
       }
     };
     
@@ -518,7 +527,10 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const markChapterAsRead = useCallback(async (bookId: string, chapter: number) => {
     try {
-      const reference: BibleReference = { book: bookId.toUpperCase(), chapter };
+      const reference: BibleReference = {
+        book: bookId.toUpperCase(), chapter,
+        end: undefined
+      };
       await bibleService.updateReadingProgress(reference, 25);
       await loadReadingStats();
     } catch (e) { console.error('Failed to mark chapter as read:', e); }
@@ -544,7 +556,10 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
       // Navigation vers le chapitre suivant
       const next = await bibleService.getNextChapter(currentReference);
       if (next) {
-        await navigateToChapter({ book: next.book, chapter: next.chapter });
+        await navigateToChapter({
+          book: next.book, chapter: next.chapter,
+          end: undefined
+        });
         console.log('📖 Navigation vers chapitre suivant:', next.book, next.chapter);
       } else {
         console.log('📚 Fin du livre atteinte');
@@ -560,7 +575,10 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
       // pas de completeChapter ici (on revient en arrière)
       const prev = await bibleService.getPreviousChapter(currentReference);
       if (prev) {
-        await navigateToChapter({ book: prev.book, chapter: prev.chapter });
+        await navigateToChapter({
+          book: prev.book, chapter: prev.chapter,
+          end: undefined
+        });
       }
     } catch (e) {
       console.error('goToPreviousChapter error:', e);
