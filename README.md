@@ -1,72 +1,140 @@
-# Welcome to your Expo app ğŸ‘‹
+# Christ en Nous
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Christ en Nous est une application mobile Expo/React Native pensée pour centraliser la vie de l’église : parcours spirituels, Bible interactive, notifications communautaires et gestion des profils membres.
 
-## Get started
+## Sommaire
 
-1. Install dependencies
+1. [Fonctionnalités](#fonctionnalités)
+2. [Architecture](#architecture)
+3. [Prérequis et installation](#prérequis-et-installation)
+4. [Configuration](#configuration)
+5. [Scripts NPM](#scripts-npm)
+6. [Tests et qualité](#tests-et-qualité)
+7. [Roadmap / TODO](#roadmap--todo)
+8. [Sous-projet email-api](#sous-projet-email-api)
+9. [Ressources additionnelles](#ressources-additionnelles)
 
-   ```bash
-   npm install
-   ```
+## Fonctionnalités
 
-2. Start the app
+### Déjà implémenté
+- Authentification Firebase + profils enrichis (photo, rôles, historique) avec synchronisation locale (`app/context/AuthContext.tsx`).
+- Tableau de bord animé : entête dynamique, centre de notifications, actions rapides (`app/screens/home/HomeScreen.tsx`, `app/components/home`).
+- Module Bible complet : API Scripture, stockage hors ligne, signets, surlignages, recherche avancée, suivi de progression (`app/services/bible`, `app/context/EnhancedBibleContext.tsx`).
+- Paramétrage lecture (taille police, mode nuit, défilement auto) mémorisé (`app/context/ReadingSettingsContext.tsx`).
+- Thème clair/sombre persistant, design responsive et bottom tab bar personnalisée (`app/context/ThemeContext.tsx`, `app/hooks/useResponsiveDesign.ts`).
+- Flux d’inscription multi-étapes avec validations et ressources localisées (`app/components/register/steps`).
+- Notifications modales riches, menu latéral animé, splash screen universel (`app/components/NotificationModal.tsx`, `app/context/HomeMenuContext.tsx`, `app/components/UniversalSplashScreen.tsx`).
 
-   ```bash
-   npx expo start
-   ```
+### En chantier / placeholders
+- Écrans Cours, Prières, Calendrier, Live à compléter (`app/screens/courses`, `app/screens/prayer`, etc.).
+- Intégration chat, dons, diffusion live et analytics à finaliser.
+- Tests automatisés (unitaire, e2e) inexistants.
 
-In the output, you'll find options to open the app in a
+## Architecture
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/
+  components/         # UI partagée (forms, home, profile, register, ui…)
+  constants/          # Thèmes, couleurs, fontes
+  context/            # Providers globaux (Auth, Bible, Thème, Lecture…)
+  hooks/              # Hooks personnalisés (responsive, migrations…)
+  screens/            # Écrans organisés par domaines (auth, bible, home…)
+  services/           # Bible (API, storage, tracking), services métier
+  utils/              # Validations, helpers divers
+navigation/           # Stack & Tab navigators
+assets/               # Images, Lottie, données statiques
+services/             # firebaseConfig, email service côté app
+email-api/            # Micro-service Node pour l’envoi d’e-mails
+public/               # Pages web (Expo, vérification email)
+patches/              # patch-package pour dépendances tierces
 ```
 
-# Christ en Nous - L'Application
+Points clés :
+- Aliases TypeScript/Babel (`@/*`) définis dans `tsconfig.json` et `babel.config.js`.
+- Fournisseurs globaux instanciés dans `app/index.tsx`.
+- Navigation principale dans `navigation/AppNavigator.tsx` (stack) + `navigation/MainNavigator.tsx` (tabs personnalisés).
+- Moteur Bible modulaire : `app/services/bible/index.ts` agrège API, cache et suivi.
+- Ressources d’inscription (pays, ministères) dans `assets/data/`.
 
-## ğŸ“– Ã€ propos du projet
+## Prérequis et installation
 
-**Christ en Nous** est une application mobile visant Ã  digitaliser et Ã  rassembler la vie de l'Ã‰glise. InspirÃ©e par la vision de notre pasteur, cette application a pour but de crÃ©er une communautÃ© chrÃ©tienne connectÃ©e, de faciliter l'accÃ¨s aux ressources spirituelles et de centraliser les activitÃ©s de l'Ã‰glise.
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`) facultatif
+- Gestionnaire de paquets : pnpm recommandé (`pnpm install`) ou npm (`npm install`)
 
-L'objectif est de fournir une plateforme complÃ¨te oÃ¹ les membres peuvent grandir dans leur foi, interagir les uns avec les autres et participer activement Ã  la vie de la communautÃ©.
+```bash
+pnpm install          # installe les dépendances
+pnpm start            # équivaut à npx expo start
+pnpm run android      # build/dev Android
+pnpm run ios          # build/dev iOS
+pnpm run web          # démarrage Expo Web
+```
 
-## âœ¨ FonctionnalitÃ©s PrÃ©vues
+## Configuration
 
-L'application s'articulera autour de plusieurs pÃ´les majeurs :
+1. **Variables d’environnement**
 
-* **Christ Social :** Un rÃ©seau social privÃ© et sÃ©curisÃ© pour les chrÃ©tiens, permettant de partager des photos, des tÃ©moignages et des moments de fraternitÃ©.
-* **IntÃ©gration des MinistÃ¨res :** Un accÃ¨s centralisÃ© aux diffÃ©rents ministÃ¨res et programmes de l'Ã‰glise :
-    * Christ en Nous AcadÃ©mie (formations, cours de baptÃªme, leadership)
-    * Markos (MinistÃ¨re des Jeunes)
-    * Christ en Nous Life TV
-    * Mission BOMI (Bonnes Å’uvres Mission Internationale)
-* **Vie de l'Ã‰glise :**
-    * **Annonces et Programmes :** Pour rester informÃ© des derniers Ã©vÃ©nements et services.
-    * **Notifications :** Alertes en temps rÃ©el pour les annonces importantes.
-    * **Services et Cultes en direct.**
-* **Croissance Spirituelle :**
-    * **Lecture de la Bible :** Un module intÃ©grÃ© pour lire et mÃ©diter les Ã‰critures.
-    * **Cours et Formations :** AccÃ¨s aux cours de baptÃªme, de discipolat et de leadership.
-* **Interaction :**
-    * **Chat en direct :** Pour communiquer avec d'autres membres ou des responsables.
-    * **Profils CertifiÃ©s :** Un systÃ¨me pour vÃ©rifier et authentifier les membres.
+   Créez un `.env` à la racine :
 
-## ğŸ¯ Objectif Actuel : Version 1 (V1)
+   ```
+   EXPO_PUBLIC_BIBLE_API_KEY=<VOTRE_CLE_API_SCRIPTURE>
+   ```
 
-La prioritÃ© actuelle est de lancer une premiÃ¨re version (V1) fonctionnelle qui se concentre sur les fonctionnalitÃ©s essentielles pour commencer Ã  construire la communautÃ©.
+   Ne commitez jamais la clé réelle (celle présente actuellement doit être régénérée).
 
-## ğŸ› ï¸ Technologies UtilisÃ©es
+2. **Firebase**
 
-* **Frontend :** React Native avec Expo (TypeScript)
-* **Backend :** Firebase (Authentication, Firestore, Cloud Functions)
+   - Les identifiants sont dans `services/firebase/firebaseConfig.ts`.
+   - En production, externalisez ces secrets via Firebase Remote Config ou environnement sécurisé.
+
+3. **Service email**
+
+   - `services/email/emailService.ts` cible l’API déployée (voir section [Sous-projet email-api](#sous-projet-email-api)).
+   - Vérifiez les endpoints et les clés d’API côté backend.
+
+## Scripts NPM
+
+| Script            | Description                               |
+|-------------------|-------------------------------------------|
+| `pnpm start`      | Expo Dev Server                           |
+| `pnpm run android`| Build/Run Android                         |
+| `pnpm run ios`    | Build/Run iOS                             |
+| `pnpm run web`    | Expo Web                                  |
+| `pnpm run lint`   | Vérifie la qualité ESLint                 |
+| `pnpm run prepare`| Applique `patch-package`                  |
+| `pnpm run reset-project` | Script Expo pour réinitialiser l’app (inutile ici) |
+
+## Tests et qualité
+
+- Jest + Testing Library sont installés (`package.json`) mais aucune suite de tests n’est fournie. Ajoutez des tests unitaires sur les contextes (`AuthContext`, `EnhancedBibleContext`) et les hooks (`useResponsiveDesign`).
+- Activez ESLint (`pnpm run lint`) pour contrôler la qualité.
+- Nettoyez les `console.log` de debug ou encapsulez-les derrière un logger conditionnel.
+
+## Roadmap / TODO
+
+- Finaliser les écrans métiers (Prières, Cours, Live, Calendrier).
+- Industrialiser les appels API (gestion d’erreurs, retries mutualisés, monitoring).
+- Sécuriser les secrets (retirer `.env` et `service-account.json` du dépôt, ajouter `.env.example`).
+- Mettre en place CI/CD (lint + tests) et monitoring de crash (Sentry).
+- Dédupliquer les composants hérités (`components/` vs `app/components/`).
+
+## Sous-projet email-api
+
+Le dossier `email-api/` contient un micro-service Node/Express (gCloud Run) chargé d’envoyer les emails personnalisés.
+
+- Le compte de service Firebase (`service-account.json`) et la clé admin sont commités : **urgent** à révoquer et retirer.
+- Pour développer :
+
+```bash
+cd email-api
+pnpm install
+pnpm run dev
+```
+
+Déployez via Cloud Build (`cloudbuild.yaml`).
+
+## Ressources additionnelles
+
+- Documentation Expo : https://docs.expo.dev/
+- API Scripture : https://scripture.api.bible/
+- React Native Firebase : https://rnfirebase.io/

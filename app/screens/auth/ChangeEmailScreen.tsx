@@ -19,7 +19,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from 'services/firebase/firebaseConfig';
-import type { RootStackParamList } from 'navigation/AppNavigator';
+import type { RootStackParamList } from '@/navigation/types';
 
 // Sous-composant pour le modal de ré-authentification
 const ResendPasswordModal = ({ visible, onClose, onConfirm, loading }: {

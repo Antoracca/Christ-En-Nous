@@ -10,7 +10,7 @@ import {
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from 'navigation/AppNavigator';
+import type { RootStackParamList } from '@/navigation/types';
 
 
 interface SocialNetworksProps {
@@ -35,7 +35,7 @@ export default function SocialNetworks({
       <View style={styles.loginRow}>
         <Text style={[styles.loginText, isDark && styles.loginTextDark]}>Vous avez déjà un compte ?</Text>
 
-       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+       <TouchableOpacity onPress={() => navigation.navigate('Login', {})}>
   <Text style={styles.loginLink}> Connectez-vous !</Text>
 </TouchableOpacity>
 

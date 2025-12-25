@@ -106,7 +106,7 @@ export default function BibleRechercheScreen() {
         {searchQuery.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.custom.colors.text }]}>
-              Résultats pour "{searchQuery}"
+              Résultats pour &quot;{searchQuery}&quot;
             </Text>
             <View style={[styles.resultPlaceholder, { backgroundColor: theme.colors.surface }]}>
               <Text style={[styles.placeholderText, { color: theme.custom.colors.placeholder }]}>

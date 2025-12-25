@@ -11,7 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/context/AuthContext';
-import type { RootStackParamList } from 'navigation/AppNavigator';
+import type { RootStackParamList } from '@/navigation/types';
 
 type PostEmailChangeScreenRouteProp = RouteProp<RootStackParamList, 'PostEmailChange'>;
 

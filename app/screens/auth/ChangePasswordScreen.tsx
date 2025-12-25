@@ -15,7 +15,7 @@ import * as Crypto from 'expo-crypto';
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { auth, db } from 'services/firebase/firebaseConfig';
-import type { RootStackParamList } from 'navigation/AppNavigator';
+import type { RootStackParamList } from '@/navigation/types';
 import PasswordStrengthIndicator from '@/components/forms/PasswordStrengthIndicator';
 
 const hashPassword = async (password: string) => {

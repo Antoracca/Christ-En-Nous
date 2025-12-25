@@ -136,7 +136,7 @@ export default function AIModalScreen({ visible, onClose }: AIModalScreenProps) 
                         Questions & Réponses
                       </Text>
                       <Text style={[styles.featureDescription, { color: theme.custom.colors.placeholder }]}>
-                        Posez des questions sur n'importe quel verset et obtenez des explications détaillées
+                        Posez des questions sur n&apos;importe quel verset et obtenez des explications détaillées
                       </Text>
                     </View>
                   </View>

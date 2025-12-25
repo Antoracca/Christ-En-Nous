@@ -6,11 +6,13 @@ import {
   useColorScheme,
   
 } from 'react-native';
-import CountryPicker, {
-  Country,
-  CountryCode,
-  DEFAULT_THEME,
-} from 'react-native-country-picker-modal';
+// Use a runtime require and local type aliases because the package doesn't provide TypeScript declarations
+// @ts-ignore - module may not have type declarations
+const CountryPickerModule: any = require('react-native-country-picker-modal');
+const CountryPicker: any = CountryPickerModule && CountryPickerModule.default ? CountryPickerModule.default : CountryPickerModule;
+type Country = any;
+type CountryCode = string;
+const DEFAULT_THEME: any = (CountryPickerModule && CountryPickerModule.DEFAULT_THEME) || {};
 import { HelperText } from 'react-native-paper';
 import * as Localization from 'expo-localization';
 import LeftInputIcon from '../../LeftInputIcon';
@@ -50,8 +52,8 @@ export default function CountrySelector({
       const region = (Localization.getLocales()[0].regionCode as CountryCode) || 'CF';
       const valid = region in countryNames ? region : 'CF';
       setCode(valid);
-      setName(countryNames[valid]);
-      onChange(countryNames[valid], valid);
+      setName(countryNames[valid as keyof typeof countryNames]);
+      onChange(countryNames[valid as keyof typeof countryNames], valid);
     }
   }, [country, onChange]);
 
@@ -59,8 +61,8 @@ export default function CountrySelector({
     const newCode = c.cca2 as CountryCode;
     let newName: string;
 
-    if (typeof countryNames[newCode] === 'string') {
-      newName = countryNames[newCode];
+    if (newCode in countryNames) {
+      newName = countryNames[newCode as keyof typeof countryNames];
     } else if (
       c.name &&
       typeof c.name === 'object' &&

@@ -1,7 +1,9 @@
-// navigation/MainNavigator.tsx - VERSION FINALE CORRIGÉE
+// navigation/MainNavigator.tsx - VERSION FINALE AVEC ANIMATIONS CORRECTES
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate } from 'react-native-reanimated';
@@ -13,7 +15,7 @@ import HomeScreen from '@/screens/home/HomeScreen';
 import BibleScreen from '@/screens/bible/BibleScreen';
 import PrayerScreen from '@/screens/prayer/PrayerScreen';
 import CoursesScreen from '@/screens/courses/CoursesScreen';
-import ProfileScreen from '../app/screens/profile/ProfileScreen';
+import ProfileScreen from '@/screens/profile/ProfileScreen';
 
 // Import du hook de thème
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -29,13 +31,14 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Composant CentralHomeButton
+// Composant CentralHomeButton avec animations correctes
 const CentralHomeButton = ({ onPress, isFocused }: { onPress: () => void; isFocused: boolean }) => {
     const theme = useAppTheme();
+    // ✅ CORRECT : utiliser shared.value
     const scaleAnim = useSharedValue(1);
 
     useEffect(() => {
-        // Animation de rebond subtile au focus
+        // ✅ CORRECT : shared.value au lieu de shared.current
         scaleAnim.value = withSpring(isFocused ? 1.05 : 1, { damping: 10, stiffness: 150 });
     }, [isFocused, scaleAnim]);
 
@@ -47,6 +50,7 @@ const CentralHomeButton = ({ onPress, isFocused }: { onPress: () => void; isFocu
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
     };
+
     // Définition des couleurs de dégradé selon le thème
     const lightGradientColors = [theme.colors.primary, '#1E3A8A'] as const;
     const darkGradientColors = [theme.colors.primary, theme.custom.colors.background] as const;
@@ -56,25 +60,26 @@ const CentralHomeButton = ({ onPress, isFocused }: { onPress: () => void; isFocu
             <Animated.View style={[styles.centralButton, animatedStyle]}>
                 <LinearGradient
                     colors={theme.dark ? darkGradientColors : lightGradientColors}
-                    style={[styles.centralButtonGradient, animatedStyle]}
+                    style={[styles.centralButtonGradient]}
                 >
-                    <Image 
-                      source={require('../assets/images/christlg.png')} 
-                      style={{ width: 40, height: 40, resizeMode: 'contain' }} 
+                    <Image
+                      source={require('../assets/images/christlg.png')}
+                      style={{ width: 40, height: 40, resizeMode: 'contain' }}
                     />
                 </LinearGradient>
             </Animated.View>
         </TouchableOpacity>
     );
-}; 
-      
+};
 
-// Composant AnimatedTab
+// Composant AnimatedTab avec animations correctes
 const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }: any) => {
   const theme = useAppTheme();
+  // ✅ CORRECT : utiliser shared.value
   const progress = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
+    // ✅ CORRECT : shared.value au lieu de shared.current
     progress.value = withSpring(isFocused ? 1 : 0, { damping: 15, stiffness: 120 });
   }, [isFocused, progress]);
 
@@ -93,11 +98,12 @@ const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }
   const onPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!isFocused) {
+        // ✅ CORRECT : ne pas muter navigation directement
         navigation.navigate(route.name);
     }
   };
 
-  // ✅ COULEURS CORRIGÉES : Visibles sur le fond dégradé
+  // Couleurs visibles sur le fond dégradé
   const iconColor = isFocused ? theme.colors.onPrimary : 'rgba(255, 255, 255, 0.7)';
 
   const renderIcon = () => {
@@ -111,7 +117,6 @@ const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }
     <TouchableOpacity onPress={onPress} style={styles.tabItem} activeOpacity={1}>
       <Animated.View style={[styles.tabItemInner, animatedContainerStyle]}>
         {renderIcon()}
-        {/* ✅ COULEUR DU LABEL CORRIGÉE */}
         <Animated.Text style={[styles.tabLabel, { color: theme.colors.onPrimary }, animatedLabelStyle]}>
           {label}
         </Animated.Text>
@@ -123,6 +128,7 @@ const AnimatedTab = ({ route, isFocused, navigation, iconName, iconType, label }
 // Composant CustomTabBar
 const CustomTabBar = ({ state, navigation }: any) => {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const tabConfig = [
     { name: 'BibleTab', icon: 'book-open', label: 'Bible', type: 'feather' },
     { name: 'CoursesTab', icon: 'award', label: 'Cours', type: 'feather' },
@@ -131,10 +137,21 @@ const CustomTabBar = ({ state, navigation }: any) => {
     { name: 'ProfileTab', icon: 'user', label: 'Profil', type: 'feather' },
   ];
   const homeRouteIndex = state.routes.findIndex((r: any) => r.name === 'HomeTab');
-
+  const baseHeight = Platform.OS === 'ios' ? 110 : 85;
+  const basePaddingBottom = Platform.OS === 'ios' ? 30 : 15;
+  const bottomOffset = Platform.OS === 'android' ? Math.max(insets.bottom, 0) : 0;
 
   return (
-    <View style={styles.tabBarWrapper}>
+    <View
+      style={[
+        styles.tabBarWrapper,
+        {
+          height: baseHeight,
+          paddingBottom: basePaddingBottom,
+          bottom: bottomOffset,
+        },
+      ]}
+    >
       <LinearGradient
         colors={[theme.colors.primary, '#1E3A8A']}
         style={styles.tabBarContainer}
@@ -148,7 +165,7 @@ const CustomTabBar = ({ state, navigation }: any) => {
               // On laisse un espace vide pour le bouton central
               return <View key={route.key} style={styles.centralButtonPlaceholder} />;
             }
-            
+
             return (
               <AnimatedTab
                 key={route.key}
@@ -163,8 +180,8 @@ const CustomTabBar = ({ state, navigation }: any) => {
           })}
         </View>
       </LinearGradient>
-      
-      {/* On place le bouton au-dessus de la barre pour un centrage parfait */}
+
+      {/* Bouton central au-dessus de la barre */}
       <CentralHomeButton
         onPress={() => navigation.navigate('HomeTab')}
         isFocused={state.index === homeRouteIndex}
@@ -173,13 +190,12 @@ const CustomTabBar = ({ state, navigation }: any) => {
   );
 };
 
-// --- Navigateur Principal ---
+// Navigateur Principal
 export default function MainNavigator() {
   const theme = useAppTheme();
 
   return (
     <Tab.Navigator
-      // ✅ CORRECTION IMPORTANTE : HomeTab est maintenant l'écran initial
       initialRouteName="HomeTab"
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
@@ -197,30 +213,29 @@ export default function MainNavigator() {
         headerTintColor: theme.custom.colors.text,
       })}
     >
-      <Tab.Screen 
-        name="BibleTab" 
-        component={BibleScreen} 
+      <Tab.Screen
+        name="BibleTab"
+        component={BibleScreen}
         options={{ title: 'Sainte Bible', headerShown: false }}
       />
-      <Tab.Screen 
-        name="CoursesTab" 
-        component={CoursesScreen} 
+      <Tab.Screen
+        name="CoursesTab"
+        component={CoursesScreen}
         options={{ title: 'Cours' }}
       />
-      {/* ✅ ORDRE MODIFIÉ : HomeTab au milieu */}
-      <Tab.Screen 
-        name="HomeTab" 
-        component={HomeScreen} 
+      <Tab.Screen
+        name="HomeTab"
+        component={HomeScreen}
         options={{ title: 'Accueil' }}
       />
-      <Tab.Screen 
-        name="PrayerTab" 
-        component={PrayerScreen} 
+      <Tab.Screen
+        name="PrayerTab"
+        component={PrayerScreen}
         options={{ title: 'Prières' }}
       />
-      <Tab.Screen 
-        name="ProfileTab" 
-        component={ProfileScreen} 
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileScreen}
         options={({ navigation }) => ({
           title: 'Mon Profil',
           headerLeft: () => (
@@ -237,17 +252,15 @@ export default function MainNavigator() {
   );
 }
 
-// --- Styles ---
+// Styles
 const styles = StyleSheet.create({
   tabBarWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: Platform.OS === 'ios' ? 110 : 85,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
     paddingHorizontal: 10,
+    paddingTop: 10,
   },
   tabBarContainer: {
     flex: 1,
@@ -276,37 +289,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   centralButtonPlaceholder: {
-    // Cet élément prend la place du bouton pour que les autres onglets s'alignent
     flex: 1.2,
   },
   centralButtonContainer: {
-    // Positionnement absolu pour flotter au-dessus de la barre
     position: 'absolute',
-    // ✅ CORRECTION : Centrage du conteneur lui-même au lieu de l'étirer
     alignSelf: 'center',
-    // Positionnement vertical pour déborder en haut
     top: -15,
     zIndex: 10,
   },
   centralButton: {
-    // ✅ Forme : Cercle parfait
     width: 68,
     height: 68,
     borderRadius: 34,
-    // ✅ Ombre subtile et moderne
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 5,
-    backgroundColor: 'white', // Ajout d'un fond pour l'ombre sur Android
+    backgroundColor: 'white',
   },
   centralButtonGradient: {
     flex: 1,
-    borderRadius: 34, // Doit correspondre au parent
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3, // Ajoute une bordure pour un look premium
+    borderWidth: 3,
     borderColor: 'rgba(255, 255, 255, 0.5)',
   },
 });

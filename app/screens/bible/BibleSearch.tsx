@@ -17,7 +17,6 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
 import type { BibleSearchResult } from '@/services/bible';
-import { BibleReferenceUtils } from '@/services/bible/utils/helpers';
 
 // Mapping des codes OSIS vers les noms français
 const OSIS_TO_FRENCH: Record<string, string> = {
@@ -251,7 +250,6 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
   const { 
-    bibleBooks, 
     searchVerses, 
     searchResults, 
     isSearching, 
@@ -284,7 +282,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
     }
   };
 
-  const saveToHistory = async (query: string) => {
+  const saveToHistory = useCallback(async (query: string) => {
     try {
       const trimmedQuery = query.trim();
       if (!trimmedQuery) return;
@@ -298,7 +296,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de l\'historique:', error);
     }
-  };
+  }, [searchHistory]);
 
   const clearSearchHistory = async () => {
     try {
@@ -348,7 +346,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
         ]
       );
     }
-  }, [searchQuery, searchVerses, searchHistory]);
+  }, [searchQuery, searchVerses, saveToHistory]);
 
   const handleResultPress = useCallback(async (result: BibleSearchResult) => {
     try {
@@ -508,7 +506,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
             ) : searchResults && searchResults.length > 0 ? (
               <>
                 <Text style={[styles.resultsCount, { color: theme.custom.colors.text }]}>
-                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} pour "{searchQuery}"
+                  {searchResults.length} résultat{searchResults.length > 1 ? 's' : ''} pour &quot;{searchQuery}&quot;
                 </Text>
                 {searchResults.map((result, index) => (
                   <TouchableOpacity
@@ -535,10 +533,10 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
               <View style={styles.emptyState}>
                 <Feather name="search" size={48} color={theme.custom.colors.placeholder} />
                 <Text style={[styles.emptyText, { color: theme.custom.colors.placeholder }]}>
-                  Aucun résultat trouvé pour "{searchQuery}"
+                  Aucun résultat trouvé pour &quot;{searchQuery}&quot;
                 </Text>
                 <Text style={[styles.emptySubText, { color: theme.custom.colors.placeholder }]}>
-                  Essayez avec d'autres mots-clés
+                  Essayez avec d&apos;autres mots-clés
                 </Text>
               </View>
             ) : !searchQuery ? (
@@ -548,7 +546,7 @@ export default function BibleSearch({ visible, onClose, onNavigateToVerse }: Bib
                   Saisissez un mot ou une phrase pour rechercher
                 </Text>
                 <Text style={[styles.emptySubText, { color: theme.custom.colors.placeholder }]}>
-                  Par exemple : "amour", "paix", "Jean 3:16"
+                  Par exemple : &quot;amour&quot;, &quot;paix&quot;, &quot;Jean 3:16&quot;
                 </Text>
               </View>
             ) : null}

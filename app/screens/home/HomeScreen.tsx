@@ -15,7 +15,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 
 // Composants de l'UI globale
 import NotificationModal, { Notification } from '@/components/NotificationModal';
-import HomeMenuModal from './HomeMenuModal';
+
 
 // Nouveaux composants modulaires pour l'écran d'accueil
 import HomeHeader from '@/components/home/HomeHeader';
@@ -23,6 +23,7 @@ import SectionHeader from '@/components/home/SectionHeader';
 import QuickActionCard from '@/components/home/QuickActionCard';
 import ContentCard from '@/components/home/ContentCard';
 import HomeScreenSkeleton from '@/components/home/HomeScreenSkeleton';
+import { useHomeMenu } from '@/context/HomeMenuContext';
 
 const HEADER_MAX_HEIGHT = 280;
 
@@ -32,8 +33,8 @@ export default function HomeScreen() {
   const [isInitializing, setIsInitializing] = useState(true);
   
   // États pour la visibilité des modaux
-  const [isMenuVisible, setMenuVisible] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const { openMenu } = useHomeMenu();
   
   // Données de démonstration pour les notifications
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -87,7 +88,7 @@ export default function HomeScreen() {
       <HomeHeader 
         onNotificationPress={handleNotificationPress}
         unreadCount={unreadCount}
-        onMenuPress={() => setMenuVisible(true)}
+        onMenuPress={openMenu}
       />
 
       <ScrollView 
@@ -128,10 +129,6 @@ export default function HomeScreen() {
         onNotificationPress={handleNotificationItemPress}
       />
       
-      <HomeMenuModal 
-        isVisible={isMenuVisible}
-        onClose={() => setMenuVisible(false)}
-      />
     </View>
   );
 }

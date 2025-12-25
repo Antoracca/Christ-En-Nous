@@ -18,7 +18,7 @@ RUN pnpm run build
 
 RUN pnpm prune --prod
 
-EXPOSE 3000
+EXPOSE 3000yvga 
 
 ENV NODE_ENV=production
 ENV PORT=3000

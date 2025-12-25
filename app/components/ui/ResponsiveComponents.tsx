@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, ViewStyle, TextStyle, ScrollViewProps, TouchableOpacityProps } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, ViewStyle, TextStyle, ScrollViewProps, TouchableOpacityProps, StyleSheet } from 'react-native';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
 
 // Wrapper pour View avec espacement responsif
@@ -94,7 +94,7 @@ export const ResponsiveTouchable: React.FC<ResponsiveTouchableProps> = ({
   const responsiveStyle: ViewStyle = {
     padding: responsive.spacing[padding],
     borderRadius: responsive.components.borderRadius[borderRadius],
-    ...style,
+    ...StyleSheet.flatten(style || {}),
   };
 
   return (
@@ -129,7 +129,7 @@ export const ResponsiveScrollView: React.FC<ResponsiveScrollViewProps> = ({
     ...(sidePadding && {
       paddingHorizontal: responsive.layout.sideMargins,
     }),
-    ...contentContainerStyle,
+    ...StyleSheet.flatten(contentContainerStyle || {}),
   };
 
   return (
