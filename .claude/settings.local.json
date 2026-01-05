@@ -31,7 +31,11 @@
       "Bash(node fix-homemenu.js:*)",
       "Bash(npx expo start --web)",
       "Bash(npx tsc:*)",
-      "Bash(node fix-bible-syntax.js:*)"
+      "Bash(node fix-bible-syntax.js:*)",
+      "Bash(npx expo start:*)",
+      "Bash(node fix-all-migration-errors.js:*)",
+      "Bash(node fix-router-calls.js)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

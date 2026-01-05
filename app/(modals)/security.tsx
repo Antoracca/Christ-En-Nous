@@ -28,7 +28,8 @@ import { BlurView } from 'expo-blur';
 // Hooks et services
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { auth, db } from '../../services/firebase/firebaseConfig';
+import { useRouter } from 'expo-router';
 
 // Types
 // REPLACE l’interface LoginSession par :
@@ -738,7 +739,7 @@ const recordLogout = useCallback(async () => {
   // =================================================================
 
   const navigateToChangeEmail = () => {
-    navigation.navigate('ChangeEmail' as never);
+    router.navigate('ChangeEmail' as never);
   };
 
   // =================================================================
@@ -870,7 +871,7 @@ useFocusEffect(
             icon="edit"
             label="Compléter le profil"
             description="Modifier vos informations personnelles"
-            onPress={() => navigation.navigate('ModifierProfil' as never)}
+            onPress={() => router.navigate('ModifierProfil' as never)}
             success={securityStats.profileCompleteness === 100}
           />
         </SecurityCard>
@@ -904,7 +905,7 @@ useFocusEffect(
             icon="key"
             label="Changer le mot de passe"
             description="Modifier votre mot de passe actuel"
-            onPress={() => navigation.navigate('ChangePassword' as never)}
+            onPress={() => router.navigate('ChangePassword' as never)}
             warning={securityStats.needsPasswordUpdate}
           />
         </SecurityCard>
@@ -941,7 +942,7 @@ useFocusEffect(
               icon="mail"
               label="Vérifier mon email"
               description="Recevoir un nouveau lien de vérification"
-              onPress={() => navigation.navigate('ResendEmail' as never)}
+              onPress={() => router.navigate('ResendEmail' as never)}
               warning
             />
           )}

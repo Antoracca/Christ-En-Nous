@@ -12,13 +12,15 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/context/AuthContext';
 import type { RootStackParamList } from '@/navigation/types';
+import { useRouter } from 'expo-router';
 
 type PostEmailChangeScreenRouteProp = RouteProp<RootStackParamList, 'PostEmailChange'>;
 
 export default function PostEmailChangeScreen() {
+  const router = useRouter();
   const theme = useAppTheme();
   const { refreshUserProfile } = useAuth(); // Pas de logout !
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  
   const route = useRoute<PostEmailChangeScreenRouteProp>();
   const { newEmail } = params;
   
@@ -50,7 +52,7 @@ export default function PostEmailChangeScreen() {
       
       // Navigation vers Login avec l'email en paramètre
       // Utiliser reset pour nettoyer la pile de navigation
-      navigation.reset({
+      router.reset({
         index: 0,
         routes: [{ name: 'Login', params: { email: newEmail } }],
       });
@@ -60,7 +62,7 @@ export default function PostEmailChangeScreen() {
     } catch (error) {
       console.error('❌ Erreur navigation:', error);
       // En cas d'erreur, naviguer quand même
-      navigation.navigate('Login', { email: newEmail });
+      router.push({ pathname: '/(auth)/login', params: { email: newEmail } });
     }
   };
 

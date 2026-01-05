@@ -7,11 +7,12 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth, UserProfile } from '@/context/AuthContext';
 import { signOut } from 'firebase/auth';
-import { auth } from 'services/firebase/firebaseConfig';
+import { auth } from '../../services/firebase/firebaseConfig';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { Feather } from '@expo/vector-icons';
 import Avatar from '@/components/profile/Avatar';
 import { useMigrateUserRoles } from '@/hooks/useMigrateUserRoles';
+import { useRouter } from 'expo-router';
 
 // --- Sous-composants pour une meilleure lisibilité ---
 
@@ -248,8 +249,8 @@ export default function ProfileScreen() {
 
         <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
             <SectionHeader title="Paramètres" />
-            <NavButton icon="edit" label="Modifier le profil" onPress={() => navigation.navigate('ModifierProfil' as never)} />
-            <NavButton icon="shield" label="Sécurité" onPress={() => navigation.navigate('Security' as never)} />
+            <NavButton icon="edit" label="Modifier le profil" onPress={() => router.navigate('ModifierProfil' as never)} />
+            <NavButton icon="shield" label="Sécurité" onPress={() => router.navigate('Security' as never)} />
             <NavButton icon="bell" label="Notifications" onPress={() => {}} />
             <LogoutButton onPress={handleLogout} isLoading={isLoggingOut} />
         </View>

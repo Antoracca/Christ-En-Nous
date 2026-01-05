@@ -35,7 +35,7 @@ export default function SocialNetworks({
       <View style={styles.loginRow}>
         <Text style={[styles.loginText, isDark && styles.loginTextDark]}>Vous avez déjà un compte ?</Text>
 
-       <TouchableOpacity onPress={() => navigation.navigate('Login', {})}>
+       <TouchableOpacity onPress={() => router.navigate('Login', {})}>
   <Text style={styles.loginLink}> Connectez-vous !</Text>
 </TouchableOpacity>
 

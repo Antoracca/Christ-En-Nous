@@ -23,7 +23,7 @@ const HomeMenuModal: React.FC<HomeMenuModalProps> = ({ isVisible, onClose }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
     setTimeout(() => {
-      navigation.navigate('Main', { screen: 'ProfileTab' });
+      router.navigate('Main', { screen: 'ProfileTab' });
     }, 120);
   }, [navigation, onClose]);
 
@@ -31,7 +31,7 @@ const HomeMenuModal: React.FC<HomeMenuModalProps> = ({ isVisible, onClose }) => 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
     setTimeout(() => {
-      navigation.navigate('Security');
+      router.navigate('Security');
     }, 120);
   }, [navigation, onClose]);
 

@@ -265,7 +265,7 @@ const ExploreAndVerseCard = () => {
                     </View>
 
                     <TouchableOpacity
-                        onPress={() => navigation.navigate('BibleRecherche' as never)}
+                        onPress={() => router.navigate('BibleRecherche' as never)}
                         activeOpacity={0.8}
                         style={{
                             backgroundColor: INPUT_BG,
@@ -830,7 +830,7 @@ const LearningProgressCard = () => {
     <CardShell gradient>
       {/* PART 1: Lien vers les cours */}
       <TouchableOpacity
-        onPress={() => navigation.navigate('BibleLearning' as never)}
+        onPress={() => router.navigate('BibleLearning' as never)}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
@@ -1139,7 +1139,7 @@ export default function BibleHomeScreen() {
             icon="calendar"
             title="Découvrir les plans"
             description="Activez un plan pour suivre jours, chapitres et pourcentage de progression."
-            onPress={() => navigation.navigate('BiblePlan' as never)}
+            onPress={() => router.navigate('BiblePlan' as never)}
             gradient
           />
         </View>

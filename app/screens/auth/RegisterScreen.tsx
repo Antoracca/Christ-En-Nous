@@ -241,7 +241,7 @@ export default function RegisterScreen() {
   const handleBack = () => {
     setForceValidation(false);
     if (step > 0) setStep(s => s - 1);
-    else navigation.goBack();
+    else router.goBack();
   };
 
   const handleRegister = async () => {
@@ -322,7 +322,7 @@ export default function RegisterScreen() {
           <KeyboardAwareScrollView style={styles.flex} contentContainerStyle={styles.scrollViewContent} enableOnAndroid keyboardShouldPersistTaps="always" extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}>
             
             <Animated.View style={[styles.headerContainer, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}><Ionicons name="close" size={28} color="#FFFFFF" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => router.goBack()} style={styles.closeButton}><Ionicons name="close" size={28} color="#FFFFFF" /></TouchableOpacity>
               <ImageBackground source={require('assets/images/logoSimpleT.png')} style={styles.logo} resizeMode="contain" />
               <Text style={styles.headerTitle}>Rejoignez la communauté</Text>
               <Text style={styles.stepTitle}>{`Étape ${step + 1} sur ${TOTAL_STEPS}`}</Text>

@@ -8,11 +8,12 @@ import { useResponsiveSafe } from '@/context/ResponsiveContext';
 import { progress } from '@/services/bible/tracking/progressTracking';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
-import BibleReader from './BibleReader';
-import BibleNavigation from './BibleNavigation';
-import BibleSearch from './BibleSearch';
-import BibleProgressModal from './BibleProgressModal';
-import AIModalScreen from './AIModalScreen';
+import BibleReader from '../../screens/bible/BibleReader';
+import BibleNavigation from '../../screens/bible/BibleNavigation';
+import BibleSearch from '../../screens/bible/BibleSearch';
+import BibleProgressModal from '../../screens/bible/BibleProgressModal';
+import AIModalScreen from '../../screens/bible/AIModalScreen';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function BibleReaderScreen() {
   const theme = useAppTheme();
@@ -96,7 +97,7 @@ export default function BibleReaderScreen() {
         onNavigationPress={handleNavigationPress}
         onSearchPress={handleSearchPress}
         onProgressPress={handleProgressPress}
-        onSettingsPress={() => navigation.navigate('BibleReaderSettings' as never)}
+        onSettingsPress={() => router.navigate('BibleReaderSettings' as never)}
         onAiPress={handleAiPress}
         targetVerse={currentTargetVerse}
       />

@@ -10,7 +10,6 @@ import {
 import { TextInput, Button, HelperText } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 
@@ -18,8 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from 'services/firebase/firebaseConfig';
-import type { RootStackParamList } from '@/navigation/types';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 
 // Sous-composant pour le modal de ré-authentification
 const ResendPasswordModal = ({ visible, onClose, onConfirm, loading }: {
@@ -74,7 +72,7 @@ const ResendPasswordModal = ({ visible, onClose, onConfirm, loading }: {
 
 export default function ChangeEmailScreen() {
   const theme = useAppTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const router = useRouter();
   const { user, userProfile, isAuthenticated } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -101,7 +99,7 @@ export default function ChangeEmailScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigation.navigate('Login', {});
+      router.push('/(auth)/login');
     }
   }, [isAuthenticated, navigation]);
 
@@ -238,7 +236,7 @@ export default function ChangeEmailScreen() {
       await AsyncStorage.removeItem('@emailChangeRequest');
 
       console.log('🚀 Navigation vers PostEmailChange');
-      navigation.replace('PostEmailChange', { newEmail: finalEmail });
+      router.replace({ pathname: '/(auth)/post-email-change', params: { newEmail: finalEmail } });
 
     } catch (error: any) {
       if (error.code === 'auth/user-token-expired' || error.message?.includes('token')) {
@@ -255,7 +253,7 @@ export default function ChangeEmailScreen() {
             }));
 
             await AsyncStorage.removeItem('@emailChangeRequest');
-            navigation.replace('PostEmailChange', { newEmail: finalEmail });
+            router.replace({ pathname: '/(auth)/post-email-change', params: { newEmail: finalEmail } });
           }
         } catch (cleanupError) {
           console.error('❌ Erreur lors du nettoyage:', cleanupError);

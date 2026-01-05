@@ -37,7 +37,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { signInWithEmailAndPassword, Auth } from 'firebase/auth';
 import { collection, query, where, limit, getDocs, Firestore } from 'firebase/firestore';
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 
 // ... (Le composant LeftInputIcon et le hook useBiometricAuth restent inchangés)
 // =================================================================
@@ -225,7 +225,7 @@ type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid' | 'info';
 
 // ✅ MODIFIÉ : Le hook accepte maintenant les paramètres de la route
 const useLogin = (routeParams: LoginScreenParams | undefined) => {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  
   const [identifier, setIdentifier] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -403,7 +403,9 @@ const LOGO_SIZE = 140;
 // ÉCRAN DE CONNEXION PRINCIPAL (MODIFIÉ)
 // =================================================================
 export default function LoginScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  
   const route = useRoute<RouteProp<Record<string, LoginScreenParams>, string>>();
   
   // ✅ MODIFIÉ : On passe les paramètres de la route au hook
@@ -435,7 +437,7 @@ export default function LoginScreen() {
 
   React.useEffect(() => {
     if (isSuccess) {
-      Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => navigation.replace('Main'));
+      Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => router.replace('/(tabs)'));
     }
   }, [isSuccess, masterAnim, navigation]);
 

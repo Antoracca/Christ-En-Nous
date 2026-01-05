@@ -18,7 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { auth, db } from '../../../services/firebase/firebaseConfig';
 import type { RootStackParamList } from '@/navigation/types';
 
 // Sous-composant pour le modal de ré-authentification
@@ -101,7 +101,7 @@ export default function ChangeEmailScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigation.navigate('Login', {});
+      router.navigate('Login', {});
     }
   }, [isAuthenticated, navigation]);
 
@@ -238,7 +238,7 @@ export default function ChangeEmailScreen() {
       await AsyncStorage.removeItem('@emailChangeRequest');
 
       console.log('🚀 Navigation vers PostEmailChange');
-      navigation.replace('PostEmailChange', { newEmail: finalEmail });
+      router.replace('PostEmailChange', { newEmail: finalEmail });
 
     } catch (error: any) {
       if (error.code === 'auth/user-token-expired' || error.message?.includes('token')) {
@@ -255,7 +255,7 @@ export default function ChangeEmailScreen() {
             }));
 
             await AsyncStorage.removeItem('@emailChangeRequest');
-            navigation.replace('PostEmailChange', { newEmail: finalEmail });
+            router.replace('PostEmailChange', { newEmail: finalEmail });
           }
         } catch (cleanupError) {
           console.error('❌ Erreur lors du nettoyage:', cleanupError);
@@ -348,7 +348,7 @@ export default function ChangeEmailScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={[styles.header, { borderBottomColor: theme.colors.outline }]}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.goBack()}>
               <Feather name="arrow-left" size={24} color={theme.custom.colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>

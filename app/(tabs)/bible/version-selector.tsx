@@ -38,18 +38,19 @@ export default function BibleVersionSelectorScreen() {
   } = useBible();
 
   // Configurer le style du header
-  React.useEffect(() => {
-    navigation.setOptions({
-      headerTintColor: theme.colors.primary,
-      headerStyle: {
-        backgroundColor: theme.colors.background,
-      },
-      headerTitleStyle: {
-        fontFamily: 'Nunito_700Bold',
-        color: theme.custom.colors.text,
-      },
-    });
-  }, [navigation, theme]);
+  // TODO: Use Stack.Screen options in _layout.tsx instead of router.setOptions
+  // React.useEffect(() => {
+  //   router.setOptions({
+  //     headerTintColor: theme.colors.primary,
+  //     headerStyle: {
+  //       backgroundColor: theme.colors.background,
+  //     },
+  //     headerTitleStyle: {
+  //       fontFamily: 'Nunito_700Bold',
+  //       color: theme.custom.colors.text,
+  //     },
+  //   });
+  // }, [theme]);
 
   const [loading, setLoading] = useState(true);
   const [changingVersion, setChangingVersion] = useState<string | null>(null);

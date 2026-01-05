@@ -50,7 +50,7 @@ export default function PostEmailChangeScreen() {
       
       // Navigation vers Login avec l'email en paramètre
       // Utiliser reset pour nettoyer la pile de navigation
-      navigation.reset({
+      router.reset({
         index: 0,
         routes: [{ name: 'Login', params: { email: newEmail } }],
       });
@@ -60,7 +60,7 @@ export default function PostEmailChangeScreen() {
     } catch (error) {
       console.error('❌ Erreur navigation:', error);
       // En cas d'erreur, naviguer quand même
-      navigation.navigate('Login', { email: newEmail });
+      router.navigate('Login', { email: newEmail });
     }
   };
 

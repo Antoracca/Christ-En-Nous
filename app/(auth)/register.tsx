@@ -23,20 +23,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../../../services/firebase/firebaseConfig';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 import { sendCustomVerificationEmail } from 'services/email/emailService';
 import { mapStepBaptismToFirestore } from 'utils/mapStepBaptismToFirestore';
 import { isNameAndSurnameTaken } from 'utils/isNameAndSurnameTaken';
 import { validateStepNameFields } from 'utils/validateStepNameFields';
 import { validateStepCredentialsFields } from 'utils/validateStepCredentialsFields';
 import rolesData from 'assets/data/churchRoles.json';
-import StepName from '../../components/register/steps/StepName';
-import StepCredentials from '../../components/register/steps/StepCredentials';
-import StepContact from '../../components/register/steps/StepContact';
-import StepLocation from '../../components/register/steps/StepLocation';
-import StepBaptism from '../../components/register/steps/StepBaptism';
-import StepChurchRole from '../../components/register/steps/StepChurchRole';
-import StepDiscovery from '../../components/register/steps/StepDiscovery';
+import StepName from '../components/register/steps/StepName';
+import StepCredentials from '../components/register/steps/StepCredentials';
+import StepContact from '../components/register/steps/StepContact';
+import StepLocation from '../components/register/steps/StepLocation';
+import StepBaptism from '../components/register/steps/StepBaptism';
+import StepChurchRole from '../components/register/steps/StepChurchRole';
+import StepDiscovery from '../components/register/steps/StepDiscovery';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/types';
 import { isValidUsernameFormat } from 'utils/isValidUsernameFormat';
@@ -105,8 +105,9 @@ function formatDateToISO(dateStr: string): string {
 }
 
 export default function RegisterScreen() {
+  const router = useRouter();
   const phoneUtil = PhoneNumberUtil.getInstance();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  
   const { setShouldShowRegisterSuccess, setIsRegistering } = useAuth();
 
   const [step, setStep] = useState(0);

@@ -38,7 +38,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import NetInfo from '@react-native-community/netinfo';
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 
 // =================================================================
 // 1. COMPONENT LeftInputIcon
@@ -181,8 +181,9 @@ const LOGO_SIZE = 140;
 // 4. ÉCRAN PRINCIPAL
 // =================================================================
 export default function ForgotPasswordScreen() {
+  const router = useRouter();
   const { email, setEmail, errorMessage, loading, isSuccess, handleResetPassword } = useForgotPassword();
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  
   const { isAuthenticated } = useAuth();
   const masterAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;

@@ -14,7 +14,7 @@ import * as Crypto from 'expo-crypto';
 
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { auth, db } from '../../../services/firebase/firebaseConfig';
 import type { RootStackParamList } from '@/navigation/types';
 import PasswordStrengthIndicator from '@/components/forms/PasswordStrengthIndicator';
 
@@ -104,7 +104,7 @@ export default function ChangePasswordScreen() {
       });
 
       Alert.alert('Succès', 'Votre mot de passe a été mis à jour avec succès.');
-      navigation.goBack();
+      router.goBack();
 
     } catch (error: any) {
       if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -161,7 +161,7 @@ export default function ChangePasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={[styles.header, { borderBottomColor: theme.colors.outline }]}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.goBack()}>
               <Feather name="arrow-left" size={24} color={theme.custom.colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: theme.custom.colors.text }]}>
@@ -210,7 +210,7 @@ export default function ChangePasswordScreen() {
                     </Button>
                     <Button
                       mode="outlined"
-                      onPress={() => navigation.navigate('ChangeEmail')}
+                      onPress={() => router.navigate('ChangeEmail')}
                       style={styles.changeButton}
                     >
                       Modifier l\&apos;e-mail
@@ -221,7 +221,7 @@ export default function ChangePasswordScreen() {
                     <Text style={styles.warningText}>Votre adresse e-mail n\&apos;est pas vérifiée. Veuillez la vérifier avant de continuer.</Text>
                     <Button
                       mode="contained"
-                      onPress={() => navigation.navigate('ResendEmail')}
+                      onPress={() => router.navigate('ResendEmail')}
                       style={styles.changeButton}
                     >
                       Renvoyer l\&apos;e-mail de vérification
