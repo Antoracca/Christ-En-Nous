@@ -28,7 +28,10 @@
       "Bash(git commit:*)",
       "Bash(git checkout:*)",
       "Bash(node migrate-navigation.js:*)",
-      "Bash(node fix-homemenu.js:*)"
+      "Bash(node fix-homemenu.js:*)",
+      "Bash(npx expo start --web)",
+      "Bash(npx tsc:*)",
+      "Bash(node fix-bible-syntax.js:*)"
     ],
     "deny": [],
     "ask": []

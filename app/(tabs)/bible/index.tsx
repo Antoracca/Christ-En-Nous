@@ -466,7 +466,7 @@ return (
     <CardShell gradient>
       {/* PART 1: Lien vers le lecteur */}
       <TouchableOpacity
-        onPress={() => router.push('/(tabs)/bible/reader') as never)}
+        onPress={() => router.push('/(tabs)/bible/reader') as never}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
@@ -646,7 +646,7 @@ const MeditationProgressCard = () => {
     <CardShell gradient>
       {/* PART 1: Lien vers les méditations */}
       <TouchableOpacity
-        onPress={() => router.push('/(tabs)/bible/meditation') as never)}
+        onPress={() => router.push('/(tabs)/bible/meditation') as never}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
