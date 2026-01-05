@@ -25,7 +25,10 @@
       "Bash(npx expo --version)",
       "Bash(wc:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(node migrate-navigation.js:*)",
+      "Bash(node fix-homemenu.js:*)"
     ],
     "deny": [],
     "ask": []

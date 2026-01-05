@@ -23,8 +23,8 @@ import * as Haptics from 'expo-haptics';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/context/AuthContext';
-import { navigate } from '../../navigation/navigationRef';
-import type { RootStackParamList } from '../../navigation/types';
+import { useRouter } from 'expo-router';
+
 
 type MenuAction = {
   key: string;
@@ -49,6 +49,7 @@ const SHEET_MAX_HEIGHT = Math.min(WINDOW.height * 0.75, 520);
 export const HomeMenuProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const theme = useAppTheme();
   const { logout } = useAuth();
+  const router = useRouter();
 
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -113,13 +114,13 @@ export const HomeMenuProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isVisible, shouldRender, overlayOpacity, sheetTranslate]);
 
   const navigateWithClose = useCallback(
-    <Name extends keyof RootStackParamList>(screen: Name, params?: RootStackParamList[Name]) => {
+    (path: string) => {
       closeMenu();
       setTimeout(() => {
-        navigate(screen as any, params as any);
+        router.push(path as any);
       }, 160);
     },
-    [closeMenu],
+    [closeMenu, router],
   );
 
   const showComingSoon = useCallback(
@@ -141,7 +142,7 @@ export const HomeMenuProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         label: 'Mon profil',
         onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigateWithClose('Main', { screen: 'ProfileTab' });
+          navigateWithClose('/(tabs)/profile');
         },
       },
       {
@@ -150,7 +151,7 @@ export const HomeMenuProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         label: 'Securite et confidentialite',
         onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigateWithClose('Security');
+          navigateWithClose('/(modals)/security');
         },
       },
       {
