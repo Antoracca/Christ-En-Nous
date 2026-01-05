@@ -19,7 +19,13 @@
       "Bash(taskkill:*)",
       "Bash(powershell:*)",
       "Bash(cat:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(test:*)",
+      "Bash(tree:*)",
+      "Bash(npx expo --version)",
+      "Bash(wc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
