@@ -37,8 +37,6 @@ import StepLocation from '../components/register/steps/StepLocation';
 import StepBaptism from '../components/register/steps/StepBaptism';
 import StepChurchRole from '../components/register/steps/StepChurchRole';
 import StepDiscovery from '../components/register/steps/StepDiscovery';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/types';
 import { isValidUsernameFormat } from 'utils/isValidUsernameFormat';
 
 const ElegantLoader = () => {

@@ -5,24 +5,19 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
 import { Button } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/context/AuthContext';
-import type { RootStackParamList } from '@/navigation/types';
-import { useRouter } from 'expo-router';
-
-type PostEmailChangeScreenRouteProp = RouteProp<RootStackParamList, 'PostEmailChange'>;
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function PostEmailChangeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const theme = useAppTheme();
   const { refreshUserProfile } = useAuth(); // Pas de logout !
-  
-  const route = useRoute<PostEmailChangeScreenRouteProp>();
-  const { newEmail } = params;
+
+  const newEmail = typeof params.newEmail === 'string' ? params.newEmail : params.newEmail?.[0] || '';
   
   console.log('✅ PostEmailChangeScreen - Email modifié avec succès:', newEmail);
 
@@ -32,7 +27,7 @@ export default function PostEmailChangeScreen() {
       try {
         // Tenter de rafraîchir le profil (peut échouer si token expiré)
         await refreshUserProfile();
-      } catch (error) {
+      } catch (_error) {
         console.log('Info: Rafraîchissement profil échoué (normal si token expiré)');
       }
     };
@@ -41,26 +36,22 @@ export default function PostEmailChangeScreen() {
 
   const handleProceedToLogin = async () => {
     console.log('🚀 Navigation vers Login avec email pré-rempli');
-    
+
     try {
       // Sauvegarder l'email pour pré-remplissage
       await AsyncStorage.setItem('@prefilledEmail', newEmail);
-      
+
       // Nettoyer les flags de changement d'email
       await AsyncStorage.removeItem('@emailChangeRequest');
       await AsyncStorage.removeItem('@newEmailForLogin');
-      
+
       // Navigation vers Login avec l'email en paramètre
-      // Utiliser reset pour nettoyer la pile de navigation
-      router.reset({
-        index: 0,
-        routes: [{ name: 'Login', params: { email: newEmail } }],
-      });
-      
+      router.replace({ pathname: '/(auth)/login', params: { email: newEmail } });
+
       console.log('✅ Navigation réussie vers Login');
-      
-    } catch (error) {
-      console.error('❌ Erreur navigation:', error);
+
+    } catch (_error) {
+      console.error('❌ Erreur navigation:', _error);
       // En cas d'erreur, naviguer quand même
       router.push({ pathname: '/(auth)/login', params: { email: newEmail } });
     }

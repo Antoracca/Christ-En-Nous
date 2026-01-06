@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs,Timestamp, getDoc, limit   } from 'firebase/firestore'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <-- AJOUT NÉCESSAIRE
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { doc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs,Timestamp, getDoc, limit   } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 // ... (Les interfaces ChurchRole, UserProfile, AuthContextType restent les mêmes)

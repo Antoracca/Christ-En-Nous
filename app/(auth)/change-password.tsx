@@ -7,7 +7,6 @@ import {
 import { TextInput, Button, HelperText } from 'react-native-paper';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import * as Crypto from 'expo-crypto';
@@ -15,7 +14,6 @@ import * as Crypto from 'expo-crypto';
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { auth, db } from '../../services/firebase/firebaseConfig';
-import type { RootStackParamList } from '@/navigation/types';
 import PasswordStrengthIndicator from '@/components/forms/PasswordStrengthIndicator';
 
 const hashPassword = async (password: string) => {
@@ -124,9 +122,9 @@ export default function ChangePasswordScreen() {
     setLoading(true);
     try {
       await sendPasswordResetEmail(auth, userProfile.email);
-            Alert.alert('Lien envoyé', `Un e-mail de réinitialisation a été envoyé à ${userProfile.email}. Veuillez consulter votre boîte de réception.`);
+      Alert.alert('Lien envoyé', `Un e-mail de réinitialisation a été envoyé à ${userProfile.email}. Veuillez consulter votre boîte de réception.`);
       setForgotPasswordMode(false);
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Erreur', "Impossible d'envoyer le lien de réinitialisation. Veuillez contacter le support.");
     } finally {
       setLoading(false);

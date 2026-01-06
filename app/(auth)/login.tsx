@@ -26,8 +26,6 @@ import {
 } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -405,9 +403,7 @@ const LOGO_SIZE = 140;
 export default function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
-  const route = useRoute<RouteProp<Record<string, LoginScreenParams>, string>>();
-  
+
   // ✅ MODIFIÉ : On passe les paramètres de la route au hook
   const {
     identifier, setIdentifier, password, setPassword, errorMessage, handleLogin, isLoading, isSuccess,
@@ -431,7 +427,8 @@ export default function LoginScreen() {
   React.useEffect(() => {
     if (params?.email) {
       console.log('📧 [LOGIN] Pré-remplissage depuis params:', params.email);
-      setIdentifier(params.email);
+      const emailValue = typeof params.email === 'string' ? params.email : params.email[0];
+      setIdentifier(emailValue);
     }
   }, [params?.email, setIdentifier]);
 
@@ -439,7 +436,7 @@ export default function LoginScreen() {
     if (isSuccess) {
       Animated.timing(masterAnim, { toValue: 2, duration: 500, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => router.replace('/(tabs)'));
     }
-  }, [isSuccess, masterAnim, navigation]);
+  }, [isSuccess, masterAnim, router]);
 
   React.useEffect(() => {
     if (errorMessage && !isLockedOut) {

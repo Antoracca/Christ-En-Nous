@@ -101,7 +101,7 @@ export default function ChangeEmailScreen() {
     if (!isAuthenticated) {
       router.push('/(auth)/login');
     }
-  }, [isAuthenticated, navigation]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     const checkPendingRequest = async () => {

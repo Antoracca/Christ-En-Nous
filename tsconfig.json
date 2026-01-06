@@ -28,5 +28,9 @@
     "firebase-auth.d.ts",
     "app/types/declaration.d.ts",
     ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "app/screens/**/*"
   ]
 }
