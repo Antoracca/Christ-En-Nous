@@ -8,6 +8,7 @@
     "scheme": "christennous",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    
 
     "ios": {
       "supportsTablet": true,
@@ -29,7 +30,7 @@
 
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
 
@@ -61,7 +62,7 @@
     ],
 
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": false
     },
 
     "extra": {

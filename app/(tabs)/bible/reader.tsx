@@ -1,19 +1,18 @@
 // app/screens/bible/BibleReaderScreen.tsx
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
-import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
 import { progress } from '@/services/bible/tracking/progressTracking';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
-import BibleReader from '../../screens/bible/BibleReader';
-import BibleNavigation from '../../screens/bible/BibleNavigation';
-import BibleSearch from '../../screens/bible/BibleSearch';
-import BibleProgressModal from '../../screens/bible/BibleProgressModal';
-import AIModalScreen from '../../screens/bible/AIModalScreen';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import BibleReader from './BibleReader';
+import BibleNavigation from './BibleNavigation';
+import BibleSearch from './BibleSearch';
+import BibleProgressModal from './BibleProgressModal';
+import AIModalScreen from './AIModalScreen';
 
 export default function BibleReaderScreen() {
   const theme = useAppTheme();
@@ -59,7 +58,10 @@ export default function BibleReaderScreen() {
   );
 
   const handleNavigationPress = () => setShowNavigation(true);
-  const handleSearchPress = () => setShowSearch(true);
+  const handleSearchPress = () => {
+    console.log('🔍 [Reader] Loupe cliquée, ouverture du modal...');
+    setShowSearch(true);
+  };
   const handleProgressPress = () => setShowProgress(true);
   const handleAiPress = () => setShowAiAssistant(true);
 
@@ -97,7 +99,7 @@ export default function BibleReaderScreen() {
         onNavigationPress={handleNavigationPress}
         onSearchPress={handleSearchPress}
         onProgressPress={handleProgressPress}
-        onSettingsPress={() => router.navigate('BibleReaderSettings' as never)}
+        onSettingsPress={() => router.push('/bible/reader-settings')}
         onAiPress={handleAiPress}
         targetVerse={currentTargetVerse}
       />

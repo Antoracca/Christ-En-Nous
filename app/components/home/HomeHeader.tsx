@@ -1,32 +1,94 @@
 // app/components/home/HomeHeader.tsx
-// Le header principal et animé de l'écran d'accueil.
+// Header Rétractable (Collapsible) et Animé - Version Fond Seul (Boutons gérés par le parent)
 
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, Platform, Animated, Easing } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, StatusBar, Platform, Animated as RNAnimated, Easing, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+  useAnimatedStyle, 
+  interpolate, 
+  Extrapolate,
+  SharedValue,
+  withSpring,
+  withTiming,
+  useSharedValue
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import ModernMenuIcon from '@/components/ui/ModernMenuIcon';
 import Avatar from '@/components/profile/Avatar';
 
-const HEADER_MAX_HEIGHT = 280;
+// Hauteur de base (sera ajustée avec les insets)
+const BASE_HEADER_HEIGHT = 240; 
+const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 110 : 90;
 
 interface HomeHeaderProps {
-  onNotificationPress: () => void;
-  unreadCount: number;
-  onMenuPress: () => void;
+  scrollY: SharedValue<number>;
 }
 
-const HomeHeader = ({ onNotificationPress, unreadCount, onMenuPress }: HomeHeaderProps) => {
-  const theme = useAppTheme();
-  const { userProfile } = useAuth();
-  const particlesAnim = useRef(new Animated.Value(0)).current;
+// --- COMPOSANT DE SALUTATION ANIMÉ ---
+const AnimatedGreeting = ({ username, color }: { username: string; color: string }) => {
+  const translateY = useSharedValue(20);
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.8);
+  const [showAvatar, setShowAvatar] = useState(true);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(particlesAnim, {
+    translateY.value = withSpring(0, { damping: 12 });
+    opacity.value = withTiming(1, { duration: 400 });
+    scale.value = withSpring(1);
+
+    const timeout = setTimeout(() => {
+      translateY.value = withTiming(10, { duration: 500 });
+      opacity.value = withTiming(0, { duration: 500 });
+      setShowAvatar(false);
+    }, 4000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <View style={styles.greetingContainer}>
+      <View style={styles.greetingRow}>
+        <Text style={[styles.greetingText, { color }]}>Shalom,</Text>
+        <View style={styles.nameWrapper}>
+          <Text style={[styles.usernameText, { color }]} numberOfLines={1} ellipsizeMode="tail">
+            {username}
+          </Text>
+          {showAvatar && (
+            <Animated.View style={[styles.popGreeting, animatedStyle]}>
+              <View style={styles.avatarBubble}>
+                <Text style={styles.avatarEmoji}>👋</Text>
+              </View>
+              <View style={styles.bubbleTail} />
+            </Animated.View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const HomeHeader = ({ scrollY }: HomeHeaderProps) => {
+  const theme = useAppTheme();
+  const { userProfile } = useAuth();
+  const insets = useSafeAreaInsets();
+  
+  const headerMaxHeight = BASE_HEADER_HEIGHT + insets.top;
+  const scrollDistance = headerMaxHeight - HEADER_MIN_HEIGHT;
+
+  const particlesAnim = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    RNAnimated.loop(
+      RNAnimated.timing(particlesAnim, {
         toValue: 1,
         duration: 5000,
         useNativeDriver: true,
@@ -34,14 +96,60 @@ const HomeHeader = ({ onNotificationPress, unreadCount, onMenuPress }: HomeHeade
       })
     ).start();
   }, [particlesAnim]);
-  
+
+  // --- ANIMATIONS ---
+
+  const headerHeightStyle = useAnimatedStyle(() => {
+    const height = interpolate(
+      scrollY.value,
+      [0, scrollDistance],
+      [headerMaxHeight, HEADER_MIN_HEIGHT],
+      Extrapolate.CLAMP
+    );
+    return { height };
+  });
+
+  const fadeOutStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, scrollDistance * 0.6],
+      [1, 0],
+      Extrapolate.CLAMP
+    );
+    const translateY = interpolate(scrollY.value, [0, scrollDistance], [0, -20], Extrapolate.CLAMP);
+    return { opacity, transform: [{ translateY }] };
+  });
+
+  const avatarStyle = useAnimatedStyle(() => {
+    const scale = interpolate(scrollY.value, [0, scrollDistance], [1, 0.9], Extrapolate.CLAMP);
+    const translateY = interpolate(scrollY.value, [0, scrollDistance], [0, -15], Extrapolate.CLAMP);
+    return { transform: [{ scale }, { translateY }] };
+  });
+
+  const miniTitleStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [scrollDistance - 50, scrollDistance],
+      [0, 1],
+      Extrapolate.CLAMP
+    );
+    // On remonte le texte vers le haut (-10px) pour le centrer verticalement
+    const translateY = interpolate(
+      scrollY.value,
+      [scrollDistance - 50, scrollDistance],
+      [10, -10],
+      Extrapolate.CLAMP
+    );
+    return { opacity, transform: [{ translateY }] };
+  });
+
   return (
-    <View style={styles.headerContainer}>
+    <Animated.View style={[styles.headerContainer, headerHeightStyle]} pointerEvents="box-none">
       <LinearGradient
         colors={[theme.colors.primary, '#1E3A8A']}
         style={styles.headerCurve}
       >
-        <Animated.View style={[
+        <RNAnimated.View style={[
           styles.particlesContainer,
           {
             opacity: particlesAnim.interpolate({
@@ -53,61 +161,52 @@ const HomeHeader = ({ onNotificationPress, unreadCount, onMenuPress }: HomeHeade
           <View style={[styles.sparkle, { top: '20%', right: '15%' }]} />
           <View style={[styles.sparkle, { top: '40%', right: '30%' }]} />
           <View style={[styles.sparkle, { top: '70%', right: '10%' }]} />
-          <View style={[styles.sparkle, { top: '30%', left: '15%' }]} />
-          <View style={[styles.sparkle, { top: '60%', left: '25%' }]} />
-        </Animated.View>
+        </RNAnimated.View>
         
-        <View style={styles.headerContentContainer}>
+        <View style={[styles.headerContentContainer, { paddingTop: insets.top + 10 }]}>
+          
+          {/* Ligne du haut (Avatar, Titre Mini) - SANS BOUTONS */}
           <View style={styles.headerTopRow}>
-            <Avatar 
-              photoURL={userProfile?.photoURL}
-              prenom={userProfile?.prenom}
-              nom={userProfile?.nom}
-              size={54}
-            />
-            <View style={styles.headerIconsContainer}>
-              <TouchableOpacity style={styles.iconButton} onPress={onNotificationPress}>
-                <Ionicons name="notifications-outline" size={26} color={theme.colors.onPrimary} />
-                {unreadCount > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.iconButton} onPress={onMenuPress}>
-                <ModernMenuIcon color={theme.colors.onPrimary} />
-              </TouchableOpacity>
-            </View>
+            <Animated.View style={avatarStyle}>
+              <Avatar 
+                photoURL={userProfile?.photoURL}
+                prenom={userProfile?.prenom}
+                nom={userProfile?.nom}
+                size={50} 
+              />
+            </Animated.View>
+
+            <Animated.View style={[styles.miniTitleContainer, miniTitleStyle]} pointerEvents="none">
+              <Text style={styles.miniTitleText}>Christ En Nous</Text>
+            </Animated.View>
           </View>
 
-          <View style={styles.welcomeTextContainer}>
-            <Text 
-              style={[styles.greetingText, { color: theme.colors.onPrimary }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              Shalom, {userProfile?.username || 'invité'}
-            </Text>
-            <Text style={[styles.subtitleText, { color: theme.colors.onPrimary }]}>
-              Ton église à{' '}
-              <Text style={{ color: theme.custom.colors.accent }}>portée de main</Text>
-            </Text>
-          </View>
-          
-          <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-            <TextInput
-              placeholder="Recherche..."
-              placeholderTextColor={'rgba(255,255,255,0.6)'}
-              style={[styles.searchInput, { color: theme.colors.onPrimary }]}
-            />
-            <Ionicons name="search" size={22} color={'rgba(255,255,255,0.6)'} style={styles.searchIcon} />
-          </View>
+          {/* Éléments rétractables */}
+          <Animated.View style={[styles.collapsibleContent, fadeOutStyle]}>
+            <View style={styles.welcomeTextContainer}>
+              <AnimatedGreeting 
+                username={userProfile?.prenom || 'Bien-aimé(e)'} 
+                color={theme.colors.onPrimary} 
+              />
+              <Text style={[styles.subtitleText, { color: theme.colors.onPrimary }]}>
+                Ton église à{' '}
+                <Text style={{ color: theme.custom.colors.accent, fontWeight: '800' }}>portée de main</Text>
+              </Text>
+            </View>
+            
+            <View style={[styles.searchContainer, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+              <TextInput
+                placeholder="Rechercher..."
+                placeholderTextColor={'rgba(255,255,255,0.7)'}
+                style={[styles.searchInput, { color: theme.colors.onPrimary }]}
+              />
+              <Ionicons name="search" size={22} color={'rgba(255,255,255,0.7)'} style={styles.searchIcon} />
+            </View>
+          </Animated.View>
+
         </View>
       </LinearGradient>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -117,14 +216,12 @@ const styles = StyleSheet.create({
         top: 0,
         left: 0,
         right: 0,
-        zIndex: 10,
-        height: HEADER_MAX_HEIGHT,
+        // zIndex géré par le parent
     },
     headerCurve: {
         flex: 1,
-        borderBottomLeftRadius: 50,
-        borderBottomRightRadius: 50,
-        overflow: 'hidden',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
     },
     particlesContainer: {
         ...StyleSheet.absoluteFillObject,
@@ -138,74 +235,109 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     headerContentContainer: {
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 60,
-        paddingHorizontal: 25,
+        paddingHorizontal: 20,
         flex: 1,
-        justifyContent: 'space-between',
-        zIndex: 10,
+        paddingBottom: 20,
     },
     headerTopRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-    },
-    headerIconsContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconButton: {
-        width: 44,
-        height: 44,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 8,
-        position: 'relative',
         zIndex: 20,
+        height: 60,
     },
-    notificationBadge: {
+    miniTitleContainer: {
         position: 'absolute',
-        top: 8,
-        right: 8,
-        backgroundColor: '#EF4444',
-        borderRadius: 10,
-        minWidth: 20,
-        height: 20,
-        justifyContent: 'center',
+        left: 0, 
+        right: 0, 
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.9)',
+        justifyContent: 'center',
+        height: '100%',
+        zIndex: -1,
     },
-    notificationBadgeText: {
+    miniTitleText: {
         color: 'white',
-        fontSize: 11,
-        fontFamily: 'Nunito_700Bold',
-        textAlign: 'center',
+        fontSize: 18,
+        fontFamily: 'Nunito_800ExtraBold',
+    },
+    collapsibleContent: {
+        marginTop: 15,
+        justifyContent: 'flex-end',
+        flex: 1,
     },
     welcomeTextContainer: {
-        marginTop: 10,
-        marginBottom: 15,
-        flex: 1,
-        maxWidth: '100%',
+        marginBottom: 20,
+        paddingLeft: 4,
+    },
+    greetingContainer: {
+        marginBottom: 4,
+    },
+    greetingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flexWrap: 'wrap',
     },
     greetingText: {
         fontFamily: 'Nunito_700Bold',
-        fontSize: 30,
-        flexShrink: 1,
-        maxWidth: '100%',
+        fontSize: 28,
+        marginRight: 8,
+    },
+    nameWrapper: {
+        position: 'relative',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    usernameText: {
+        fontFamily: 'Nunito_800ExtraBold',
+        fontSize: 28,
+        maxWidth: 200,
+    },
+    popGreeting: {
+        position: 'absolute',
+        top: -35, 
+        right: -10,
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    avatarBubble: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    avatarEmoji: {
+        fontSize: 16,
+    },
+    bubbleTail: {
+        width: 0,
+        height: 0,
+        backgroundColor: 'transparent',
+        borderStyle: 'solid',
+        borderLeftWidth: 4,
+        borderRightWidth: 4,
+        borderTopWidth: 6,
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        borderTopColor: '#FFFFFF',
+        marginTop: -1,
+        alignSelf: 'center',
     },
     subtitleText: {
         fontFamily: 'Nunito_400Regular',
-        fontSize: 18,
+        fontSize: 16,
         opacity: 0.9,
-        marginTop: 4,
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 15,
-        borderRadius: 15,
-        height: 55,
-        marginBottom: 20,
+        borderRadius: 16,
+        height: 50,
+        marginBottom: 5,
     },
     searchInput: {
         flex: 1,
@@ -214,7 +346,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         paddingRight: 10,
     },
-    searchIcon: {},
+    searchIcon: {
+        opacity: 0.8,
+    },
 });
 
 export default HomeHeader;

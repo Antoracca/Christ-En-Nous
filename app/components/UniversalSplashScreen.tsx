@@ -26,6 +26,7 @@ interface Props {
 }
 
 const UniversalSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
+  console.log('🎬 [UniversalSplashScreen] Component mounted');
   const isDark = useColorScheme() === 'dark';
 
   // Animation values
@@ -60,10 +61,14 @@ const UniversalSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
   };
 
   const handleEnd = useCallback(() => {
+    console.log('🎯 [UniversalSplashScreen] handleEnd callback triggered, calling onAnimationEnd');
     onAnimationEnd();
+    console.log('✅ [UniversalSplashScreen] onAnimationEnd called successfully');
   }, [onAnimationEnd]);
 
   useEffect(() => {
+    console.log('🎨 [UniversalSplashScreen] Starting animations, isDark:', isDark);
+
     // Réduction de l'overlay en arrière-plan
     overlayOpacity.value = withTiming(0.15, { duration: 800 });
 
@@ -155,13 +160,19 @@ const UniversalSplashScreen: React.FC<Props> = ({ onAnimationEnd }) => {
 
     // Exit animation - plus courte
     const exitDelay = 3200; // Un peu plus long pour profiter des effets
+    console.log('⏱️ [UniversalSplashScreen] Exit animation scheduled for', exitDelay + 500, 'ms from now');
+
     screenOpacity.value = withDelay(
       exitDelay,
       withTiming(0, {
         duration: 500,
         easing: Easing.in(Easing.quad),
       }, (finished) => {
-        if (finished) runOnJS(handleEnd)();
+        console.log('🎬 [UniversalSplashScreen] Exit animation completed, finished:', finished);
+        if (finished) {
+          console.log('🔄 [UniversalSplashScreen] Calling runOnJS(handleEnd)');
+          runOnJS(handleEnd)();
+        }
       })
     );
   }, [handleEnd, logoOpacity, logoScale, logoRotation, titleOpacity, titleTranslateY, mottoOpacity, mottoTranslateY, overlayOpacity, pulseScale, shimmerOpacity, glowIntensity, particlesOpacity, screenOpacity, isDark]);

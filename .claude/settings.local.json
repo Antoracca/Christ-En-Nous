@@ -35,7 +35,19 @@
       "Bash(npx expo start:*)",
       "Bash(node fix-all-migration-errors.js:*)",
       "Bash(node fix-router-calls.js)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 3 cat:*)",
+      "WebSearch",
+      "Bash(npm uninstall:*)",
+      "Bash(npx expo install:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm store prune:*)",
+      "Bash(timeout 20 cat:*)",
+      "Bash(timeout 30 cat:*)",
+      "Bash(timeout 40 cat:*)",
+      "Bash(timeout 60 cat:*)"
     ],
     "deny": [],
     "ask": []

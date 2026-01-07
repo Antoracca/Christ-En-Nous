@@ -1,42 +1,56 @@
-// app/screens/home/HomeScreen.tsx
-// L'écran d'accueil principal, assemblé à partir de composants modulaires.
-
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  StatusBar
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
+  RefreshControl,
+  Dimensions,
+  TouchableOpacity,
+  Text
 } from 'react-native';
-
-// Contexte et Thème
-import { useAuth } from '@/context/AuthContext';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedScrollHandler 
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useAuth } from '@/context/AuthContext';
 
-// Composants de l'UI globale
-import NotificationModal, { Notification } from '@/components/NotificationModal';
+// Components
+import HomeHeader from '../components/home/HomeHeader';
+import NotificationModal, { Notification } from '../components/NotificationModal';
+import HomeMenuModal from '../components/home/HomeMenuModal';
+import QuickAccessGrid from '../components/home/QuickAccessGrid';
+import NewsFeedWidget from '../components/home/NewsFeedWidget';
+import SermonSection from '../components/home/SermonSection';
+import DailyDevotional from '../components/home/DailyDevotional';
+import MinistryGrid from '../components/home/MinistryGrid';
+import LiveStreamWidget from '../components/home/LiveStreamWidget';
+import HomeFooter from '../components/home/HomeFooter'; // NOUVEAU FOOTER
+import ModernMenuIcon from '../components/ui/ModernMenuIcon';
 
-
-// Nouveaux composants modulaires pour l'écran d'accueil
-import HomeHeader from '@/components/home/HomeHeader';
-import SectionHeader from '@/components/home/SectionHeader';
-import QuickActionCard from '@/components/home/QuickActionCard';
-import ContentCard from '@/components/home/ContentCard';
-import HomeScreenSkeleton from '@/components/home/HomeScreenSkeleton';
-import { useHomeMenu } from '@/context/HomeMenuContext';
-
-const HEADER_MAX_HEIGHT = 280;
+const HEADER_MAX_HEIGHT = 280; 
 
 export default function HomeScreen() {
   const theme = useAppTheme();
   const { loading: authLoading } = useAuth();
-  const [isInitializing, setIsInitializing] = useState(true);
-  
-  // États pour la visibilité des modaux
+  const insets = useSafeAreaInsets();
+  const [refreshing, setRefreshing] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   const [showNotificationModal, setShowNotificationModal] = useState(false);
-  const { openMenu } = useHomeMenu();
-  
-  // Données de démonstration pour les notifications
+  const [showMenu, setShowMenu] = useState(false);
+
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
@@ -60,14 +74,16 @@ export default function HomeScreen() {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  // Simule un temps de chargement initial pour les données de la page
   useEffect(() => {
-    const timer = setTimeout(() => setIsInitializing(false), 1500);
+    const timer = setTimeout(() => setIsReady(true), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Fonctions de gestion des notifications
-  const handleNotificationPress = () => setShowNotificationModal(true);
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 2000);
+  }, []);
+
   const handleMarkAsRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   const handleMarkAllAsRead = () => setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   const handleDeleteNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
@@ -76,48 +92,76 @@ export default function HomeScreen() {
     setShowNotificationModal(false);
   };
 
-  // Affiche le squelette de chargement si l'authentification ou l'initialisation est en cours
-  if (authLoading || isInitializing) {
-    return <HomeScreenSkeleton />;
+  if (!isReady || authLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
       
-      <HomeHeader 
-        onNotificationPress={handleNotificationPress}
-        unreadCount={unreadCount}
-        onMenuPress={openMenu}
-      />
-
-      <ScrollView 
+      <Animated.ScrollView 
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: HEADER_MAX_HEIGHT + 20 }]}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={theme.colors.primary} 
+            progressViewOffset={HEADER_MAX_HEIGHT}
+          />
+        }
       >
-        <View style={styles.sectionContainer}>
-          <SectionHeader title="Services" />
-          <View style={styles.quickActionsContainer}>
-            <QuickActionCard icon="megaphone-outline" label="Annonces" onPress={() => {}} />
-            <QuickActionCard icon="calendar-outline" label="Événements" onPress={() => {}} />
-            <QuickActionCard icon="heart-outline" label="Dons" onPress={() => {}} />
-          </View>
-        </View>
+        <QuickAccessGrid />
+        <NewsFeedWidget />
+        <DailyDevotional />
+        <MinistryGrid />
+        <LiveStreamWidget />
+        <SermonSection />
+        
+        {/* FOOTER DE FIN */}
+        <HomeFooter />
 
-        <View style={styles.sectionContainer}>
-          <SectionHeader title="Dernières Prédications" onSeeAll={() => {}} />
-          <ContentCard 
-            title="Le pouvoir de la foi"
-            subtitle="Pasteur John Doe - 45 min"
-            imageUrl="https://placehold.co/400x400/1E3A8A/FFFFFF?text=Foi"
-          />
-          <ContentCard 
-            title="Marcher dans la lumière"
-            subtitle="Pasteur Jane Smith - 52 min"
-            imageUrl="https://placehold.co/400x400/FBBF24/0F172A?text=Lumière"
-          />
-        </View>
-      </ScrollView>
+        <View style={{ height: 100 }} />
+      </Animated.ScrollView>
+
+      <View style={styles.headerWrapper} pointerEvents="box-none">
+        <HomeHeader
+          onNotificationPress={() => {}}
+          unreadCount={0}
+          onMenuPress={() => {}}
+          scrollY={scrollY}
+        />
+      </View>
+
+      <View style={[styles.floatingButtonsContainer, { top: insets.top + 10 }]}>
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => setShowNotificationModal(true)}
+        >
+          <Ionicons name="notifications-outline" size={26} color={theme.colors.onPrimary} />
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => setShowMenu(true)}
+        >
+          <ModernMenuIcon color={theme.colors.onPrimary} />
+        </TouchableOpacity>
+      </View>
 
       <NotificationModal
         visible={showNotificationModal}
@@ -128,25 +172,62 @@ export default function HomeScreen() {
         onDeleteNotification={handleDeleteNotification}
         onNotificationPress={handleNotificationItemPress}
       />
-      
-    </View>
+
+      <HomeMenuModal
+        isVisible={showMenu}
+        onClose={() => setShowMenu(false)}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { 
+    paddingBottom: 20 
   },
-  scrollContent: {
-    paddingTop: HEADER_MAX_HEIGHT,
-    paddingBottom: 20,
+  headerWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
   },
-  sectionContainer: {
-    marginTop: 20,
-  },
-  quickActionsContainer: {
+  floatingButtonsContainer: {
+    position: 'absolute',
+    right: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
+    alignItems: 'center',
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 22,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#1E3A8A',
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontFamily: 'Nunito_700Bold',
+    textAlign: 'center',
   },
 });

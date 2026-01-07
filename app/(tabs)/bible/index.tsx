@@ -265,7 +265,7 @@ const ExploreAndVerseCard = () => {
                     </View>
 
                     <TouchableOpacity
-                        onPress={() => router.navigate('BibleRecherche' as never)}
+                        onPress={() => router.push('/bible/search')}
                         activeOpacity={0.8}
                         style={{
                             backgroundColor: INPUT_BG,
@@ -466,7 +466,7 @@ return (
     <CardShell gradient>
       {/* PART 1: Lien vers le lecteur */}
       <TouchableOpacity
-        onPress={() => router.push('/(tabs)/bible/reader') as never}
+        onPress={() => router.push('/bible/reader')}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
@@ -646,7 +646,7 @@ const MeditationProgressCard = () => {
     <CardShell gradient>
       {/* PART 1: Lien vers les méditations */}
       <TouchableOpacity
-        onPress={() => router.push('/(tabs)/bible/meditation') as never}
+        onPress={() => router.push('/bible/meditation')}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
@@ -830,7 +830,7 @@ const LearningProgressCard = () => {
     <CardShell gradient>
       {/* PART 1: Lien vers les cours */}
       <TouchableOpacity
-        onPress={() => router.navigate('BibleLearning' as never)}
+        onPress={() => router.push('/bible/learning')}
         activeOpacity={0.85}
         style={{
           flexDirection: 'row',
@@ -1112,7 +1112,7 @@ export default function BibleHomeScreen() {
     icon="message-circle"
     title="Paroles d’encouragement"
     description="Des lectures brèves qui relèvent quand c’est lourd."
-    onPress={() => handleSoon('Paroles d’encouragement')}
+    onPress={() => router.push('/bible/encouragement')}
     gradient
   />
 
@@ -1120,7 +1120,7 @@ export default function BibleHomeScreen() {
     icon="users"
     title="Méditer à deux, trois ou plusieurs"
     description={"Partagez des passages et priez ensemble en ligne comme si c'était en présentiel."}
-    onPress={() => handleSoon('Méditation communautaire')}
+    onPress={() => router.push('/bible/community')}
     gradient
   />
 </View>
@@ -1139,7 +1139,7 @@ export default function BibleHomeScreen() {
             icon="calendar"
             title="Découvrir les plans"
             description="Activez un plan pour suivre jours, chapitres et pourcentage de progression."
-            onPress={() => router.navigate('BiblePlan' as never)}
+            onPress={() => router.push('/bible/plan')}
             gradient
           />
         </View>

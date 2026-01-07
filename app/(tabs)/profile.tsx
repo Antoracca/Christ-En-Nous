@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { 
-  View, Text, StyleSheet, ActivityIndicator, Alert, 
+import {
+  View, Text, StyleSheet, ActivityIndicator, Alert,
   TouchableOpacity, ScrollView, SafeAreaView, RefreshControl,
   StatusBar, Platform
 } from 'react-native';
@@ -369,4 +369,3 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-

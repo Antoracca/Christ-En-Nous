@@ -58,7 +58,7 @@ const AnimatedTab = ({
 }: {
   isFocused: boolean;
   onPress: () => void;
-  iconName: string;
+  iconName: React.ComponentProps<typeof Feather | typeof FontAwesome5>['name'];
   iconType: 'feather' | 'fontawesome5';
   label: string;
 }) => {
@@ -116,7 +116,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   const tabConfig = [
     { route: 'bible', icon: 'book-open', label: 'Bible', type: 'feather' as const },
     { route: 'courses', icon: 'award', label: 'Cours', type: 'feather' as const },
-    { route: 'index', icon: 'grid', label: 'Accueil', type: 'feather' as const },
+    { route: 'index', icon: 'home', label: 'Accueil', type: 'feather' as const },
     { route: 'prayer', icon: 'praying-hands', label: 'Prières', type: 'fontawesome5' as const },
     { route: 'profile', icon: 'user', label: 'Profil', type: 'feather' as const },
   ];
@@ -168,7 +168,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                     navigation.navigate(route.name);
                   }
                 }}
-                iconName={config.icon}
+                iconName={config.icon as any}
                 iconType={config.type}
                 label={config.label}
               />

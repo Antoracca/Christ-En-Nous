@@ -37,20 +37,7 @@ export default function BibleVersionSelectorScreen() {
     updateSettings
   } = useBible();
 
-  // Configurer le style du header
-  // TODO: Use Stack.Screen options in _layout.tsx instead of router.setOptions
-  // React.useEffect(() => {
-  //   router.setOptions({
-  //     headerTintColor: theme.colors.primary,
-  //     headerStyle: {
-  //       backgroundColor: theme.colors.background,
-  //     },
-  //     headerTitleStyle: {
-  //       fontFamily: 'Nunito_700Bold',
-  //       color: theme.custom.colors.text,
-  //     },
-  //   });
-  // }, [theme]);
+  // Header styling configured in parent layout
 
   const [loading, setLoading] = useState(true);
   const [changingVersion, setChangingVersion] = useState<string | null>(null);

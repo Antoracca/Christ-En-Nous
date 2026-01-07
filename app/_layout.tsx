@@ -2,7 +2,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import 'react-native-reanimated';
-import { View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { useFonts, Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import * as SplashScreen from 'expo-splash-screen';
 import { ThemeProvider } from './context/ThemeContext';
@@ -10,8 +10,8 @@ import { ResponsiveProvider } from './context/ResponsiveContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { EnhancedBibleProvider } from './context/EnhancedBibleContext';
 import { ReadingSettingsProvider } from './context/ReadingSettingsContext';
-import { HomeMenuProvider } from './context/HomeMenuContext';
 import UniversalSplashScreen from './components/UniversalSplashScreen';
+import { Provider as PaperProvider } from 'react-native-paper';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -83,30 +83,34 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
   return (
-    <ThemeProvider>
-      <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-        {isSplashAnimationFinished ? (
-          <ResponsiveProvider>
-            <AuthProvider>
-              <EnhancedBibleProvider>
-                <ReadingSettingsProvider>
-                  <HomeMenuProvider>
+    <PaperProvider>
+      <ThemeProvider>
+        <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+          {isSplashAnimationFinished ? (
+            <ResponsiveProvider>
+              <AuthProvider>
+                <EnhancedBibleProvider>
+                  <ReadingSettingsProvider>
                     <RootLayoutNav />
-                  </HomeMenuProvider>
-                </ReadingSettingsProvider>
-              </EnhancedBibleProvider>
-            </AuthProvider>
-          </ResponsiveProvider>
-        ) : (
-          <UniversalSplashScreen
-            onAnimationEnd={() => setIsSplashAnimationFinished(true)}
-          />
-        )}
-      </View>
-    </ThemeProvider>
+                  </ReadingSettingsProvider>
+                </EnhancedBibleProvider>
+              </AuthProvider>
+            </ResponsiveProvider>
+          ) : (
+            <UniversalSplashScreen
+              onAnimationEnd={() => setIsSplashAnimationFinished(true)}
+            />
+          )}
+        </View>
+      </ThemeProvider>
+    </PaperProvider>
   );
 }

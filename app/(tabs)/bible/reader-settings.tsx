@@ -198,8 +198,8 @@ const BibleReaderSettingsScreen = () => {
                   maximumValue={28}
                   step={1}
                   onValueChange={setFontSize}
-                  onSlidingComplete={(value) => {
-                    const v = Math.round((value as number) || 16);
+                  onSlidingComplete={(value: number) => {
+                    const v = Math.round(value || 16);
                     setFontSize(v);
                     safeApply({ fontSize: v });
                   }}
@@ -238,8 +238,8 @@ const BibleReaderSettingsScreen = () => {
                   maximumValue={2.0}
                   step={0.1}
                   onValueChange={setLineHeight}
-                  onSlidingComplete={(value) => {
-                    const v = Math.round(((value as number) || 1.6) * 10) / 10;
+                  onSlidingComplete={(value: number) => {
+                    const v = Math.round((value || 1.6) * 10) / 10;
                     setLineHeight(v);
                     safeApply({ lineHeight: v });
                   }}
