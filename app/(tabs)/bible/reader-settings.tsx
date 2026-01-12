@@ -7,40 +7,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useResponsiveSafe } from '@/context/ResponsiveContext';
 import { useBible } from '@/context/EnhancedBibleContext';
-
-/* -------------------------------------------------------------------------- */
-/*                               TYPE ASSIST (TS)                             */
-/* -------------------------------------------------------------------------- */
-// On caste légèrement l'API du contexte pour éviter de casser le build
-// si "settings"/"updateSettings" ne sont pas encore exposés.
-// Remplace par tes vrais types quand prêts.
-
-type FontChoice = 'default' | 'serif' | 'mono';
-
-type BibleSettingsApi = {
-  currentVersion?: { name?: string } | null;
-  settings?: {
-    reader?: {
-      fontSize?: number;
-      lineHeight?: number;
-      fontFamily?: FontChoice;
-    };
-  };
-  updateSettings?: (partial: {
-    reader?: Partial<{
-      fontSize: number;
-      lineHeight: number;
-      fontFamily: FontChoice;
-    }>;
-  }) => void;
-};
 
 /* -------------------------------------------------------------------------- */
 /*                               MAIN COMPONENT                               */
@@ -49,64 +22,51 @@ type BibleSettingsApi = {
 const BibleReaderSettingsScreen = () => {
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
-  const bible = useBible() as unknown as BibleSettingsApi; // voir le type ci-dessus
+  const { settings, updateSettings, currentVersion } = useBible(); 
   const tabBarHeight = useBottomTabBarHeight();
 
-  // Source of truth (SI dispo) => settings du contexte
-  const ctxFontSize = bible.settings?.reader?.fontSize ?? 16;
-  const ctxLineHeight = bible.settings?.reader?.lineHeight ?? 1.6;
-  const ctxFontFamily = bible.settings?.reader?.fontFamily ?? 'default';
+  // Initialisation unique
+  const initialSettings = useRef({
+      fontSize: settings.fontSize || 16,
+      lineHeight: settings.lineHeight || 1.6,
+      fontFamily: settings.fontFamily || 'default'
+  }).current;
 
-  // État local pour prévisualiser sans spammer le contexte (anti-scintillement)
-  const [fontSize, setFontSize] = useState<number>(ctxFontSize);
-  const [lineHeight, setLineHeight] = useState<number>(ctxLineHeight);
-  const [fontFamily, setFontFamily] = useState<FontChoice>(ctxFontFamily);
+  // État local
+  const [fontSize, setFontSize] = useState<number>(initialSettings.fontSize);
+  const [lineHeight, setLineHeight] = useState<number>(initialSettings.lineHeight);
+  const [fontFamily, setFontFamily] = useState<string>(initialSettings.fontFamily);
 
-  // Debounce léger sur l'application contextuelle
-  const applyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const safeApply = (payload: Partial<{ fontSize: number; lineHeight: number; fontFamily: FontChoice }>) => {
-    if (applyTimer.current) clearTimeout(applyTimer.current);
-    applyTimer.current = setTimeout(() => {
-      bible.updateSettings?.({ reader: payload });
-    }, 120);
-  };
-
-  const getCurrentVersionName = () => {
-    if (bible.currentVersion && typeof bible.currentVersion === 'object' && bible.currentVersion.name) {
-      return bible.currentVersion.name;
-    }
-    return 'Bible J.N. Darby';
+  const handleApply = () => {
+      updateSettings({ fontSize, lineHeight, fontFamily });
+      Alert.alert("Succès", "Paramètres de lecture appliqués.");
   };
 
   const handleFontFamilyChange = () => {
-    const fontOptions: FontChoice[] = ['default', 'serif', 'mono'];
+    const fontOptions = ['default', 'serif', 'mono'];
     const currentIndex = fontOptions.indexOf(fontFamily);
     const nextIndex = (currentIndex + 1) % fontOptions.length;
     const next = fontOptions[nextIndex];
     setFontFamily(next);
-    safeApply({ fontFamily: next });
   };
 
   const previewFontFamily = useMemo(() => {
     switch (fontFamily) {
-      case 'serif':
-        return 'Times New Roman';
-      case 'mono':
-        return 'Courier New';
-      default:
-        return 'Nunito_400Regular';
+      case 'serif': return 'Times New Roman';
+      case 'mono': return 'Courier New';
+      default: return 'Nunito_400Regular';
     }
   }, [fontFamily]);
 
   const SettingItem: React.FC<{
     title: string;
     subtitle?: string;
-    icon: keyof typeof Feather.glyphMap | string;
+    icon: keyof typeof Feather.glyphMap;
     children: React.ReactNode;
   }> = ({ title, subtitle, icon, children }) => (
     <View style={[styles.settingItem, { backgroundColor: theme.colors.surface }]}> 
       <View style={styles.settingHeader}>
-        <Feather name={icon as any} size={20} color={theme.colors.primary} />
+        <Feather name={icon} size={20} color={theme.colors.primary} />
         <View style={styles.settingTitles}>
           <Text style={[styles.settingTitle, { color: theme.custom.colors.text }]}>
             {title}
@@ -120,6 +80,21 @@ const BibleReaderSettingsScreen = () => {
       </View>
       <View style={styles.settingContent}>{children}</View>
     </View>
+  );
+
+  // Composant Stepper interne
+  const Stepper = ({ value, onDecrease, onIncrease, format }: any) => (
+      <View style={[styles.stepperContainer, { borderColor: theme.custom.colors.border }]}>
+          <TouchableOpacity onPress={onDecrease} style={styles.stepperBtn} activeOpacity={0.7}>
+              <Feather name="minus" size={20} color={theme.colors.onSurface} />
+          </TouchableOpacity>
+          <View style={[styles.stepperValueContainer, { borderLeftColor: theme.custom.colors.border, borderRightColor: theme.custom.colors.border }]}>
+              <Text style={[styles.stepperValue, { color: theme.colors.primary }]}>{format ? format(value) : value}</Text>
+          </View>
+          <TouchableOpacity onPress={onIncrease} style={styles.stepperBtn} activeOpacity={0.7}>
+              <Feather name="plus" size={20} color={theme.colors.onSurface} />
+          </TouchableOpacity>
+      </View>
   );
 
   return (
@@ -142,39 +117,34 @@ const BibleReaderSettingsScreen = () => {
             },
           ]}
         >
-          {/* -------------------------------- Mode lecture (placeholder) -------------------------------- */}
+          {/* -------------------------------- Mode lecture -------------------------------- */}
           <SettingItem
             title="Mode lecture"
-            subtitle="Lecture immersive : masquage de l'interface, défilement auto, mode nuit intelligent. (Pas de réglage de luminosité ici)"
+            subtitle="Lecture immersive : masquage de l'interface."
             icon="eye"
           >
             <View style={[styles.ghostBadge, { borderColor: theme.custom.colors.border }]}>
-              <Text style={[styles.ghostText, { color: theme.custom.colors.placeholder }]}>Fonctionnalité à venir</Text>
+              <Text style={[styles.ghostText, { color: theme.custom.colors.placeholder }]}>Bientôt disponible</Text>
             </View>
           </SettingItem>
 
-          {/* -------------------------------- Police de caractères -------------------------------- */}
+          {/* -------------------------------- Police -------------------------------- */}
           <SettingItem
             title="Police de caractères"
-            subtitle={`Actuellement : ${
-              fontFamily === 'default'
-                ? 'Nunito (Sans-Serif)'
-                : fontFamily === 'serif'
-                ? 'Times New Roman (Serif)'
-                : 'Courier New (Monospace)'
+            subtitle={`Actuellement : ${ 
+              fontFamily === 'default' ? 'Nunito' : fontFamily === 'serif' ? 'Serif' : 'Monospace'
             }`}
-            icon="font"
+            icon="type"
           >
             <TouchableOpacity
               onPress={handleFontFamilyChange}
-              style={[styles.actionChip, { borderColor: theme.colors.primary }]}
-            >
+              style={[styles.actionChip, { borderColor: theme.colors.primary }]}            >
               <Text style={[styles.actionChipText, { color: theme.colors.primary }]}>Changer</Text>
             </TouchableOpacity>
           </SettingItem>
 
-          {/* -------------------------------- Taille du texte -------------------------------- */}
-          <SettingItem title="Taille du texte" subtitle={`${fontSize}px`} icon="type">
+          {/* -------------------------------- Taille (STEPPER) -------------------------------- */}
+          <SettingItem title="Taille du texte" subtitle={`${fontSize}px`} icon="maximize-2">
             <View style={styles.sliderWithPreviewContainer}>
               <View style={[styles.textPreview, { borderColor: theme.custom.colors.border }]}> 
                 <Text
@@ -189,30 +159,16 @@ const BibleReaderSettingsScreen = () => {
                 </Text>
               </View>
 
-              <View style={styles.sliderContainer}>
-                <Text style={[styles.sliderLabel, { color: theme.custom.colors.placeholder }]}>12</Text>
-                <Slider
-                  style={styles.slider}
-                  value={fontSize}
-                  minimumValue={12}
-                  maximumValue={28}
-                  step={1}
-                  onValueChange={setFontSize}
-                  onSlidingComplete={(value: number) => {
-                    const v = Math.round(value || 16);
-                    setFontSize(v);
-                    safeApply({ fontSize: v });
-                  }}
-                  minimumTrackTintColor={theme.colors.primary}
-                  maximumTrackTintColor={theme.custom.colors.border}
-                  thumbTintColor={theme.colors.primary}
-                />
-                <Text style={[styles.sliderLabel, { color: theme.custom.colors.placeholder }]}>28</Text>
-              </View>
+              <Stepper 
+                  value={fontSize} 
+                  onDecrease={() => setFontSize(Math.max(12, fontSize - 1))}
+                  onIncrease={() => setFontSize(Math.min(32, fontSize + 1))}
+                  format={(v: number) => `${v} px`}
+              />
             </View>
           </SettingItem>
 
-          {/* -------------------------------- Interligne -------------------------------- */}
+          {/* -------------------------------- Interligne (STEPPER) -------------------------------- */}
           <SettingItem title="Interligne" subtitle={`${lineHeight.toFixed(1)}`} icon="align-justify">
             <View style={styles.sliderWithPreviewContainer}>
               <View style={[styles.textPreview, { borderColor: theme.custom.colors.border }]}> 
@@ -229,86 +185,36 @@ const BibleReaderSettingsScreen = () => {
                 </Text>
               </View>
 
-              <View style={styles.sliderContainer}>
-                <Text style={[styles.sliderLabel, { color: theme.custom.colors.placeholder }]}>1.0</Text>
-                <Slider
-                  style={styles.slider}
-                  value={lineHeight}
-                  minimumValue={1.0}
-                  maximumValue={2.0}
-                  step={0.1}
-                  onValueChange={setLineHeight}
-                  onSlidingComplete={(value: number) => {
-                    const v = Math.round((value || 1.6) * 10) / 10;
-                    setLineHeight(v);
-                    safeApply({ lineHeight: v });
-                  }}
-                  minimumTrackTintColor={theme.colors.primary}
-                  maximumTrackTintColor={theme.custom.colors.border}
-                  thumbTintColor={theme.colors.primary}
-                />
-                <Text style={[styles.sliderLabel, { color: theme.custom.colors.placeholder }]}>2.0</Text>
-              </View>
+              <Stepper 
+                  value={lineHeight} 
+                  onDecrease={() => setLineHeight(Math.max(1.0, Number((lineHeight - 0.1).toFixed(1))))}
+                  onIncrease={() => setLineHeight(Math.min(2.5, Number((lineHeight + 0.1).toFixed(1))))}
+                  format={(v: number) => v.toFixed(1)}
+              />
             </View>
           </SettingItem>
 
-          {/* -------------------------------- Fonctionnalités à venir -------------------------------- */}
-          <Text style={[styles.sectionTitle, { color: theme.custom.colors.text, marginTop: 32, marginBottom: 16 }]}>Fonctionnalités à venir</Text>
-
-          <SettingItem
-            title="Annotations et surlignage"
-            subtitle="Surligner des versets, ajouter des notes perso, collections thématiques"
-            icon="edit-3"
-          >
-            <View style={[styles.ghostBadge, { borderColor: theme.custom.colors.border }]}> 
-              <Text style={[styles.ghostText, { color: theme.custom.colors.placeholder }]}>À venir bientôt</Text>
-            </View>
-          </SettingItem>
-
-          <SettingItem
-            title="Plans de lecture"
-            subtitle="Guides quotidiens, chronologique, thèmes spécifiques, suivi"
-            icon="calendar"
-          >
-            <View style={[styles.ghostBadge, { borderColor: theme.custom.colors.border }]}> 
-              <Text style={[styles.ghostText, { color: theme.custom.colors.placeholder }]}>À venir bientôt</Text>
-            </View>
-          </SettingItem>
-
-          <SettingItem
-            title="Audio et prononciation"
-            subtitle="Lecture audio des versets, noms bibliques"
-            icon="headphones"
-          >
-            <View style={[styles.ghostBadge, { borderColor: theme.custom.colors.border }]}> 
-              <Text style={[styles.ghostText, { color: theme.custom.colors.placeholder }]}>À venir bientôt</Text>
-            </View>
-          </SettingItem>
-
-          {/* -------------------------------- Version courant -------------------------------- */}
+          {/* -------------------------------- Version de la Bible -------------------------------- */}
           <SettingItem title="Version de la Bible" subtitle="Version actuellement utilisée" icon="book">
             <Text style={[styles.versionName, { color: theme.colors.primary }]}>{getCurrentVersionName()}</Text>
           </SettingItem>
 
           {/* -------------------------------- Actions -------------------------------- */}
-          <View style={styles.actionsRow}>
+          <View style={[styles.actionsRow, { marginBottom: 40 }]}> 
             <TouchableOpacity
-              style={[styles.secondaryBtn, { borderColor: theme.custom.colors.border }]}
-              onPress={() => {
+              style={[styles.secondaryBtn, { borderColor: theme.custom.colors.border }]}              onPress={() => {
                 setFontSize(16);
                 setLineHeight(1.6);
                 setFontFamily('default');
-                bible.updateSettings?.({ reader: { fontSize: 16, lineHeight: 1.6, fontFamily: 'default' } });
+                updateSettings({ fontSize: 16, lineHeight: 1.6, fontFamily: 'default' });
+                Alert.alert("Info", "Paramètres réinitialisés par défaut.");
               }}
             >
               <Text style={[styles.secondaryBtnText, { color: theme.custom.colors.text }]}>Réinitialiser</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.primaryBtn, { backgroundColor: theme.colors.primary }]}
-              onPress={() => {
-                bible.updateSettings?.({ reader: { fontSize, lineHeight, fontFamily } });
-              }}
+              style={[styles.primaryBtn, { backgroundColor: theme.colors.primary }]}              onPress={handleApply}
             >
               <Text style={styles.primaryBtnText}>Appliquer</Text>
             </TouchableOpacity>
@@ -319,9 +225,8 @@ const BibleReaderSettingsScreen = () => {
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/*                                    CSS                                     */
-/* -------------------------------------------------------------------------- */
+// Fonction helper pour le nom de version si manquant
+const getCurrentVersionName = () => 'Bible J.N. Darby'; // Placeholder simple
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -344,9 +249,32 @@ const styles = StyleSheet.create({
   settingSubtitle: { fontSize: 13, fontFamily: 'Nunito_400Regular', marginTop: 2 },
   settingContent: { marginTop: 8 },
 
-  sliderContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  slider: { flex: 1, marginHorizontal: 12 },
-  sliderLabel: { fontSize: 12, fontFamily: 'Nunito_400Regular', minWidth: 30, textAlign: 'center' },
+  // STEPPER STYLES
+  stepperContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: 12,
+      height: 48,
+      marginTop: 8,
+      overflow: 'hidden'
+  },
+  stepperBtn: {
+      width: 50,
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.02)'
+  },
+  stepperValueContainer: {
+      flex: 1,
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+  },
+  stepperValue: { fontSize: 16, fontFamily: 'Nunito_800ExtraBold' },
 
   actionChip: {
     paddingHorizontal: 14,
@@ -375,10 +303,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  sectionTitle: { fontSize: 18, fontFamily: 'Nunito_700Bold', marginLeft: 4 },
   versionName: { fontSize: 14, fontFamily: 'Nunito_600SemiBold', textAlign: 'right' },
 
-  actionsRow: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
+  actionsRow: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 32 },
   secondaryBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   secondaryBtnText: { fontSize: 14, fontFamily: 'Nunito_600SemiBold' },
   primaryBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },

@@ -1,3 +1,6 @@
+// app/(tabs)/bible/settings.tsx
+// Refonte V2 Premium : Design unifié avec le reste de l'app.
+
 import React from 'react';
 import {
   View,
@@ -12,6 +15,53 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
+import { progress } from '@/services/bible/tracking/progressTracking';
+
+const SettingCard = ({ title, icon, color, children, theme }: any) => (
+  <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline + '10' }]}>
+    <View style={styles.cardHeader}>
+      <View style={[styles.iconBox, { backgroundColor: color + '15' }]}>
+        <Feather name={icon} size={18} color={color} />
+      </View>
+      <Text style={[styles.cardTitle, { color: theme.custom.colors.text }]}>{title}</Text>
+    </View>
+    <View style={styles.cardContent}>
+      {children}
+    </View>
+  </View>
+);
+
+const SettingRow = ({ label, sublabel, icon, onPress, theme }: any) => (
+  <TouchableOpacity 
+    style={[styles.row, { borderBottomColor: theme.colors.outline + '10' }]} 
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={styles.rowLeft}>
+      {icon && <Feather name={icon} size={20} color={theme.custom.colors.placeholder} style={{marginRight: 12}} />}
+      <View>
+        <Text style={[styles.rowLabel, { color: theme.custom.colors.text }]}>{label}</Text>
+        {sublabel && <Text style={[styles.rowSublabel, { color: theme.custom.colors.placeholder }]}>{sublabel}</Text>}
+      </View>
+    </View>
+    <Feather name="chevron-right" size={20} color={theme.custom.colors.placeholder} />
+  </TouchableOpacity>
+);
+
+const SwitchRow = ({ label, value, onValueChange, icon, color, theme }: any) => (
+  <View style={[styles.row, { borderBottomColor: theme.colors.outline + '10' }]}>
+    <View style={styles.rowLeft}>
+      <MaterialCommunityIcons name={icon} size={22} color={value ? color : theme.custom.colors.placeholder} style={{marginRight: 12}} />
+      <Text style={[styles.rowLabel, { color: theme.custom.colors.text }]}>{label}</Text>
+    </View>
+    <Switch
+      value={value}
+      onValueChange={onValueChange}
+      trackColor={{ false: theme.colors.outline + '40', true: color + '50' }}
+      thumbColor={value ? color : '#f4f3f4'}
+    />
+  </View>
+);
 
 export default function BibleSettingsScreen() {
   const theme = useAppTheme();
@@ -22,16 +72,19 @@ export default function BibleSettingsScreen() {
     updateSettings({ [key]: !settings[key] });
   };
 
-  const handleDeleteData = () => {
+  const handleReset = () => {
     Alert.alert(
       'Zone dangereuse',
-      'Voulez-vous vraiment réinitialiser toutes vos données de lecture ?',
+      'Voulez-vous vraiment réinitialiser TOUTES vos données (lecture, temps, historique) ?',
       [
         { text: 'Annuler', style: 'cancel' },
         { 
-          text: 'Supprimer', 
+          text: 'Tout effacer', 
           style: 'destructive',
-          onPress: () => Alert.alert('Non implémenté', 'Fonctionnalité de sécurité désactivée pour la démo') 
+          onPress: async () => {
+             await progress.resetAll();
+             Alert.alert("Succès", "Toutes les données ont été effacées.");
+          }
         }
       ]
     );
@@ -39,88 +92,74 @@ export default function BibleSettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         
-        {/* Section Lecture */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Lecture</Text>
-          
-          <TouchableOpacity 
-            style={[styles.row, { backgroundColor: theme.colors.surface }]}
+        {/* Section Apparence */}
+        <SettingCard title="Apparence & Lecture" icon="eye" color={theme.colors.primary} theme={theme}>
+          <SettingRow 
+            label="Préférences de lecture" 
+            sublabel="Police, taille, interligne"
+            icon="type"
             onPress={() => router.push('/bible/reader-settings')}
-          >
-            <View style={styles.rowLeft}>
-              <Feather name="type" size={20} color={theme.colors.onSurface} />
-              <Text style={[styles.rowLabel, { color: theme.colors.onSurface }]}>Apparence du texte</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.row, { backgroundColor: theme.colors.surface }]}
+            theme={theme}
+          />
+          <SettingRow 
+            label="Version de la Bible" 
+            sublabel="Choisir une traduction"
+            icon="book"
             onPress={() => router.push('/bible/version-selector')}
-          >
-            <View style={styles.rowLeft}>
-              <Feather name="book" size={20} color={theme.colors.onSurface} />
-              <Text style={[styles.rowLabel, { color: theme.colors.onSurface }]}>Version de la Bible</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
+            theme={theme}
+          />
+        </SettingCard>
 
         {/* Section Options */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Options d'affichage</Text>
-          
-          <View style={[styles.row, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.rowLeft}>
-              <MaterialCommunityIcons name="format-list-numbered" size={20} color={theme.colors.onSurface} />
-              <Text style={[styles.rowLabel, { color: theme.colors.onSurface }]}>Numéros de versets</Text>
-            </View>
-            <Switch
-              value={settings.verseNumbers}
-              onValueChange={() => toggleSwitch('verseNumbers')}
-              trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
-            />
-          </View>
+        <SettingCard title="Options d'affichage" icon="sliders" color={theme.colors.secondary} theme={theme}>
+          <SwitchRow 
+            label="Numéros de versets" 
+            value={settings.verseNumbers}
+            onValueChange={() => toggleSwitch('verseNumbers')}
+            icon="format-list-numbered"
+            color={theme.colors.secondary}
+            theme={theme}
+          />
+          <SwitchRow 
+            label="Paroles de Jésus en rouge" 
+            value={settings.redLetters}
+            onValueChange={() => toggleSwitch('redLetters')}
+            icon="format-color-text"
+            color={theme.colors.error}
+            theme={theme}
+          />
+        </SettingCard>
 
-          <View style={[styles.row, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.rowLeft}>
-              <MaterialCommunityIcons name="format-color-text" size={20} color={theme.colors.error} />
-              <Text style={[styles.rowLabel, { color: theme.colors.onSurface }]}>Paroles de Jésus en rouge</Text>
-            </View>
-            <Switch
-              value={settings.redLetters}
-              onValueChange={() => toggleSwitch('redLetters')}
-              trackColor={{ false: theme.colors.outline, true: theme.colors.primary }}
-            />
-          </View>
-        </View>
-
-        {/* Section Stats */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.primary }]}>Statistiques</Text>
-          <View style={[styles.statsCard, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{userProgress.chaptersRead}</Text>
-              <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>Chapitres lus</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.colors.outline }]} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.colors.onSurface }]}>{userProgress.consecutiveDays}</Text>
-              <Text style={[styles.statLabel, { color: theme.colors.onSurfaceVariant }]}>Jours consécutifs</Text>
-            </View>
-          </View>
-        </View>
+        {/* Section Stats Rapides */}
+        <SettingCard title="Aperçu des Stats" icon="bar-chart-2" color={theme.colors.tertiary} theme={theme}>
+           <View style={styles.statsContainer}>
+               <View style={styles.statItem}>
+                   <Text style={[styles.statValue, { color: theme.colors.tertiary }]}>{userProgress.chaptersRead}</Text>
+                   <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Chapitres</Text>
+               </View>
+               <View style={[styles.verticalDivider, { backgroundColor: theme.colors.outline + '20' }]} />
+               <View style={styles.statItem}>
+                   <Text style={[styles.statValue, { color: theme.colors.tertiary }]}>{userProgress.consecutiveDays}</Text>
+                   <Text style={[styles.statLabel, { color: theme.custom.colors.placeholder }]}>Jours streak</Text>
+               </View>
+           </View>
+        </SettingCard>
 
         {/* Zone Danger */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.dangerButton} onPress={handleDeleteData}>
-            <Feather name="trash-2" size={20} color={theme.colors.error} />
-            <Text style={[styles.dangerText, { color: theme.colors.error }]}>Réinitialiser les données</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity 
+            style={[styles.dangerButton, { backgroundColor: theme.colors.error + '10', borderColor: theme.colors.error + '30' }]}
+            onPress={handleReset}
+            activeOpacity={0.8}
+        >
+            <Feather name="trash-2" size={18} color={theme.colors.error} />
+            <Text style={[styles.dangerText, { color: theme.colors.error }]}>Réinitialiser toutes les données</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.versionText, { color: theme.custom.colors.placeholder }]}>
+            Christ-En-Nous Bible v1.0 • Synchronisation Cloud Active
+        </Text>
 
       </ScrollView>
     </View>
@@ -129,67 +168,94 @@ export default function BibleSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
-    padding: 20,
+  content: { padding: 20, paddingBottom: 40 },
+
+  card: {
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 24,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
-  section: {
-    marginBottom: 32,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingBottom: 12,
+    gap: 12
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontFamily: 'Nunito_700Bold',
-    textTransform: 'uppercase',
-    marginBottom: 12,
-    marginLeft: 12,
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  cardTitle: {
+    fontSize: 16,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  cardContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 8
+  },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
   },
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    flex: 1
   },
   rowLabel: {
-    fontSize: 16,
-    fontFamily: 'Nunito_600SemiBold',
+    fontSize: 15,
+    fontFamily: 'Nunito_700Bold',
   },
-  statsCard: {
-    flexDirection: 'row',
-    padding: 20,
-    borderRadius: 16,
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontFamily: 'Nunito_800ExtraBold',
-  },
-  statLabel: {
+  rowSublabel: {
     fontSize: 12,
-    fontFamily: 'Nunito_600SemiBold',
-    marginTop: 4,
+    fontFamily: 'Nunito_500Medium',
+    marginTop: 2
   },
-  statDivider: {
-    width: 1,
-    height: '80%',
+
+  statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingVertical: 12,
+      alignItems: 'center'
   },
+  statItem: { alignItems: 'center' },
+  statValue: { fontSize: 24, fontFamily: 'Nunito_900Black' },
+  statLabel: { fontSize: 12, fontFamily: 'Nunito_600SemiBold' },
+  verticalDivider: { width: 1, height: 30 },
+
   dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 16
   },
   dangerText: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Nunito_700Bold',
   },
+  versionText: {
+      textAlign: 'center',
+      fontSize: 11,
+      fontFamily: 'Nunito_500Medium',
+      opacity: 0.5
+  }
 });

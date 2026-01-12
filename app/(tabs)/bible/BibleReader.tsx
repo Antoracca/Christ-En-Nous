@@ -46,10 +46,26 @@ export default function BibleReader({
     goToPreviousChapter,
     loading,
     error,
+    settings, // ✅ Récupération des settings
   } = useBible();
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [highlightedVerse, setHighlightedVerse] = useState<number | null>(null);
+
+  // Mappage des polices
+  const getFontFamily = (settingFont: string) => {
+      switch (settingFont) {
+          case 'serif': return 'Times New Roman'; // ou police serif dispo
+          case 'mono': return 'Courier New';
+          default: return 'Nunito_400Regular';
+      }
+  };
+
+  const textStyle = {
+      fontSize: settings.fontSize || 16,
+      lineHeight: (settings.fontSize || 16) * (settings.lineHeight || 1.6),
+      fontFamily: getFontFamily(settings.fontFamily || 'default'),
+  };
 
   const scrollViewRef = useRef<ScrollView>(null);
   const highlightAnimation = useRef(new Animated.Value(0)).current;
@@ -388,6 +404,7 @@ export default function BibleReader({
                   <Text
                     style={[
                       styles.verseText,
+                      textStyle, // ✅ Application des styles dynamiques
                       { color: theme.custom.colors.text, fontWeight: isHighlighted ? '600' : 'normal' },
                     ]}
                   >
