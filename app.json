@@ -1,13 +1,15 @@
 {
   "expo": {
-    "name": " ",
-    "slug": "Christ En Nous",
+    "name": "Christ En Nous",
+    "slug": "christ-en-nous",
     "version": "1.0.0",
-    "orientation": "default",
-    "icon": "./assets/images/image1.png",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "christennous",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    
+
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -15,20 +17,23 @@
         "CFBundleDisplayName": "Christ En Nous"
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.christennous",
-      "supportsTablet": true
+      "package": "com.anonymous.christennous"
+      
     },
+
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -51,16 +56,21 @@
         {
           "faceIDPermission": "Allow Christ En Nous to use Face ID for secure authentication."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-web-browser"
     ],
+
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": false
     },
+
     "extra": {
       "eas": {
         "projectId": "5104b94d-a5c8-4754-b8b3-b548bf72e3fe"
       }
     },
+
     "owner": "koueni12"
   }
 }

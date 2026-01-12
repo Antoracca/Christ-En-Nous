@@ -1,0 +1,235 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // RÈGLES POUR LES TOKENS DE VÉRIFICATION
+    // =====================================================================
+    match /verification_tokens/{tokenId} {
+      // Lecture par tous les utilisateurs authentifiés
+      allow read: if request.auth != null;
+
+      // Mise à jour uniquement pour marquer comme utilisé
+      allow update: if request.auth != null
+        && resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.keys().hasAll(['used', 'usedAt', 'token', 'email', 'userId', 'createdAt', 'expiresAt', 'id'])
+        && request.resource.data.token == resource.data.token
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.userId == resource.data.userId;
+
+      // Création et suppression uniquement via backend
+      allow create, delete: if false;
+    }
+
+    // =====================================================================
+    // RÈGLES POUR LES PROFILS UTILISATEURS
+    // =====================================================================
+    match /users/{userId} {
+      // Lecture publique des profils
+      allow read: if true;
+
+      // Création et suppression par le propriétaire non-anonyme
+      allow create, delete: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+
+      // Mise à jour
+      allow update: if request.auth != null && (
+        // Propriétaire non-anonyme peut tout modifier
+        (request.auth.uid == userId && request.auth.token.firebase.sign_in_provider != 'anonymous')
+        ||
+        // Utilisateur anonyme peut uniquement mettre à jour emailVerified
+        (request.auth.token.firebase.sign_in_provider == 'anonymous'
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emailVerified', 'emailVerifiedAt', 'lastUpdated'])
+         && request.resource.data.emailVerified == true)
+      );
+
+      // ===================================================================
+      // SOUS-COLLECTIONS BIBLE
+      // ===================================================================
+      match /bibleTracking/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /bibleBookmarks/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /bibleHighlights/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /bibleSettings/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /bibleProgress/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /bibleLastPosition/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // ===================================================================
+      // SOUS-COLLECTIONS MUSIC
+      // ===================================================================
+      match /musicFavorites/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /musicPlaylists/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /musicHistory/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      // ===================================================================
+      // SOUS-COLLECTIONS AUTRES FONCTIONNALITÉS
+      // ===================================================================
+      match /meditation/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /readingPlans/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /community/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /learning/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /inspiration/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /spiritualStrength/{document=**} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+
+      match /private_data/{docId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+    }
+
+    // =====================================================================
+    // RÈGLES POUR LES SESSIONS DE CONNEXION
+    // =====================================================================
+    match /loginSessions/{sessionId} {
+      allow read: if request.auth != null
+        && request.auth.uid == resource.data.userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasAll(['userId', 'timestamp', 'device', 'os', 'osVersion', 'deviceType', 'type'])
+        && request.resource.data.userId is string
+        && request.resource.data.timestamp is timestamp;
+
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if request.auth != null
+        && request.auth.uid == resource.data.userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // =====================================================================
+    // RÈGLES POUR LES PROFILS PUBLICS
+    // =====================================================================
+    match /userProfiles/{userId} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // =====================================================================
+    // COLLECTIONS PUBLIQUES (LECTURE SEULE)
+    // =====================================================================
+    match /cantiques/{cantiqueId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /sermons/{sermonId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /news/{newsId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // =====================================================================
+    // LOGS (BACKEND UNIQUEMENT)
+    // =====================================================================
+    match /email_logs/{logId} {
+      allow read, write: if false;
+    }
+
+    // =====================================================================
+    // ADMINISTRATION
+    // =====================================================================
+    match /admin/{docId} {
+      allow read, write: if request.auth != null
+        && request.auth.token.admin == true;
+    }
+
+    // =====================================================================
+    // RÈGLE PAR DÉFAUT - TOUT BLOQUER
+    // =====================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

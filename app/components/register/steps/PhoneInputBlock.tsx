@@ -18,12 +18,9 @@ import {
 } from 'react-native';
 import { TextInput, HelperText } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import CountryPicker, {
-  CountryCode,
-  Country,
-  DEFAULT_THEME,
-  getCallingCode,
-} from 'react-native-country-picker-modal';
+import { CountryCode, Country } from '@/types/country';
+import CountryPickerWrapper from '../CountryPickerWrapper';
+import { getCallingCode } from '@/utils/countryHelpers';
 import {
   PhoneNumberUtil,
   PhoneNumberType,
@@ -190,15 +187,11 @@ export default function PhoneInputBlock({
           style={styles.flagBox}
           onPress={() => !disabled && setWithCountryModal(true)}
         >
-          <CountryPicker
+          <CountryPickerWrapper
             countryCode={countryCode}
             withFlag
             withFilter
-            withCallingCode
             onSelect={onSelect}
-            visible={withCountryModal}
-            onClose={() => setWithCountryModal(false)}
-            theme={DEFAULT_THEME}
           />
           <Text style={styles.callingCode}>+{callingCode}</Text>
         </TouchableOpacity>

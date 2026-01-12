@@ -104,15 +104,21 @@ export {
 /**
  * Initialise tous les services Bible
  * À appeler au démarrage de l'application
+ *
+ * @param userId - Optionnel: ID utilisateur pour activer la sync Firebase
  */
-export async function initializeBibleServices(): Promise<void> {
+export async function initializeBibleServices(userId?: string): Promise<void> {
   console.log('🔥 Initializing Bible Services...');
-  
+
   try {
     // Initialiser le service principal (qui initialise les autres)
-    await bibleService.initialize();
-    
-    console.log('✅ Bible Services initialized successfully');
+    await bibleService.initialize(userId);
+
+    if (userId) {
+      console.log('✅ Bible Services initialized with Firebase sync for user:', userId);
+    } else {
+      console.log('✅ Bible Services initialized (local mode)');
+    }
   } catch (error) {
     console.error('❌ Failed to initialize Bible Services:', error);
     throw error;

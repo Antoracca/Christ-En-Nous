@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as Localization from 'expo-localization';
-import { CountryCode } from 'react-native-country-picker-modal';
+import { CountryCode } from '@/types/country';
 
 import CountrySelector from './CountrySelector';
 import CitySelector from './CitySelector';
@@ -73,8 +73,8 @@ export default function StepLocation({
   }, [forceValidation, country, city, quarter]);
 
   // 🎯 Règle 1 : Changement manuel de pays → vider ville et adresse
-  const handleCountryChange = (name: string, newCode: CountryCode) => {
-    setCode(newCode);
+  const handleCountryChange = (name: string, newCode: string) => {
+    setCode(newCode as CountryCode);
     onChange('country', name);
     
     // Réinitialiser ville et adresse
@@ -83,7 +83,7 @@ export default function StepLocation({
     onChange('quarter', '');
     
     // Activer le mode manuel si le pays n'a pas de villes
-    const hasCities = citiesByCountryCode[newCode] && citiesByCountryCode[newCode].length > 0;
+    const hasCities = (newCode in citiesByCountryCode) && citiesByCountryCode[newCode as keyof typeof citiesByCountryCode] && citiesByCountryCode[newCode as keyof typeof citiesByCountryCode].length > 0;
     setManualCityMode(!hasCities);
   };
 

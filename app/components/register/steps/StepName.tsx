@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { TextInput, HelperText } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import SocialNetworks from 'app/screens/auth/SocialNetworks';
+import SocialNetworks from '../SocialNetworks';
 import LeftInputIcon from '../../LeftInputIcon';
 import { validateStepNameFields, type NameFormErrors } from 'utils/validateStepNameFields';
 

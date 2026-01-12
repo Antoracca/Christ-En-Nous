@@ -1,6 +1,6 @@
 // app/context/ThemeContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/storage';
 import { useColorScheme } from 'react-native';
 import { LightAppTheme, DarkAppTheme, type AppThemeType } from '@/constants/theme';
 

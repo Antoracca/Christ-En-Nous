@@ -6,11 +6,8 @@ import {
   useColorScheme,
   
 } from 'react-native';
-import CountryPicker, {
-  Country,
-  CountryCode,
-  DEFAULT_THEME,
-} from 'react-native-country-picker-modal';
+import { Country, CountryCode } from '@/types/country';
+import CountryPickerWrapper from '../CountryPickerWrapper';
 import { HelperText } from 'react-native-paper';
 import * as Localization from 'expo-localization';
 import LeftInputIcon from '../../LeftInputIcon';
@@ -35,23 +32,13 @@ export default function CountrySelector({
   const [visible, setVisible] = useState(false);
   const isDark = useColorScheme() === 'dark';
 
-  const theme = {
-    ...DEFAULT_THEME,
-    colors: {
-      primary: isDark ? '#BB86FC' : '#6200EE',
-      background: isDark ? '#121212' : '#FFFFFF',
-      surface: isDark ? '#1E1E1E' : '#FFFFFF',
-      text: isDark ? '#FFFFFF' : '#000000',
-    },
-  };
-
   useEffect(() => {
     if (!country) {
       const region = (Localization.getLocales()[0].regionCode as CountryCode) || 'CF';
       const valid = region in countryNames ? region : 'CF';
       setCode(valid);
-      setName(countryNames[valid]);
-      onChange(countryNames[valid], valid);
+      setName(countryNames[valid as keyof typeof countryNames]);
+      onChange(countryNames[valid as keyof typeof countryNames], valid);
     }
   }, [country, onChange]);
 
@@ -59,8 +46,8 @@ export default function CountrySelector({
     const newCode = c.cca2 as CountryCode;
     let newName: string;
 
-    if (typeof countryNames[newCode] === 'string') {
-      newName = countryNames[newCode];
+    if (newCode in countryNames) {
+      newName = countryNames[newCode as keyof typeof countryNames];
     } else if (
       c.name &&
       typeof c.name === 'object' &&
@@ -94,16 +81,13 @@ export default function CountrySelector({
       </HelperText>
 
       {visible && (
-        <CountryPicker
+        <CountryPickerWrapper
           withFilter
           withFlag
           withAlphaFilter
-          withCountryNameButton={false}
           onSelect={handleSelect}
-          visible
-          onClose={() => setVisible(false)}
-          theme={theme}
           countryCode={code}
+          containerButtonStyle={{}}
         />
       )}
     </>

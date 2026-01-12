@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/storage';
 import { db } from 'services/firebase/firebaseConfig';
 import { useAuth } from '@/context/AuthContext';
 

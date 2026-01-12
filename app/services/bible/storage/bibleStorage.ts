@@ -1,7 +1,7 @@
 // app/services/bible/storage/bibleStorage.ts
 // Service de stockage local optimisé avec sync et backup
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/storage';
 import { 
   BibleBookmark, 
   VerseHighlight, 

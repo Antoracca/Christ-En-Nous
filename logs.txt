@@ -1,0 +1,91 @@
+ LOG  Cache loaded: 4 entries
+ LOG  🎬 [UniversalSplashScreen] Component mounted
+ LOG  🎨 [UniversalSplashScreen] Starting animations, isDark: false
+ LOG  ⏱️ [UniversalSplashScreen] Exit animation scheduled for 3700 ms from now
+ LOG  🎬 [UniversalSplashScreen] Exit animation completed, finished: true
+ LOG  🔄 [UniversalSplashScreen] Calling runOnJS(handleEnd)
+ LOG  🎯 [UniversalSplashScreen] handleEnd callback triggered, calling onAnimationEnd
+ LOG  ✅ [UniversalSplashScreen] onAnimationEnd called successfully
+ LOG  🔐 [AuthProvider] Initializing AuthProvider...
+ LOG  📊 [AuthProvider] Initial state: {"isAuthenticated": false, "loading": true, "user": false}
+ LOG  🎨 [AuthProvider] Rendering with state: {"hasProfile": false, "hasUser": false, "isAuthenticated": false, "loading": true}
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": true, "isAuthenticated": false, "isRegistering": false, "segments": "", "shouldShowRegisterSuccess": null}
+ LOG  ⏳ [RootLayoutNav] Waiting for auth to load...
+ LOG  🔄 [AuthProvider] Setting up onAuthStateChanged listener...
+ LOG  🔄 [AuthProvider] User profile effect triggered, user: false
+ LOG  🚫 [AuthProvider] No user, setting loading to false
+ LOG  🔐 [AuthProvider] Initializing AuthProvider...
+ LOG  📊 [AuthProvider] Initial state: {"isAuthenticated": false, "loading": false, "user": false}
+ LOG  🎨 [AuthProvider] Rendering with state: {"hasProfile": false, "hasUser": false, "isAuthenticated": false, "loading": false}
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": false, "isRegistering": false, "segments": "", "shouldShowRegisterSuccess": null}
+ LOG  🔐 [RootLayoutNav] Not authenticated, redirecting to login
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": false, "isRegistering": false, "segments": "(auth)/login", "shouldShowRegisterSuccess": null}
+ LOG  ✨ [RootLayoutNav] No redirect needed, current state is correct
+ LOG  👤 [AuthProvider] Auth state changed: {"email": "pasteursaulet@gmail.com", "hasUser": true, "uid": "yoqjVkrW58W3AxyKzG9J81y2NKr2"}
+ LOG  🔐 [AuthProvider] Initializing AuthProvider...
+ LOG  📊 [AuthProvider] Initial state: {"isAuthenticated": true, "loading": false, "user": true}
+ LOG  🎨 [AuthProvider] Rendering with state: {"hasProfile": false, "hasUser": true, "isAuthenticated": true, "loading": false}
+ LOG  🧹 [AuthProvider] Cleaning up profile listener
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": true, "isRegistering": false, "segments": "(auth)/login", "shouldShowRegisterSuccess": null}
+ LOG  🏠 [RootLayoutNav] Authenticated, redirecting to tabs
+ LOG  🔍 [SYNC] Vérification d'une synchronisation Firestore en attente...
+ LOG  🔄 [AuthProvider] User profile effect triggered, user: true
+ LOG  📄 [AuthProvider] User exists, fetching profile from Firestore...
+ LOG  🔐 [AuthProvider] Initializing AuthProvider...
+ LOG  📊 [AuthProvider] Initial state: {"isAuthenticated": true, "loading": true, "user": true}
+ LOG  🎨 [AuthProvider] Rendering with state: {"hasProfile": false, "hasUser": true, "isAuthenticated": true, "loading": true}
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": true, "isAuthenticated": true, "isRegistering": false, "segments": "(auth)/login", "shouldShowRegisterSuccess": null}
+ LOG  ⏳ [RootLayoutNav] Waiting for auth to load...
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  🚀 [Context] Initialisation manuelle des services Bible pour: Guest
+ LOG  🔥 Initializing Bible Services...
+ LOG  Initializing BibleService...
+ LOG  📱 Mode local (AsyncStorage) activé
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": true, "isAuthenticated": true, "isRegistering": false, "segments": "(tabs)", "shouldShowRegisterSuccess": null}
+ LOG  ⏳ [RootLayoutNav] Waiting for auth to load...
+ LOG  ✅ [SYNC] Aucune synchronisation en attente.
+ LOG  Bible storage initialized successfully
+ LOG  📋 [AuthProvider] Firestore snapshot received, exists: true
+ LOG  ✅ [AuthProvider] Profile loaded: {"email": "pasteursaulet@gmail.com", "nom": "YANOY", "uid": "yoqjVkrW58W3AxyKzG9J81y2NKr2"}
+ LOG  ✅ [AuthProvider] Setting loading to false
+ LOG  🔐 [AuthProvider] Initializing AuthProvider...
+ LOG  📊 [AuthProvider] Initial state: {"isAuthenticated": true, "loading": false, "user": true}
+ LOG  🎨 [AuthProvider] Rendering with state: {"hasProfile": true, "hasUser": true, "isAuthenticated": true, "loading": false}
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": true, "isRegistering": false, "segments": "(tabs)", "shouldShowRegisterSuccess": null}
+ LOG  ✨ [RootLayoutNav] No redirect needed, current state is correct
+ WARN  SafeAreaView has been deprecated and will be removed in a future release. Please use 'react-native-safe-area-context' instead. See https://github.com/th3rdwave/react-native-safe-area-context
+ LOG  BibleService initialized successfully
+ LOG  ✅ Bible Services initialized (local mode)
+ LOG  ⚠️ [Context] Hydratation Tracking -> Mode Local (Invité)
+ LOG  Cache hit for: bibles_fra
+ LOG  ✅ Versions françaises récupérées depuis l'API: 1
+ LOG  Cache hit for: bibles_eng
+ LOG  ✅ Versions anglaises récupérées depuis l'API: 36
+ LOG  🇨🇫 Récupération des versions Sango...
+ LOG  Cache hit for: bibles_language_sag
+ WARN  ⚠️ Aucune version Sango trouvée dans l'API Scripture
+ INFO  💡 Le Sango n'est pas encore disponible dans API.Bible avec cette clé
+ LOG  📚 Versions chargées: 9 disponibles + 9 à venir
+ LOG  🇨🇫 Versions Sango: 1
+ LOG  ✅ Initial data loaded
+ LOG  ✅ Enhanced Bible Context initialized (local mode)
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  📍 Restauration de la dernière position: GEN 1:1
+ LOG  📚 Mapping livre: GEN -> GEN (FR)
+ LOG  📖 Récupération chapitre GEN -> GEN 1 (a93a92589195411f-01 -> a93a92589195411f-01)
+ LOG  Cache hit for: chapter_a93a92589195411f-01_GEN_1
+ LOG  ⏱️ Tracking Switch: GEN 1 (Total: 31)
+ LOG  📍 Position de lecture sauvegardée: GEN 1:1
+ LOG  ✅ Navigation: GEN 1
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  🏠 Accueil monté -> Préchauffage du service Bible...
+ LOG  Analytics events: [{"data": {"apiHealthy": true, "version": "a93a92589195411f-01"}, "sessionId": "session_1768171979401_54msz2003", "timestamp": "2026-01-11T22:52:59.401Z", "type": "service_initialized"}, {"data": {"updatedFields": [Array]}, "sessionId": "session_1768171980097_y9w6ad0fa", "timestamp": "2026-01-11T22:53:00.097Z", "type": "settings_updated"}]
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": true, "isRegistering": false, "segments": "(tabs)/bible", "shouldShowRegisterSuccess": null}
+ LOG  ✨ [RootLayoutNav] No redirect needed, current state is correct
+ LOG  ⏱️ Tracking Switch: GEN 1 (Total: 31)
+ LOG  ⏱️ Tracking Switch: GEN 1 (Total: 31)
+ LOG  🔃 Focus BibleReader - timer repris: GEN 1
+ LOG  🔍 [RootLayoutNav] Auth State: {"authLoading": false, "isAuthenticated": true, "isRegistering": false, "segments": "(tabs)/bible/reader", "shouldShowRegisterSuccess": null}
+ LOG  ✨ [RootLayoutNav] No redirect needed, current state is correct

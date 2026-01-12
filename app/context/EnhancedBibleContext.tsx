@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
+import { useAuth } from './AuthContext';
 
 // Services Bible
 import {
@@ -22,6 +23,7 @@ import {
 
 // Tracking
 import { progress, type BibleIndex, type ActiveSession } from '../services/bible/tracking/progressTracking';
+import { firebaseSyncService } from '../services/firebase/firebaseSyncService'; // ✅ Import nécessaire pour le listener position
 
 // ==================== TYPES COMPAT ====================
 export interface BibleBook {
@@ -121,6 +123,9 @@ interface EnhancedBibleContextType {
     booksCompleted: string[];
     bibleProgress: number;
   }>;
+  
+  // ✅ NOUVEAU: Initialisation manuelle (Lazy)
+  initialize: () => Promise<void>;
 }
 
 // ==================== CONTEXT ====================
@@ -270,9 +275,13 @@ function adaptVersionsToOldFormat(versions: NewBibleVersion[]): BibleVersion[] {
 
 // ==================== PROVIDER ====================
 export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userProfile, loading: authLoading } = useAuth(); // ✅ Besoin du loading auth
   const [isInitialized, setIsInitialized] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasRequestedInit, setHasRequestedInit] = useState(false); // ✅ Nouveau flag
   const [error, setError] = useState<string | null>(null);
+
+
 
   const [currentVersion, setCurrentVersionState] = useState<BibleVersion>({
     id: 'a93a92589195411f-01',
@@ -315,6 +324,25 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     date: new Date().toISOString().split('T')[0],
   });
 
+  // ===== INIT LAZY RÉACTIVE =====
+  const initialize = useCallback(async () => {
+      setHasRequestedInit(true);
+  }, []);
+
+  // Effet principal d'initialisation (Se lance quand demandé ET quand le profil change)
+  useEffect(() => {
+      if (!hasRequestedInit) return;
+      
+      // Si l'auth est encore en train de charger, on attend pour avoir le vrai profil
+      if (authLoading) return;
+
+      const init = async () => {
+          await initializeServices();
+      };
+      
+      init();
+  }, [hasRequestedInit, userProfile, authLoading]);
+
   // ===== Helpers =====
   const loadReadingStats = useCallback(async () => {
     try {
@@ -352,7 +380,8 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
       const bibleIndex = createBibleIndex(structuredBooks);
       const order = structuredBooks.map(b => b.name); // OSIS order si fourni par le service
       progress.configureBibleIndex(bibleIndex, order);
-      await progress.hydrate();
+
+      // (Hydratation déplacée dans initializeServices pour garantir l'ordre)
 
       // Versions
       const versions = await bibleService.getVersions();
@@ -409,19 +438,44 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setLoading(true);
       setError(null);
-      await initializeBibleServices();
+
+      // ✅ FIREBASE SYNC: Passer le userId pour sync cross-device
+      const userId = userProfile?.uid;
+      
+      // 1. Initialiser le Service Bible (Storage & API)
+      await initializeBibleServices(userId);
+
+      // 2. Initialiser le Moteur de Tracking (Stats & Temps)
+      if (userId) {
+        console.log('🔄 [Context] Hydratation Tracking -> Mode Firebase pour:', userId);
+        await progress.hydrate(userId);
+      } else {
+        console.log('⚠️ [Context] Hydratation Tracking -> Mode Local (Invité)');
+        await progress.hydrate(); // Mode local
+      }
+
       await loadInitialData();
       setIsInitialized(true);
-      console.log('✅ Enhanced Bible Context initialized');
+
+      if (userId) {
+        console.log('✅ Enhanced Bible Context initialized with Firebase sync');
+      } else {
+        console.log('✅ Enhanced Bible Context initialized (local mode)');
+      }
     } catch (e: any) {
       console.error('❌ Failed to initialize Enhanced Bible Context:', e);
       setError(e instanceof Error ? e.message : 'Erreur d\'initialisation');
     } finally {
       setLoading(false);
     }
-  }, [loadInitialData]);
+  }, [loadInitialData, userProfile]);
 
-  useEffect(() => { initializeServices(); }, [initializeServices]);
+  // On garde un useEffect minimal pour nettoyer au démontage
+  useEffect(() => {
+    return () => {
+        try { progress.stopListening(); } catch {}
+    };
+  }, []);
 
   // ===== Navigation & Tracking =====
   const navigateToChapter = useCallback(async (reference: BibleReference) => {
@@ -443,8 +497,18 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
         lastReadDate: new Date().toISOString(),
       }));
 
-      // Démarre (ou bascule) le timer sur ce chapitre
-      try { progress.switchTo(ref.book, ref.chapter); } catch {}
+      // Démarre (ou bascule) le timer sur ce chapitre avec le bon nombre de versets
+      try { 
+        const totalVerses = chapter.verses.length;
+        // On utilise l'instance interne du tracker si possible, sinon l'interface publique
+        // L'interface publique de compatibilité a switchTo(bookId, chapter) qui cherche totalVerses dans bibleIndex.
+        // Pour être sûr, on met à jour bibleIndex si nécessaire ou on laisse le tracker gérer.
+        // Ici, on appelle simplement switchTo qui va utiliser les métadonnées configurées.
+        progress.switchTo(ref.book, ref.chapter); 
+        
+        // Force update des métadonnées du tracker pour ce chapitre si possible (via un hack ou une méthode dédiée si on l'ajoutait)
+        // Mais normalement configureBibleIndex a déjà les bonnes données.
+      } catch {}
 
       // ✅ NOUVEAU: Sauvegarder la position de lecture actuelle
       try {
@@ -689,7 +753,7 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
           const chapter = activeSession?.ref.chapter || currentReference?.chapter;
           if (bookId && chapter) {
             progress.switchTo(bookId, chapter);
-            console.log('\u{1F4F1} App redevenue active - timer repris:', bookId, chapter);
+            console.log('📱 App redevenue active - timer repris:', bookId, chapter);
           }
         }
       } catch (err) {
@@ -764,6 +828,7 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     versionsStructured: [],
 
     getReadingStats,
+    initialize, // ✅ Exposé
   };
 
   return (

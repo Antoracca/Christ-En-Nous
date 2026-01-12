@@ -19,7 +19,8 @@ import {
 } from './types';
 
 import { bibleApi } from './api/bibleApi';
-import { bibleStorage } from './storage/bibleStorage';
+import { bibleStorage, BibleStorageService } from './storage/bibleStorage';
+import { createFirebaseBibleStorage, FirebaseBibleStorageService } from './storage/firebaseBibleStorage';
 
 import { 
   BIBLE_BOOKS, 
@@ -39,6 +40,8 @@ import {
   debounce
 } from './utils/helpers';
 
+import { progress as trackingEngine } from './tracking/progressTracking';
+
 /**
  * Service principal Bible avec toutes les fonctionnalités optimisées
  */
@@ -46,6 +49,7 @@ export class BibleService {
   private isInitialized = false;
   private currentVersion: string = API_CONFIG.DEFAULT_VERSION;
   private analyticsQueue: BibleAnalyticsEvent[] = [];
+  private storage: BibleStorageService | FirebaseBibleStorageService = bibleStorage;
 
   // Debounced functions pour éviter les requêtes excessives
   private debouncedSearch = debounce(this.performSearch.bind(this), 300);
@@ -53,16 +57,26 @@ export class BibleService {
 
   /**
    * Initialise le service Bible
+   * @param userId - Optionnel: ID utilisateur pour activer la sync Firebase
    */
-  async initialize(): Promise<void> {
+  async initialize(userId?: string): Promise<void> {
     try {
       console.log('Initializing BibleService...');
-      
+
+      // ✅ FIREBASE MODE: Si userId fourni, utiliser Firebase storage
+      if (userId) {
+        console.log('🔄 Mode Firebase activé pour user:', userId);
+        this.storage = createFirebaseBibleStorage(userId);
+      } else {
+        console.log('📱 Mode local (AsyncStorage) activé');
+        this.storage = bibleStorage;
+      }
+
       // Initialiser le stockage
-      await bibleStorage.initialize();
-      
+      await this.storage.initialize();
+
       // Charger les paramètres utilisateur
-      const settings = await bibleStorage.getSettings();
+      const settings = await this.storage.getSettings();
       this.currentVersion = settings.version;
       
       // Vérifier la santé de l'API
@@ -515,7 +529,7 @@ export class BibleService {
     
     const previousVersion = this.currentVersion;
     this.currentVersion = versionId;
-    await bibleStorage.updateSettings({ version: versionId });
+    await this.storage.updateSettings({ version: versionId });
     
     // Vérifier si la nouvelle version est disponible
     const isComingSoon = this.isComingSoonVersion(versionId);
@@ -547,7 +561,7 @@ export class BibleService {
     console.log(`📌 Définition de la version par défaut: ${versionId}`);
     
     // Mettre à jour les paramètres avec la nouvelle version par défaut
-    await bibleStorage.updateSettings({ 
+    await this.storage.updateSettings({
       defaultVersion: versionId,
       version: versionId // Aussi changer la version courante
     });
@@ -751,9 +765,11 @@ export class BibleService {
     const versionToUse = version || this.currentVersion;
     
     // Mapper vers une version réelle si c'est une version à venir
-    const apiVersion = this.isComingSoonVersion(versionToUse) 
-      ? this.mapToAvailableVersion(versionToUse)
-      : versionToUse;
+    let apiVersion = versionToUse;
+    if (this.isComingSoonVersion(versionToUse)) {
+      apiVersion = this.mapToAvailableVersion(versionToUse);
+      console.warn(`⚠️ Version '${versionToUse}' non disponible, utilisation du fallback: '${apiVersion}'`);
+    }
     
     // ✅ NOUVEAU: Mapper le code du livre vers le format API selon la langue
     const apiBookCode = this.mapBookCodeToApiFormat(reference.book, apiVersion);
@@ -1227,7 +1243,7 @@ export class BibleService {
    */
   async getBookmarks(): Promise<BibleBookmark[]> {
     this.ensureInitialized();
-    return bibleStorage.getBookmarks();
+    return this.storage.getBookmarks();
   }
 
   /**
@@ -1241,7 +1257,7 @@ export class BibleService {
   ): Promise<BibleBookmark> {
     this.ensureInitialized();
     
-    const bookmark = await bibleStorage.addBookmark({
+    const bookmark = await this.storage.addBookmark({
       reference,
       title,
       note,
@@ -1263,7 +1279,7 @@ export class BibleService {
    */
   async updateBookmark(id: string, updates: Partial<BibleBookmark>): Promise<void> {
     this.ensureInitialized();
-    return bibleStorage.updateBookmark(id, updates);
+    return this.storage.updateBookmark(id, updates);
   }
 
   /**
@@ -1271,7 +1287,7 @@ export class BibleService {
    */
   async removeBookmark(id: string): Promise<void> {
     this.ensureInitialized();
-    await bibleStorage.removeBookmark(id);
+    await this.storage.removeBookmark(id);
     
     this.trackEvent('bookmark_removed', { bookmarkId: id });
   }
@@ -1293,7 +1309,7 @@ export class BibleService {
    */
   async getHighlights(): Promise<VerseHighlight[]> {
     this.ensureInitialized();
-    return bibleStorage.getHighlights();
+    return this.storage.getHighlights();
   }
 
   /**
@@ -1306,7 +1322,7 @@ export class BibleService {
   ): Promise<VerseHighlight> {
     this.ensureInitialized();
     
-    const highlight = await bibleStorage.addHighlight({
+    const highlight = await this.storage.addHighlight({
       reference,
       tag,
       note
@@ -1326,7 +1342,7 @@ export class BibleService {
    */
   async removeHighlight(id: string): Promise<void> {
     this.ensureInitialized();
-    await bibleStorage.removeHighlight(id);
+    await this.storage.removeHighlight(id);
     
     this.trackEvent('highlight_removed', { highlightId: id });
   }
@@ -1366,7 +1382,7 @@ export class BibleService {
    */
   async getSettings(): Promise<BibleSettings> {
     this.ensureInitialized();
-    return bibleStorage.getSettings();
+    return this.storage.getSettings();
   }
 
   /**
@@ -1380,7 +1396,7 @@ export class BibleService {
       this.currentVersion = settings.version;
     }
     
-    await bibleStorage.updateSettings(settings);
+    await this.storage.updateSettings(settings);
     
     this.trackEvent('settings_updated', { updatedFields: Object.keys(settings) });
   }
@@ -1392,7 +1408,7 @@ export class BibleService {
    */
   async getReadingProgress(): Promise<ReadingProgress[]> {
     this.ensureInitialized();
-    return bibleStorage.getReadingProgress();
+    return this.storage.getReadingProgress();
   }
 
   /**
@@ -1407,7 +1423,7 @@ export class BibleService {
     
     const progress = BibleNavigationUtils.calculateBibleProgress(reference);
     
-    await bibleStorage.updateReadingProgress({
+    await this.storage.updateReadingProgress({
       book: reference.book,
       chapter: reference.chapter,
       verse: reference.verse,
@@ -1415,6 +1431,16 @@ export class BibleService {
       timeSpent,
       isCompleted: true
     });
+
+    // ✅ SYNC: Informer le moteur de tracking V2 (Stats temps réel)
+    try {
+      // On configure l'index si ce n'est pas fait (sécurité)
+      // Note: Normalement fait à l'init, mais double check
+      await trackingEngine.completeChapter();
+      console.log('✅ Tracking V2 synchronisé (Chapitre complété)');
+    } catch (e) {
+      console.warn('⚠️ Impossible de sync le tracking V2:', e);
+    }
   }
 
   /**
@@ -1510,7 +1536,7 @@ export class BibleService {
    */
   async cleanup(daysToKeep = 365): Promise<void> {
     this.ensureInitialized();
-    await bibleStorage.cleanupOldData(daysToKeep);
+    await this.storage.cleanupOldData(daysToKeep);
   }
 
   /**
@@ -1525,7 +1551,7 @@ export class BibleService {
    */
   async exportUserData(): Promise<any> {
     this.ensureInitialized();
-    return bibleStorage.exportUserData();
+    return this.storage.exportUserData();
   }
 
   /**
@@ -1539,7 +1565,7 @@ export class BibleService {
   }> {
     const [apiHealth, syncStatus] = await Promise.all([
       bibleApi.checkHealth(),
-      bibleStorage.getSyncStatus()
+      this.storage.getSyncStatus()
     ]);
 
     return {

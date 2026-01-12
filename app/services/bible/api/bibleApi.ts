@@ -1,7 +1,7 @@
 // app/services/bible/api/bibleApi.ts
 // API optimisée avec cache, retry et gestion d'erreurs
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@/utils/storage';
 import { BibleVerse, BibleVersion, BibleChapter, ApiResponse, BibleApiConfig } from '../types';
 import { API_CONFIG, CACHE_CONFIG, STORAGE_KEYS, ERROR_MESSAGES } from '../utils/constants';
 import { BibleStorageUtils, retryWithBackoff } from '../utils/helpers';

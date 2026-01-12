@@ -1,10 +1,11 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs,Timestamp, getDoc, limit   } from 'firebase/firestore'; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <-- AJOUT NÉCESSAIRE
-import { auth, db } from 'services/firebase/firebaseConfig';
+import { doc, onSnapshot, updateDoc, collection, addDoc, query, where, getDocs,Timestamp, getDoc, limit   } from 'firebase/firestore';
+import AsyncStorage from '@/utils/storage';
+import { auth, db } from '../../services/firebase/firebaseConfig';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import * as Network from 'expo-network';
 // ... (Les interfaces ChurchRole, UserProfile, AuthContextType restent les mêmes)
 export interface ChurchRole {
   fonction: string;
@@ -55,11 +56,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  console.log('🔐 [AuthProvider] Initializing AuthProvider...');
+
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [shouldShowRegisterSuccess, setShouldShowRegisterSuccess] = useState<{ show: boolean; userName: string; userEmail: string; } | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+
+  console.log('📊 [AuthProvider] Initial state:', { user: !!user, loading, isAuthenticated: !!user });
 
   const refreshUserProfile = useCallback(async () => {
     const currentUser = auth.currentUser;
@@ -121,12 +126,12 @@ async function buildClientContext() {
   let networkType: string | null = null;
 
   try {
-    const state = await (await import('expo-network')).getNetworkStateAsync();
+    const state = await Network.getNetworkStateAsync();
     networkType = state.type ?? null;
   } catch { /* no-op */ }
 
   try {
-    ipAddress = await (await import('expo-network')).getIpAddressAsync();
+    ipAddress = await Network.getIpAddressAsync();
   } catch { /* no-op */ }
 
   const os = Platform.OS === 'ios' ? 'iOS' : 'Android';
@@ -260,48 +265,83 @@ const logout = useCallback(async () => {
   }, [refreshUserProfile]);
 
   useEffect(() => {
+    console.log('🔄 [AuthProvider] Setting up onAuthStateChanged listener...');
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('👤 [AuthProvider] Auth state changed:', {
+        hasUser: !!firebaseUser,
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+      });
+
       setUser(firebaseUser);
       if (!firebaseUser) {
+        console.log('🚫 [AuthProvider] No user, setting loading to false');
         setUserProfile(null);
         setLoading(false);
       }
     });
-    return () => unsubscribeAuth();
+
+    return () => {
+      console.log('🧹 [AuthProvider] Cleaning up auth listener');
+      unsubscribeAuth();
+    };
   }, []);
 
   useEffect(() => {
+    console.log('🔄 [AuthProvider] User profile effect triggered, user:', !!user);
+
     let unsubscribeProfile: () => void = () => {};
-    if (user) { 
+    if (user) {
+      console.log('📄 [AuthProvider] User exists, fetching profile from Firestore...');
+
       if (!userProfile) setLoading(true);
       const userDocRef = doc(db, 'users', user.uid);
       unsubscribeProfile = onSnapshot(
-        userDocRef, 
+        userDocRef,
         (docSnap) => {
+          console.log('📋 [AuthProvider] Firestore snapshot received, exists:', docSnap.exists());
+
           if (docSnap.exists()) {
             const firestoreData = docSnap.data();
-            setUserProfile({
+            const profile = {
               ...(firestoreData as UserProfile),
               uid: user.uid,
               email: user.email || firestoreData.email || '',
               emailVerified: user.emailVerified || firestoreData.emailVerified || false,
               photoURL: firestoreData.photoURL || user.photoURL || null,
+            };
+
+            console.log('✅ [AuthProvider] Profile loaded:', {
+              uid: profile.uid,
+              email: profile.email,
+              nom: profile.nom,
             });
+
+            setUserProfile(profile);
           } else {
+            console.log('⚠️ [AuthProvider] User document does not exist in Firestore');
             setUserProfile(null);
           }
+
+          console.log('✅ [AuthProvider] Setting loading to false');
           setLoading(false);
-        }, 
+        },
         (error) => {
-          console.error('Erreur onSnapshot:', error);
+          console.error('❌ [AuthProvider] Firestore onSnapshot error:', error);
           setUserProfile(null);
           setLoading(false);
         }
       );
     } else {
+      console.log('🚫 [AuthProvider] No user, setting loading to false');
       setLoading(false);
     }
-    return () => unsubscribeProfile();
+
+    return () => {
+      console.log('🧹 [AuthProvider] Cleaning up profile listener');
+      unsubscribeProfile();
+    };
   }, [user]);
 
   const value = {
@@ -317,6 +357,13 @@ const logout = useCallback(async () => {
     logout,
     syncEmailToFirestore,
   };
+
+  console.log('🎨 [AuthProvider] Rendering with state:', {
+    hasUser: !!user,
+    hasProfile: !!userProfile,
+    loading,
+    isAuthenticated: !!user,
+  });
 
   return (
     <AuthContext.Provider value={value}>
