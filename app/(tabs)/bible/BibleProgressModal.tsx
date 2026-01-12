@@ -205,6 +205,22 @@ const HistoryItem = ({ book, onAction, theme }: any) => {
   );
 };
 
+// ✅ FAQ ITEM COMPONENT
+const FaqItem = ({ question, answer, theme, expanded, onToggle }: any) => (
+  <View style={[styles.faqItem, { borderBottomColor: theme.colors.outline + '15' }]}>
+    <TouchableOpacity onPress={onToggle} style={styles.faqHeader} activeOpacity={0.7}>
+        <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+            <Feather name="help-circle" size={16} color={theme.custom.colors.placeholder} style={{marginRight: 8}} />
+            <Text style={[styles.faqQuestion, { color: theme.custom.colors.text }]}>{question}</Text>
+        </View>
+        <Feather name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.custom.colors.placeholder} />
+    </TouchableOpacity>
+    {expanded && (
+        <Text style={[styles.faqAnswer, { color: theme.custom.colors.placeholder }]}>{answer}</Text>
+    )}
+  </View>
+);
+
 export default function BibleProgressModal({ visible, onClose }: BibleProgressModalProps) {
   const theme = useAppTheme();
   const responsive = useResponsiveSafe();
@@ -216,9 +232,14 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
   const [xp, setXp] = useState(0); 
   
   const [globalStats, setGlobalStats] = useState<any>({ percent: 0, totalTime: 0, vpm: 0, versesRead: 0 });
+  // ✅ Restauration des stats Testament
   const [otStats, setOtStats] = useState<any>({ percent: 0, chapters: {completed:0, total:0}, booksCompleted:0, booksTotal:0, verses:{read:0}, timeSpent:0 });
   const [ntStats, setNtStats] = useState<any>({ percent: 0, chapters: {completed:0, total:0}, booksCompleted:0, booksTotal:0, verses:{read:0}, timeSpent:0 });
   
+  // UI State
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null); // ✅ Ajouté
+  
+  // ✅ Restauration des états d'expansion
   const [expandOT, setExpandOT] = useState(false);
   const [expandNT, setExpandNT] = useState(false);
 
@@ -316,6 +337,14 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
     }
   };
 
+  // ✅ FAQ DATA
+  const faqData = [
+      { q: "Comment le temps est-il calculé ?", a: "Le chronomètre démarre quand vous êtes sur un chapitre. Il se met en pause automatiquement si vous quittez l'écran ou après 5 min d'inactivité." },
+      { q: "Quand un livre est-il 'Terminé' ?", a: "Un livre est marqué terminé lorsque vous avez ouvert ou validé (bouton Suivant) au moins 90% de ses versets." },
+      { q: "À quoi servent les XP ?", a: "Les points d'expérience (XP) sont une fonctionnalité future pour récompenser votre régularité de lecture." },
+      { q: "Mes données sont-elles sauvegardées ?", a: "Oui, tout est synchronisé dans le Cloud (Firebase) et accessible sur tous vos appareils connectés." },
+  ];
+
   if (!visible) return null;
 
   return (
@@ -363,7 +392,7 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
               showsVerticalScrollIndicator={false}
             >
               
-              {/* STATS GLOBALES (Alignées) */}
+              {/* GLOBAL STATS ROW */}
               <View style={styles.statsRow}>
                  <StatBadge 
                     icon="clock" 
@@ -388,38 +417,7 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
                  />
               </View>
 
-              {/* LECTURE ACTIVE (Hero Compact) */}
-              {activeBook && (
-                  <View style={styles.section}>
-                      <HeroBookCard book={activeBook} onAction={handleAction} theme={theme} />
-                  </View>
-              )}
-
-              {/* BIBLIOTHÈQUE (Historique Déroulant) */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.custom.colors.placeholder }]}>BIBLIOTHÈQUE</Text>
-                
-                {historyBooks.length > 0 ? (
-                    <View style={{ gap: 12 }}>
-                        {historyBooks.map((book) => (
-                            <HistoryItem 
-                                key={book.bookId} 
-                                book={book} 
-                                onAction={handleAction} 
-                                theme={theme} 
-                            />
-                        ))}
-                    </View>
-                ) : (
-                    <View style={[styles.emptyState, { borderColor: theme.colors.outline + '20' }]}>
-                        <Text style={[styles.emptyText, { color: theme.custom.colors.placeholder }]}>
-                            Historique vide.
-                        </Text>
-                    </View>
-                )}
-              </View>
-
-              {/* VUE D'ENSEMBLE (Testament) */}
+              {/* VUE D'ENSEMBLE (Testament) - Déplacé en haut */}
               <View style={styles.section}>
                  <Text style={[styles.sectionTitle, { color: theme.custom.colors.placeholder }]}>VUE D'ENSEMBLE</Text>
                  
@@ -450,15 +448,74 @@ export default function BibleProgressModal({ visible, onClose }: BibleProgressMo
                  />
               </View>
 
+              {/* LECTURE ACTIVE (Hero Compact) */}
+              {activeBook && (
+                  <View style={styles.section}>
+                      <HeroBookCard book={activeBook} onAction={handleAction} theme={theme} />
+                  </View>
+              )}
+
+              {/* BIBLIOTHÈQUE (Historique Déroulant) */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.custom.colors.placeholder }]}>BIBLIOTHÈQUE</Text>
+                
+                {historyBooks.length > 0 ? (
+                    <View style={{ gap: 12 }}>
+                        {historyBooks.map((book) => (
+                            <HistoryItem 
+                                key={book.bookId} 
+                                book={book} 
+                                onAction={handleAction} 
+                                theme={theme} 
+                            />
+                        ))}
+                    </View>
+                ) : (
+                    <View style={[styles.emptyState, { borderColor: theme.colors.outline + '20' }]}>
+                        <Text style={[styles.emptyText, { color: theme.custom.colors.placeholder }]}>
+                            Votre historique apparaîtra ici.
+                        </Text>
+                    </View>
+                )}
+              </View>
+
+              {/* FAQ PRO */}
+              <View style={[styles.section, { marginTop: 20 }]}>
+                 <Text style={[styles.sectionTitle, { color: theme.custom.colors.placeholder }]}>INFORMATIONS & FAQ</Text>
+                 <View style={[styles.faqContainer, { backgroundColor: theme.colors.surface }]}>
+                     {faqData.map((item, index) => (
+                         <FaqItem 
+                            key={index} 
+                            question={item.q} 
+                            answer={item.a} 
+                            theme={theme} 
+                            expanded={expandedFaq === index}
+                            onToggle={() => {
+                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                setExpandedFaq(expandedFaq === index ? null : index);
+                            }}
+                         />
+                     ))}
+                 </View>
+              </View>
+
               {/* FOOTER */}
-              <TouchableOpacity onPress={async () => {
-                  Alert.alert("Reset", "Tout effacer ?", [
-                      {text: "Annuler", style: "cancel"},
-                      {text: "Confirmer", style: "destructive", onPress: async () => { await progress.resetAll(); refreshData(); }}
-                  ]);
-              }}>
-                  <Text style={[styles.footerLink, { color: theme.custom.colors.placeholder }]}>Réinitialiser</Text>
-              </TouchableOpacity>
+              <View style={{marginTop: 40, alignItems: 'center'}}>
+                  <TouchableOpacity 
+                    style={[styles.resetButton, { backgroundColor: theme.colors.error + '15', borderColor: theme.colors.error + '30' }]}
+                    onPress={async () => {
+                        Alert.alert("Zone Danger", "Voulez-vous vraiment effacer tout votre historique de lecture ? Cette action est irréversible.", [
+                            {text: "Annuler", style: "cancel"},
+                            {text: "Tout effacer", style: "destructive", onPress: async () => { await progress.resetAll(); refreshData(); }}
+                        ]);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                      <Feather name="trash-2" size={18} color={theme.colors.error} />
+                      <Text style={[styles.resetButtonText, { color: theme.colors.error }]}>Réinitialiser toutes les données</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.versionText, { color: theme.custom.colors.placeholder }]}>v1.4.0 • Synchronisé</Text>
+              </View>
               
               <View style={{height: 60}} />
             </ScrollView>
@@ -576,32 +633,52 @@ const styles = StyleSheet.create({
   },
   historyActionText: { fontSize: 13, fontFamily: 'Nunito_700Bold' },
 
-  // TESTAMENT
+  // --- ANCIEN STYLE TESTAMENT (RÉINTRODUIT) ---
   testamentCard: { borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  testamentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  testamentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
   testamentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   testamentTitle: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
   testamentSubtitle: { fontSize: 12, fontFamily: 'Nunito_500Medium' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   percentText: { fontSize: 14, fontFamily: 'Nunito_800ExtraBold' },
+  
   miniProgressTrack: { width: '100%', height: 3 },
   miniProgressFill: { height: '100%' },
+
   testamentDetails: { padding: 16, paddingTop: 8 },
   gridStats: { flexDirection: 'row', justifyContent: 'space-between' },
   gridItem: { alignItems: 'center', flex: 1 },
   gridValue: { fontSize: 15, fontFamily: 'Nunito_700Bold' },
   gridLabel: { fontSize: 11, fontFamily: 'Nunito_500Medium' },
 
+  // FAQ
+  faqContainer: { borderRadius: 16, overflow: 'hidden' },
+  faqItem: { borderBottomWidth: 1, padding: 16 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqQuestion: { fontSize: 14, fontFamily: 'Nunito_700Bold', flex: 1, marginRight: 10 },
+  faqAnswer: { marginTop: 12, fontSize: 13, fontFamily: 'Nunito_500Medium', lineHeight: 20 },
+
   emptyState: { padding: 24, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed', borderRadius: 16 },
   emptyText: { fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', opacity: 0.6 },
 
-  footerLink: {
-    textAlign: 'center',
-    fontSize: 12,
-    fontFamily: 'Nunito_600SemiBold',
-    textDecorationLine: 'underline',
-    padding: 10,
-    opacity: 0.5
+  resetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+    marginBottom: 12
+  },
+  resetButtonText: {
+    fontSize: 14,
+    fontFamily: 'Nunito_700Bold'
+  },
+  versionText: {
+    fontSize: 10,
+    fontFamily: 'Nunito_500Medium',
+    opacity: 0.4
   }
 });
