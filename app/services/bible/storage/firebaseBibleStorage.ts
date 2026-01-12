@@ -328,7 +328,9 @@ export class FirebaseBibleStorageService {
       const data = await firebaseSyncService.syncRead<LastReadingPosition>(
         this.userId,
         this.COLLECTIONS.LAST_POSITION,
-        'data'
+        'data',
+        undefined, // defaultValue
+        { forceRemote: true } // ✅ FORCE LE RÉSEAU pour la position
       );
 
       if (!data || !data.book || typeof data.chapter !== 'number' || typeof data.verse !== 'number') {

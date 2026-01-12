@@ -21,21 +21,28 @@ export function createFirebaseStorageAdapter(userId: string): StorageAdapter {
 
   return {
     /**
-     * Récupère la progression depuis Firebase (ou cache)
-     * Cache-first pour performance maximale
+     * Récupère la progression depuis Firebase
+     * MODIFIÉ: Force la lecture serveur pour garantir la sync cross-device
      */
     async getItem(key: string): Promise<string | null> {
       try {
+        console.log('☁️ [TrackingAdapter] Récupération forcée depuis Firebase...');
+        
+        // On utilise syncRead mais on sait que c'est la source de vérité au démarrage
         const data = await firebaseSyncService.syncRead<{ value: string }>(
           userId,
           COLLECTION,
-          DOC_ID
+          DOC_ID,
+          undefined, // defaultValue
+          { forceRemote: true } // ✅ FORCE LE RÉSEAU
         );
 
         if (data && data.value) {
+          console.log('✅ [TrackingAdapter] Données reçues du Cloud');
           return data.value;
         }
-
+        
+        console.log('⚠️ [TrackingAdapter] Pas de données distantes trouvées');
         return null;
       } catch (error) {
         console.error('[FirebaseStorageAdapter] getItem error:', error);

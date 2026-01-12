@@ -1473,6 +1473,24 @@ export class BibleService {
     };
   }
 
+  /**
+   * Récupère la dernière position de lecture (delegate au storage actif)
+   */
+  async getLastReadingPosition(): Promise<any> {
+    this.ensureInitialized();
+    // @ts-ignore - Les interfaces de storage ont cette méthode
+    return this.storage.getLastReadingPosition();
+  }
+
+  /**
+   * Sauvegarde la dernière position de lecture
+   */
+  async saveLastReadingPosition(position: any): Promise<void> {
+    this.ensureInitialized();
+    // @ts-ignore
+    return this.storage.saveLastReadingPosition(position);
+  }
+
   // ==================== UTILITAIRES ====================
 
   /**

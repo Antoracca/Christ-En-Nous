@@ -510,9 +510,9 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
         // Mais normalement configureBibleIndex a déjà les bonnes données.
       } catch {}
 
-      // ✅ NOUVEAU: Sauvegarder la position de lecture actuelle
+      // ✅ NOUVEAU: Sauvegarder la position de lecture actuelle via le SERVICE
       try {
-        await bibleStorage.saveLastReadingPosition({
+        await bibleService.saveLastReadingPosition({
           book: ref.book,
           chapter: ref.chapter,
           verse: ref.verse || 1,
@@ -538,7 +538,8 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
     
     const restoreLastPosition = async () => {
       try {
-        const lastPosition = await bibleStorage.getLastReadingPosition();
+        // ✅ CORRECTION: Passer par le service (qui pointe vers Firebase) au lieu du storage local
+        const lastPosition = await bibleService.getLastReadingPosition();
         if (lastPosition) {
           console.log('📍 Restauration de la dernière position:', `${lastPosition.book} ${lastPosition.chapter}:${lastPosition.verse}`);
           
@@ -735,7 +736,7 @@ export const EnhancedBibleProvider: React.FC<{ children: React.ReactNode }> = ({
           // ✅ NOUVEAU: Sauvegarder la position actuelle quand l'app passe en arrière-plan
           if (currentReference) {
             try {
-              await bibleStorage.saveLastReadingPosition({
+              await bibleService.saveLastReadingPosition({
                 book: currentReference.book,
                 chapter: currentReference.chapter,
                 verse: currentReference.verse || 1,

@@ -82,24 +82,27 @@ class FirebaseSyncService {
     userId: string,
     collection: string,
     docId: string,
-    defaultValue?: T
+    defaultValue?: T,
+    options: { forceRemote?: boolean } = {} // ✅ Nouvelle option
   ): Promise<T | null> {
     const path = `${collection}/${docId}`;
     const cacheKey = `@firebase_cache_${userId}_${path}`;
 
     try {
-      // 1. Essayer le cache local d'abord (RAPIDE)
-      const cached = await AsyncStorage.getItem(cacheKey);
-      if (cached) {
-        const data = JSON.parse(cached);
-
-        // 2. Récupérer Firebase en arrière-plan pour vérifier si à jour
-        this.fetchAndUpdateCache(userId, collection, docId, cacheKey).catch(console.error);
-
-        return data as T;
+      // 1. Essayer le cache local d'abord (RAPIDE) - SAUF SI forceRemote
+      if (!options.forceRemote) {
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          const data = JSON.parse(cached);
+          // 2. Récupérer Firebase en arrière-plan pour vérifier si à jour
+          this.fetchAndUpdateCache(userId, collection, docId, cacheKey).catch(console.error);
+          return data as T;
+        }
+      } else {
+          console.log(`☁️ [FirebaseSync] Force Remote Read: ${path}`);
       }
 
-      // 3. Pas de cache, aller chercher Firebase
+      // 3. Pas de cache ou Force Remote -> aller chercher Firebase
       const docRef = doc(db, `users/${userId}/${collection}`, docId);
       const docSnap = await getDoc(docRef);
 
