@@ -65,7 +65,11 @@ export default function BibleLayout() {
       />
       <Stack.Screen
         name="meditation"
-        options={{ title: 'Méditation' }}
+        options={{ 
+          title: 'Méditation',
+          presentation: 'fullScreenModal', // ✅ Immersion totale
+          headerShown: false // ✅ On gère notre propre header zen
+        }}
       />
       <Stack.Screen
         name="meditation-settings"

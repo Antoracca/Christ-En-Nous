@@ -1,247 +1,245 @@
-import React, { useState, useEffect, useRef } from 'react';
+// app/(tabs)/bible/meditation.tsx
+// Dashboard de Méditation : Accueil, Choix, Ambiance.
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
-  Platform
+  ImageBackground,
+  Dimensions,
+  StatusBar
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useBible } from '@/context/EnhancedBibleContext';
+import { useAuth } from '@/context/AuthContext';
 
-export default function BibleMeditationScreen() {
+const { width } = Dimensions.get('window');
+
+// --- DATA ---
+const AMBIANCES = [
+    { id: 'silence', name: 'Silence', icon: 'volume-x', color: '#9E9E9E' },
+    { id: 'piano', name: 'Piano Doux', icon: 'music', color: '#E91E63' },
+    { id: 'rain', name: 'Pluie', icon: 'cloud-rain', color: '#2196F3' },
+    { id: 'nature', name: 'Forêt', icon: 'wind', color: '#4CAF50' },
+    { id: 'worship', name: 'Louange', icon: 'heart', color: '#FF9800' },
+];
+
+export default function MeditationDashboard() {
   const theme = useAppTheme();
   const router = useRouter();
-  const { dailyVerse, incrementMeditation } = useBible();
-
-  const [isActive, setIsActive] = useState(false);
-  const [seconds, setSeconds] = useState(0); // Temps écoulé en secondes
-  const [thoughts, setThoughts] = useState('');
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Gestion du minuteur
-  useEffect(() => {
-    if (isActive) {
-      intervalRef.current = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (!isActive && seconds !== 0 && intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isActive, seconds]);
-
-  const toggleTimer = () => setIsActive(!isActive);
+  const insets = useSafeAreaInsets();
+  const { dailyVerse, userProgress } = useBible(); // On utilisera dailyVerse comme suggestion par défaut
   
-  const resetTimer = () => {
-    setIsActive(false);
-    setSeconds(0);
+  // State
+  const [selectedAmbience, setSelectedAmbience] = useState('piano');
+  const [selectedPassage, setSelectedPassage] = useState<{book: string, chapter: number, verse: number} | null>(null);
+  
+  // Simulation de la "Dernière méditation" (à connecter au vrai service plus tard)
+  const lastMeditation = { book: 'Psaumes', chapter: 23, verse: 1 }; 
+
+  const handleStart = () => {
+      // Naviguer vers le Player avec les paramètres
+      router.push({
+          pathname: '/bible/meditation-player',
+          params: {
+              book: selectedPassage?.book || dailyVerse.reference.split(' ')[0], // Simplification, à améliorer
+              chapter: selectedPassage?.chapter || 1,
+              verse: selectedPassage?.verse || 1,
+              ambience: selectedAmbience
+          }
+      });
   };
 
-  const formatTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  const handleSave = () => {
-    if (thoughts.trim().length === 0 && seconds < 30) {
-      Alert.alert('Méditation courte', 'Prenez au moins quelques instants pour méditer ou écrire une pensée.');
-      return;
-    }
-    
-    // Ici on pourrait sauvegarder dans une base de données
-    incrementMeditation(); // Met à jour les stats
-    
-    Alert.alert(
-      'Méditation enregistrée', 
-      'Votre moment avec Dieu a été enregistré. Continuez ainsi !',
-      [{ text: 'Amen', onPress: () => router.back() }]
-    );
+  const handleSelectPassage = () => {
+      router.push('/bible/meditation-selection');
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1 }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
         
-        <ScrollView contentContainerStyle={styles.content}>
-          
-          {/* Carte Verset */}
-          <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-            <View style={styles.verseHeader}>
-              <MaterialCommunityIcons name="book-open-page-variant" size={20} color={theme.colors.primary} />
-              <Text style={[styles.cardTitle, { color: theme.colors.primary }]}>Verset de réflexion</Text>
-            </View>
-            <Text style={[styles.verseText, { color: theme.colors.text }]}>
-              "{dailyVerse?.verse || "L'Éternel est mon berger : je ne manquerai de rien."}"
-            </Text>
-            <Text style={[styles.verseRef, { color: theme.colors.placeholder }]}>
-              — {dailyVerse?.reference || "Psaumes 23:1"}
-            </Text>
-          </View>
-
-          {/* Minuteur */}
-          <View style={styles.timerContainer}>
-            <Text style={[styles.timerText, { color: theme.colors.text }]}>{formatTime(seconds)}</Text>
-            <View style={styles.timerControls}>
-              <TouchableOpacity 
-                style={[styles.controlButton, { backgroundColor: theme.colors.surface }]} 
-                onPress={resetTimer}
-              >
-                <Feather name="rotate-ccw" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.playButton, { backgroundColor: theme.colors.primary }]} 
-                onPress={toggleTimer}
-              >
-                <Feather name={isActive ? "pause" : "play"} size={32} color="white" />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.timerHint, { color: theme.colors.placeholder }]}>
-              {isActive ? "Prenez ce temps pour écouter Dieu..." : "Lancez le minuteur pour vous concentrer"}
-            </Text>
-          </View>
-
-          {/* Zone Journal */}
-          <View style={[styles.journalContainer, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.journalLabel, { color: theme.colors.text }]}>Mes pensées & prières</Text>
-            <TextInput
-              style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border }]}
-              multiline
-              placeholder="Qu'est-ce que ce verset vous inspire aujourd'hui ?"
-              placeholderTextColor={theme.colors.placeholder}
-              value={thoughts}
-              onChangeText={setThoughts}
-              textAlignVertical="top"
+        {/* BACKGROUND IMAGE (Abstraite) */}
+        <ImageBackground 
+            source={{ uri: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop' }} 
+            style={StyleSheet.absoluteFill}
+        >
+            <LinearGradient
+                colors={['rgba(0,0,0,0.3)', '#1a1a2e']}
+                style={StyleSheet.absoluteFill}
             />
-          </View>
+        </ImageBackground>
 
-          {/* Bouton Action */}
-          <TouchableOpacity 
-            style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
-            onPress={handleSave}
-          >
-            <Text style={styles.saveButtonText}>Terminer la méditation</Text>
-          </TouchableOpacity>
+        {/* HEADER */}
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                <Feather name="x" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Espace Méditation</Text>
+            <TouchableOpacity style={styles.iconBtn}>
+                <Feather name="clock" size={24} color="#FFF" />
+            </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            
+            {/* VUE DU JOUR (Suggestion) */}
+            <View style={styles.dailyCard}>
+                <BlurView intensity={30} style={StyleSheet.absoluteFill} />
+                <View style={styles.dailyContent}>
+                    <Text style={styles.dailyLabel}>SUGGESTION DU JOUR</Text>
+                    <Text style={styles.dailyVerseText}>"{dailyVerse.verse}"</Text>
+                    <Text style={styles.dailyRef}>{dailyVerse.reference}</Text>
+                    
+                    <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
+                        <Text style={styles.startBtnText}>Méditer maintenant</Text>
+                        <Feather name="play-circle" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* REPRENDRE */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>REPRENDRE</Text>
+                <TouchableOpacity style={styles.resumeCard} onPress={() => {
+                    // Logique pour reprendre la dernière
+                    setSelectedPassage(lastMeditation);
+                    handleStart();
+                }}>
+                    <View style={styles.resumeIcon}>
+                        <FontAwesome5 name="book-reader" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.resumeInfo}>
+                        <Text style={styles.resumeTitle}>{lastMeditation.book} {lastMeditation.chapter}</Text>
+                        <Text style={styles.resumeSub}>Verset {lastMeditation.verse} • Il y a 2 jours</Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+            </View>
+
+            {/* CHOISIR UN PASSAGE */}
+            <TouchableOpacity style={styles.pickerBtn} onPress={handleSelectPassage}>
+                <Feather name="search" size={20} color="#FFF" />
+                <Text style={styles.pickerText}>Choisir un autre passage biblique</Text>
+            </TouchableOpacity>
+
+            {/* AMBIANCE SONORE */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>AMBIANCE SONORE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.ambienceList}>
+                    {AMBIANCES.map((amb) => (
+                        <TouchableOpacity 
+                            key={amb.id} 
+                            style={[
+                                styles.ambienceItem, 
+                                selectedAmbience === amb.id && { borderColor: amb.color, backgroundColor: amb.color + '20' }
+                            ]}
+                            onPress={() => setSelectedAmbience(amb.id)}
+                        >
+                            <Feather name={amb.icon as any} size={24} color={selectedAmbience === amb.id ? amb.color : 'rgba(255,255,255,0.5)'} />
+                            <Text style={[styles.ambienceText, selectedAmbience === amb.id && { color: amb.color }]}>{amb.name}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
         </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+  container: { flex: 1, backgroundColor: '#1a1a2e' },
+  
+  header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingBottom: 20
   },
-  card: {
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  headerTitle: { color: '#FFF', fontSize: 18, fontFamily: 'Nunito_700Bold', letterSpacing: 1 },
+  iconBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12 },
+
+  content: { padding: 20, paddingBottom: 40 },
+
+  dailyCard: {
+      borderRadius: 24,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.2)',
+      marginBottom: 32
   },
-  verseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+  dailyContent: { padding: 24, alignItems: 'center' },
+  dailyLabel: { color: '#FFD700', fontSize: 12, fontFamily: 'Nunito_800ExtraBold', marginBottom: 12, letterSpacing: 1.5 },
+  dailyVerseText: { color: '#FFF', fontSize: 18, fontFamily: 'Nunito_600SemiBold', textAlign: 'center', fontStyle: 'italic', lineHeight: 28 },
+  dailyRef: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Nunito_700Bold', marginTop: 12, marginBottom: 24 },
+  
+  startBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FFD700', // Gold
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderRadius: 30,
+      gap: 10,
+      shadowColor: '#FFD700',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      elevation: 5
   },
-  cardTitle: {
-    fontSize: 14,
-    fontFamily: 'Nunito_700Bold',
-    textTransform: 'uppercase',
+  startBtnText: { color: '#1a1a2e', fontSize: 16, fontFamily: 'Nunito_800ExtraBold' },
+
+  section: { marginBottom: 32 },
+  sectionTitle: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Nunito_800ExtraBold', marginBottom: 16, letterSpacing: 1 },
+
+  resumeCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)'
   },
-  verseText: {
-    fontSize: 18,
-    fontFamily: 'Nunito_600SemiBold',
-    fontStyle: 'italic',
-    lineHeight: 28,
-    marginBottom: 12,
+  resumeIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  resumeInfo: { flex: 1 },
+  resumeTitle: { color: '#FFF', fontSize: 16, fontFamily: 'Nunito_700Bold' },
+  resumeSub: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Nunito_500Medium' },
+
+  pickerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+      marginBottom: 32,
+      gap: 10
   },
-  verseRef: {
-    fontSize: 14,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'right',
+  pickerText: { color: '#FFF', fontSize: 15, fontFamily: 'Nunito_600SemiBold' },
+
+  ambienceList: { gap: 12 },
+  ambienceItem: {
+      width: 100,
+      height: 100,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255,255,255,0.05)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: 'transparent'
   },
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  timerText: {
-    fontSize: 48,
-    fontFamily: 'Nunito_800ExtraBold',
-    fontVariant: ['tabular-nums'],
-    marginBottom: 20,
-  },
-  timerControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 24,
-    marginBottom: 12,
-  },
-  controlButton: {
-    padding: 12,
-    borderRadius: 50,
-    elevation: 1,
-  },
-  playButton: {
-    padding: 20,
-    borderRadius: 50,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  timerHint: {
-    fontSize: 14,
-    fontFamily: 'Nunito_400Regular',
-  },
-  journalContainer: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  journalLabel: {
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-    marginBottom: 12,
-  },
-  input: {
-    minHeight: 120,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    fontFamily: 'Nunito_400Regular',
-  },
-  saveButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontFamily: 'Nunito_700Bold',
-  },
+  ambienceText: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Nunito_700Bold', marginTop: 8 }
 });
