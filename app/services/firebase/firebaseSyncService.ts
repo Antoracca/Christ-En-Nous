@@ -288,6 +288,70 @@ class FirebaseSyncService {
   configure(config: Partial<SyncConfig>): void {
     this.config = { ...this.config, ...config };
   }
+
+  /**
+   * Vide le cache local pour un utilisateur spécifique
+   * Utile quand les données Firebase ont été supprimées
+   */
+  async clearUserCache(userId: string): Promise<void> {
+    try {
+      console.log(`[FirebaseSync] 🔍 Recherche du cache pour: ${userId}`);
+
+      // Récupérer toutes les clés AsyncStorage
+      const allKeys = await AsyncStorage.getAllKeys();
+      console.log(`[FirebaseSync] Total de clés dans AsyncStorage: ${allKeys.length}`);
+
+      // Filtrer les clés qui appartiennent à cet utilisateur
+      const userCacheKeys = allKeys.filter(key =>
+        key.startsWith(`@firebase_cache_${userId}_`)
+      );
+
+      console.log(`[FirebaseSync] Clés de cache trouvées pour ${userId}:`, userCacheKeys);
+
+      // Supprimer toutes les clés de cet utilisateur
+      if (userCacheKeys.length > 0) {
+        console.log(`[FirebaseSync] 🗑️ Suppression de ${userCacheKeys.length} entrées...`);
+        await AsyncStorage.multiRemove(userCacheKeys);
+        console.log(`[FirebaseSync] ✅ Cache vidé avec succès!`);
+
+        // Vérification: relire pour confirmer
+        const remainingKeys = await AsyncStorage.getAllKeys();
+        const remainingUserKeys = remainingKeys.filter(key =>
+          key.startsWith(`@firebase_cache_${userId}_`)
+        );
+
+        if (remainingUserKeys.length > 0) {
+          console.warn(`[FirebaseSync] ⚠️ Attention: ${remainingUserKeys.length} clés restantes après suppression!`, remainingUserKeys);
+        } else {
+          console.log(`[FirebaseSync] ✅ Vérification: Aucune clé restante pour ${userId}`);
+        }
+      } else {
+        console.log(`[FirebaseSync] ℹ️ Aucun cache trouvé pour l'utilisateur ${userId}`);
+      }
+    } catch (error) {
+      console.error('[FirebaseSync] ❌ Erreur lors du vidage du cache:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Vide TOUT le cache local (tous les utilisateurs)
+   * ⚠️ À utiliser avec précaution
+   */
+  async clearAllCache(): Promise<void> {
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const cacheKeys = allKeys.filter(key => key.startsWith('@firebase_cache_'));
+
+      if (cacheKeys.length > 0) {
+        await AsyncStorage.multiRemove(cacheKeys);
+        console.log(`🗑️ [FirebaseSync] Tout le cache vidé (${cacheKeys.length} entrées)`);
+      }
+    } catch (error) {
+      console.error('[FirebaseSync] Erreur lors du vidage total du cache:', error);
+      throw error;
+    }
+  }
 }
 
 // Instance singleton

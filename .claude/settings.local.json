@@ -47,7 +47,8 @@
       "Bash(timeout 20 cat:*)",
       "Bash(timeout 30 cat:*)",
       "Bash(timeout 40 cat:*)",
-      "Bash(timeout 60 cat:*)"
+      "Bash(timeout 60 cat:*)",
+      "WebFetch(domain:docs.expo.dev)"
     ],
     "deny": [],
     "ask": []

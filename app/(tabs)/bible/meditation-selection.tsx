@@ -27,14 +27,14 @@ export default function MeditationSelection() {
   };
 
   const handleChapterSelect = (chapter: number) => {
-      // On lance la méditation directement au verset 1 du chapitre choisi
-      router.replace({
-          pathname: '/bible/meditation-player',
+      // Naviguer vers la sélection de musique
+      router.push({
+          pathname: '/bible/meditation-music-selection',
           params: {
-              book: selectedBook.id, // ou name selon l'API
+              book: selectedBook.id.toUpperCase(), // Convertir en OSIS code (GEN, MAT, etc.)
+              bookName: selectedBook.name, // Nom français du livre
               chapter: chapter,
-              verse: 1,
-              ambience: 'piano' // défaut
+              verse: 1
           }
       });
   };

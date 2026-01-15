@@ -65,10 +65,41 @@ export default function BibleLayout() {
       />
       <Stack.Screen
         name="meditation"
-        options={{ 
+        options={{
           title: 'Méditation',
           presentation: 'fullScreenModal', // ✅ Immersion totale
           headerShown: false // ✅ On gère notre propre header zen
+        }}
+      />
+      <Stack.Screen
+        name="meditation-history"
+        options={{
+          headerShown: false // ✅ On gère notre propre header
+        }}
+      />
+      <Stack.Screen
+        name="meditation-selection"
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="meditation-music-selection"
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="meditation-duration-selection"
+        options={{
+          headerShown: false
+        }}
+      />
+      <Stack.Screen
+        name="meditation-player"
+        options={{
+          headerShown: false,
+          presentation: 'fullScreenModal'
         }}
       />
       <Stack.Screen

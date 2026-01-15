@@ -12,6 +12,7 @@ export interface BibleVerse {
 }
 
 export interface BibleChapter {
+  version(uid: string, bookId: string, chapterNum: number, startVerse: number, length: number, version: any, musicId: string): unknown;
   book: string;
   chapter: number;
   verses: BibleVerse[];
@@ -57,11 +58,11 @@ export interface BibleVersion {
 }
 
 export interface BibleReference {
-  end: any;
   book: string;        // Code OSIS
   chapter: number;
   verse?: number;
   endVerse?: number;
+  end?: any;           // Optionnel - pour compatibilité
   version?: string;    // Version spécifique
 }
 
